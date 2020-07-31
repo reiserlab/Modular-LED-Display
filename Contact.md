@@ -8,7 +8,7 @@ nav_order: 99
 
 Please contact [Michael Reiser](https://www.janelia.org/people/michael-reiser) about anything related to the panel.
 
-If you spot mistakes in this data collection feel free to blame it on [Frank Loesche](https://www.janelia.org/people/frank-loesche) and preferably let him know about it.
+If you spot mistakes in this data collection, feel free to blame it on [Frank Loesche](https://www.janelia.org/people/frank-loesche) and preferably let him know about it.
 
 ## Mailing list
 
