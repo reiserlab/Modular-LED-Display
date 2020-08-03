@@ -1,0 +1,8 @@
+title: [Panels]
+description: [Some information about panels]
+
+theme: just-the-docs
+search_enabled: true
+
+
+exclude: ["Generation 3/Hardware/arena"]
