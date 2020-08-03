@@ -1,7 +1,7 @@
 title: [Panels]
 description: [Some information about panels]
 
-theme: just-the-docs
+remote_theme: pmarsceill/just-the-docs
 search_enabled: true
 
 
