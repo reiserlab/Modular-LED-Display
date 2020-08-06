@@ -1,0 +1,45 @@
+- path: Generation 3/Hardware
+  url: https://github.com/floesche/Panel-G3-Hardware
+  upstream: https://github.com/reiserlab/Panel-G3-Hardware
+- path: Generation 4/Display_Tools
+  url: https://github.com/floesche/G4_Display_Tools
+  upstream: https://github.com/JaneliaSciComp/G4_Display_Tools
+- path: Generation 3/Software
+  url: https://github.com/floesche/Panel-G3-Software
+  upstream: https://github.com/reiserlab/Panel-G3-Software
+- path: Generation 3/Firmware
+  url: https://github.com/floesche/panels_g3_firmware
+  upstream: https://github.com/iorodeo/panels_g3_firmware
+- path: Generation 3/AVRDude
+  url: https://github.com/floesche/panels_prog_avrdude
+  upstream: https://github.com/iorodeo/panels_prog_avrdude
+- path: Generation 4/Documentation
+  url: https://github.com/floesche/panels_g4_docs
+  upstream: https://github.com/iorodeo/panels_g4_docs
+- path: Generation 4/Firmware
+  url: https://github.com/floesche/panels_g4_firmware
+  upstream: https://github.com/iorodeo/panels_g4_firmware
+- path: Generation 4/Hardware
+  url: https://github.com/floesche/panels_g4_hardware
+  upstream: https://github.com/iorodeo/panels_g4_hardware
+- path: Generation 2/Hardware
+  url: https://github.com/floesche/panels_g3_hardware
+  upstream: https://github.com/iorodeo/panels_g3_hardware
+- path: Generation 2/Arenas
+  url: https://github.com/floesche/panels_arenas
+  upstream: https://github.com/iorodeo/panels_arenas
+- path: Generation 2/LED-Arrays
+  url: https://github.com/floesche/panels_led_arrays
+  upstream: https://github.com/iorodeo/panels_led_arrays
+- path: Generation 3/Panelcom
+  url: https://github.com/floesche/panel_comm
+  upstream: https://github.com/iorodeo/panel_comm
+- path: Generation 3/Controller
+  url: https://github.com/floesche/panels_controller
+  upstream: https://github.com/willdickson/panels_controller
+- path: Generation 3/Breakout-BNC
+  url: https://github.com/floesche/panels_bnc_breakout
+  upstream: https://github.com/iorodeo/panels_bnc_breakout
+- path: Generation 3/Breakout-ISP
+  url: https://github.com/floesche/panels_isp_breakout
+  upstream: https://github.com/iorodeo/panels_isp_breakout

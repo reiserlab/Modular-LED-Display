@@ -43,3 +43,9 @@
 [submodule "Generation 3/Breakout-ISP"]
 	path = Generation 3/Breakout-ISP
 	url = https://github.com/floesche/panels_isp_breakout
+[submodule "Generation 4/Arena"]
+	path = Generation 4/Arena
+	url = https://github.com/floesche/Arena-G4-Hardware
+[submodule "Generation 4/Panel"]
+	path = Generation 4/Panel
+	url = https://github.com/floesche/Panel-G4-Hardware

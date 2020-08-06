@@ -1,8 +1,21 @@
 title: [Panels]
 description: [Some information about panels]
 
+
 remote_theme: pmarsceill/just-the-docs
 search_enabled: true
+color_scheme: "panel"
 
 
+
+kramdown:
+  toc_levels: "1"
+
+
+
+## Generation 3
 exclude: ["Generation 3/Hardware/arena"]
+
+## Generation 4
+exclude: ["Generation 4/Display_Tools/G4_Data_Analysis/support/", "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5"]
+
