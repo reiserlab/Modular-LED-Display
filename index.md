@@ -3,11 +3,20 @@ title: Home
 nav_order: 1
 ---
 
+# LED Arenas
+
+![A modular display system for insect behavioral neuroscience](/assets/Reiser2008.png){: width="40%" .float-right}
+
 LED based systems offer a high level of control over the presentation of stimuli to model organisms. On this page we document the ["modular display system for insect behavioral neuroscience"](https://doi.org/10.1016/j.jneumeth.2007.07.019) and its derivatives. Major revisions to the systems are known as "Generations". Here we focus on [Generation 3](Generation 3) and [Generation 4](Generation 4), with a brief outlook to [Generation 5](Generation 5).
 
-The progress made during the more than 15 years since its publication has been shared in a number of different locations. In a first step, we attempt to collect these technical details and user guides in this single location. While this has currently the form of a data dump, we provide guidance on the most recent and up-to-date knowledge wherever possible.
+In the past 15 years of development, progress has been documented in a number of publications and different locations. This page has two main goals: First, it is an attempt to collect these technical details and user guides in a single location. This part of the documentation takes the form of a data dump at times, but please feel encouraged to get in touch if you have questions, ideas for improvement, or your experience differs from the description. Secondly, this page is the attempt to provide an infrastructure for active developers and users to document the arenas and their use with the least possible effort. This page is currently generated from a hand full of code repositories. If you have documentation about the LED systems, related tools, or their applications, please [reach out](Contact).
 
+Currently, [Generation 3](Generation 3) is being used in many installation around the world. [Generation 4](Generation 4) arenas are being used at Janelia and methods papers are currently in preparation. [Generation 5](Generation 5) is currently being developed.
 
-Currently, [Generation 3](Generation 3) has been used in many installation around the world. [Generation 4](Generation 4) arenas are being used at Janelia and methods papers are currently in preparation. [Generation 5](Generation 5) is currently being developed.
+# Repositories
 
-![A modular display system for insect behavioral neuroscience](/assets/Reiser2008.png)
+This page includes documentation from the following repositories:
+
+{% for repo in site.data.repos %}
+- [{{repo.path}}]({{repo.url}}){% if repo.upstream %} (a [fork]({{repo.upstream}}) with additional documentation) {% endif %}
+{% endfor %}

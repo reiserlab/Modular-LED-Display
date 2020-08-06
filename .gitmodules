@@ -1,3 +1,45 @@
 [submodule "Generation 3/Hardware"]
 	path = Generation 3/Hardware
 	url = https://github.com/floesche/Panel-G3-Hardware
+[submodule "Generation 4/Display_Tools"]
+	path = Generation 4/Display_Tools
+	url = https://github.com/floesche/G4_Display_Tools
+[submodule "Generation 3/Software"]
+	path = Generation 3/Software
+	url = https://github.com/floesche/Panel-G3-Software
+[submodule "Generation 3/Firmware"]
+	path = Generation 3/Firmware
+	url = https://github.com/floesche/panels_g3_firmware
+[submodule "Generation 3/AVRDude"]
+	path = Generation 3/AVRDude
+	url = https://github.com/floesche/panels_prog_avrdude
+[submodule "Generation 4/Documentation"]
+	path = Generation 4/Documentation
+	url = https://github.com/floesche/panels_g4_docs
+[submodule "Generation 4/Firmware"]
+	path = Generation 4/Firmware
+	url = https://github.com/floesche/panels_g4_firmware
+[submodule "Generation 4/Hardware"]
+	path = Generation 4/Hardware
+	url = https://github.com/floesche/panels_g4_hardware
+[submodule "Generation 2/Hardware"]
+	path = Generation 2/Hardware
+	url = https://github.com/floesche/panels_g3_hardware
+[submodule "Generation 2/Arenas"]
+	path = Generation 2/Arenas
+	url = https://github.com/floesche/panels_arenas
+[submodule "Generation 2/LED-Arrays"]
+	path = Generation 2/LED-Arrays
+	url = https://github.com/floesche/panels_led_arrays
+[submodule "Generation 3/Panelcom"]
+	path = Generation 3/Panelcom
+	url = https://github.com/floesche/panel_comm
+[submodule "Generation 3/Controller"]
+	path = Generation 3/Controller
+	url = https://github.com/floesche/panels_controller
+[submodule "Generation 3/Breakout-BNC"]
+	path = Generation 3/Breakout-BNC
+	url = https://github.com/floesche/panels_bnc_breakout
+[submodule "Generation 3/Breakout-ISP"]
+	path = Generation 3/Breakout-ISP
+	url = https://github.com/floesche/panels_isp_breakout
