@@ -13,9 +13,32 @@ kramdown:
 
 
 
-## Generation 3
-exclude: ["Generation 3/Hardware/arena"]
-
-## Generation 4
-exclude: ["Generation 4/Display_Tools/G4_Data_Analysis/support/", "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5"]
+exclude: [
+  # Generation 2
+  ## Arena
+  "Generation 2/Arenas/arena_12_20", "Generation 2/Arenas/arena_12_20_top", "Generation 2/Arenas/arena_mini", 
+  "Generation 2/Arenas/full", "Generation 2/Arenas/mod", "Generation 2/Arenas/pdfs", 
+  "Generation 2/Arenas/planar_arena_8x", "Generation 2/Arenas/planar_arena_8x_base",
+  ## Hardware
+  "Generation 2/Hardware/fab_v1p3", Generation 2/Hardware/pcb",
+  ## LED-Arrays
+  "Generation 2/LED-Arrays/led_array_3mm", "Generation 2/LED-Arrays/led_array_3mm_spacer", "Generation 2/LED-Arrays/led_array_5mm", "Generation 2/LED-Arrays/led_array_5mm_adaptor", "Generation 2/LED-Arrays/led_array_5mm_mask", "Generation 2/LED-Arrays/led_array_8x8_template", "Generation 2/LED-Arrays/led_array_mixed", "Generation 2/LED-Arrays/led_array_sm0805", "Generation 2/LED-Arrays/led_array_panel",
+  # Generation 3
+  "Generation 3/Hardware/arena",
+  ## Software
+  "Generation 3/Software/C code for Controller", "Generation 3/Software/C code for Panel", "Generation 3/Software/MATLAB Code",
+  # Generation 4
+  ## Arena
+  "Generation 4/Arena/Production", "Generation 4/Arena/Schematic",
+  ## Display Tools
+  "Generation 4/Display_Tools/Function_Maker_G4/support", 
+  "Generation 4/Display_Tools/G4 Panel Programming/panels_g4_firmware", 
+  "Generation 4/Display_Tools/G4_Data_Analysis/data plotting", "Generation 4/Display_Tools/G4_Data_Analysis/data processing",  
+  "Generation 4/Display_Tools/G4_Data_Analysis/new_data_processing", "Generation 4/Display_Tools/Motion_Maker_G4/support", 
+  "Generation 4/Display_Tools/PControl_Matlab/ao_functions", "Generation 4/Display_Tools/PControl_Matlab/controller", "Generation 4/Display_Tools/PControl_Matlab/Experiment", "Generation 4/Display_Tools/PControl_Matlab/IO_tools", "Generation 4/Display_Tools/PControl_Matlab/Mex_functions", "Generation 4/Display_Tools/PControl_Matlab/Pattern_tools", "Generation 4/Display_Tools/PControl_Matlab/Patterns", "Generation 4/Display_Tools/PControl_Matlab/tcp_udp_ip", "Generation 4/Display_Tools/PControl_Matlab/test_scripts",
+  "Generation 4/Display_Tools/G4_Data_Analysis/support/", 
+  ## Hardware
+  "Generation 4/Hardware/atmega328", "Generation 4/Hardware/max6960",  "Generation 4/Hardware/stm32", 
+  ## Panel Programming
+  "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5"]
 
