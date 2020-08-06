@@ -16,7 +16,7 @@ exclude: [
   "Generation 2/Arenas/full", "Generation 2/Arenas/mod", "Generation 2/Arenas/pdfs", 
   "Generation 2/Arenas/planar_arena_8x", "Generation 2/Arenas/planar_arena_8x_base",
   ## Hardware
-  "Generation 2/Hardware/fab_v1p3", Generation 2/Hardware/pcb",
+  "Generation 2/Hardware/fab_v1p3", "Generation 2/Hardware/pcb",
   ## LED-Arrays
   "Generation 2/LED-Arrays/led_array_3mm", "Generation 2/LED-Arrays/led_array_3mm_spacer", "Generation 2/LED-Arrays/led_array_5mm", "Generation 2/LED-Arrays/led_array_5mm_adaptor", "Generation 2/LED-Arrays/led_array_5mm_mask", "Generation 2/LED-Arrays/led_array_8x8_template", "Generation 2/LED-Arrays/led_array_mixed", "Generation 2/LED-Arrays/led_array_sm0805", "Generation 2/LED-Arrays/led_array_panel",
   # Generation 3
@@ -37,4 +37,4 @@ exclude: [
   "Generation 4/Hardware/atmega328", "Generation 4/Hardware/max6960",  "Generation 4/Hardware/stm32", 
   ## Panel Programming
   "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5"
-  ]
+]
