@@ -6,12 +6,8 @@ remote_theme: pmarsceill/just-the-docs
 search_enabled: true
 color_scheme: "panel"
 
-
-
 kramdown:
   toc_levels: "1"
-
-
 
 exclude: [
   # Generation 2
@@ -40,9 +36,5 @@ exclude: [
   ## Hardware
   "Generation 4/Hardware/atmega328", "Generation 4/Hardware/max6960",  "Generation 4/Hardware/stm32", 
   ## Panel Programming
-<<<<<<< HEAD
   "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5"]
-
-=======
   ]
->>>>>>> 1178c1f... add G3 Software
