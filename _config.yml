@@ -21,6 +21,9 @@ exclude: [
   "Generation 2/LED-Arrays/led_array_3mm", "Generation 2/LED-Arrays/led_array_3mm_spacer", "Generation 2/LED-Arrays/led_array_5mm", "Generation 2/LED-Arrays/led_array_5mm_adaptor", "Generation 2/LED-Arrays/led_array_5mm_mask", "Generation 2/LED-Arrays/led_array_8x8_template", "Generation 2/LED-Arrays/led_array_mixed", "Generation 2/LED-Arrays/led_array_sm0805", "Generation 2/LED-Arrays/led_array_panel", "Generation 2/LED-Arrays/pass_thru_panel",
   # Generation 3
   "Generation 3/AVRDude/controller", "Generation 3/AVRDude/panels", "Generation 3/AVRDude/udev", 
+  "Generation 3/Breakout-BNC/gerber_v1.0", "Generation 3/Breakout-BNC/gerber_v1.1", "Generation 3/Breakout-BNC/lib", "Generation 3/Breakout-BNC/mod", 
+  "Generation 3/Breakout-ISP/gerber_v1.0", "Generation 3/Breakout-ISP/gerber_v1.1", "Generation 3/Breakout-ISP/mod", 
+  "Generation 3/Controller/eagle", "Generation 3/Controller/gerber",
   "Generation 3/Hardware/arena",
   ## Software
   "Generation 3/Software/C code for Controller", "Generation 3/Software/C code for Panel", "Generation 3/Software/MATLAB Code",
