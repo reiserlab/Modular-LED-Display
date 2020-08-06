@@ -18,5 +18,5 @@ Currently, [Generation 3](Generation 3) is being used in many installation aroun
 This page includes documentation from the following repositories:
 
 {% for repo in site.data.repos %}
-- [{{repo.path}}]({{repo.url}}){% if repo.upstream %} (a [fork]({{repo.upstream}}) with additional documentation) {% endif %}
+- [{{repo.path}}]({{repo.url}}){% if repo.upstream %} (forked from [this upstream]({{repo.upstream}})) {% endif %}
 {% endfor %}
