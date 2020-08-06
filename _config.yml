@@ -36,5 +36,5 @@ exclude: [
   ## Hardware
   "Generation 4/Hardware/atmega328", "Generation 4/Hardware/max6960",  "Generation 4/Hardware/stm32", 
   ## Panel Programming
-  "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5"]
+  "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5"
   ]
