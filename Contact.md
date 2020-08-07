@@ -21,3 +21,7 @@ Please sign up for the mailing list by sending email to <panels-request@freelist
 Users can unsubscribe from the list by sending email to <panels-request@freelists.org> with 'unsubscribe' in the Subject field OR by logging into the [web interface](https://www.freelists.org/list/panels).
 
 To post to the list, simply send email to <panels@freelists.org>.
+
+# This page
+
+This page is hosted as a [github page](https://pages.github.com/). The layout uses <a href="https://github.com/pmarsceill/just-the-docs">Just the Docs</a>, a documentation theme for Jekyll.
