@@ -18,6 +18,6 @@ The main page for the mailing list is: <https://www.freelists.org/list/panels>. 
 
 Please sign up for the mailing list by sending email to <panels-request@freelists.org> with 'subscribe' in the Subject field OR by using the [web interface](https://www.freelists.org/list/panels).
 
-Users can unsubscribe from the list by sending email to <panels-request@freelists.org> with 'unsubscribe' in the Subject field OR by logging into the [web interface]((https://www.freelists.org/list/panels)).
+Users can unsubscribe from the list by sending email to <panels-request@freelists.org> with 'unsubscribe' in the Subject field OR by logging into the [web interface](https://www.freelists.org/list/panels).
 
 To post to the list, simply send email to <panels@freelists.org>.
