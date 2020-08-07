@@ -2,8 +2,7 @@
   url: https://github.com/floesche/Panel-G3-Hardware
   upstream: https://github.com/reiserlab/Panel-G3-Hardware
 - path: Generation 4/Display_Tools
-  url: https://github.com/floesche/G4_Display_Tools
-  upstream: https://github.com/JaneliaSciComp/G4_Display_Tools
+  url: https://github.com/JaneliaSciComp/G4_Display_Tools
 - path: Generation 3/Software
   url: https://github.com/floesche/Panel-G3-Software
   upstream: https://github.com/reiserlab/Panel-G3-Software

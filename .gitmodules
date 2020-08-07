@@ -16,9 +16,6 @@
 [submodule "Generation 4/Firmware"]
 	path = Generation 4/Firmware
 	url = https://github.com/floesche/panels_g4_firmware
-[submodule "Generation 4/Display_Tools"]
-	path = Generation 4/Display_Tools
-	url = https://github.com/floesche/G4_Display_Tools
 [submodule "Generation 4/Hardware"]
 	path = Generation 4/Hardware
 	url = https://github.com/floesche/panels_g4_hardware
@@ -49,3 +46,6 @@
 [submodule "Generation 4/Panel"]
 	path = Generation 4/Panel
 	url = https://github.com/floesche/Panel-G4-Hardware
+[submodule "Generation 4/Display_Tools"]
+	path = Generation 4/Display_Tools
+	url = https://github.com/JaneliaSciComp/G4_Display_Tools.git
