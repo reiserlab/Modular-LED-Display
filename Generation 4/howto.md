@@ -1,6 +1,6 @@
 ---
-title: Example How-to
-nav_order: 30
+title: "Getting started: Arena"
+nav_order: 5
 ---
 
 # Example how-to guide

@@ -5,7 +5,7 @@ nav_order: 1
 
 # LED Arenas
 
-[![A modular display system for insect behavioral neuroscience](/assets/Reiser2008.png){: width="40%" .float-right}](https://doi.org/10.1016/j.jneumeth.2007.07.019)
+[![A modular display system for insect behavioral neuroscience](assets/Reiser2008.png){: width="40%" .float-right}](https://doi.org/10.1016/j.jneumeth.2007.07.019)
 
 LED based systems offer a high level of control over the presentation of stimuli to model organisms. On this page we document the ["modular display system for insect behavioral neuroscience"](https://doi.org/10.1016/j.jneumeth.2007.07.019) and its derivatives. Major revisions to the systems are known as "Generations". Here we focus on [Generation 3](Generation 3) and [Generation 4](Generation 4), with a brief outlook to [Generation 5](Generation 5).
 

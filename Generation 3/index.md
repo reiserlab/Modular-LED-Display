@@ -1,7 +1,7 @@
 ---
 title: Generation 3
 has_children: true
-nav_order: 10
+nav_order: 21
 ---
 
 # Generation 3
