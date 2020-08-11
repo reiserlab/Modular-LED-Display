@@ -1,6 +1,6 @@
 [submodule "Generation 3/Hardware"]
 	path = Generation 3/Hardware
-	url = https://github.com/floesche/Panel-G3-Hardware
+	url = https://github.com/reiserlab/Panel-G3-Hardware
 [submodule "Generation 3/Software"]
 	path = Generation 3/Software
 	url = https://github.com/floesche/Panel-G3-Software
