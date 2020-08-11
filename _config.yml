@@ -49,3 +49,6 @@ exclude: [
   "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
   "Generation 4/Panel/Production", "Generation 4/Panel/Schematic",
 ]
+
+relative_links:
+  enabled:     true
