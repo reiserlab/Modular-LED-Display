@@ -3,7 +3,7 @@
 	url = https://github.com/reiserlab/Panel-G3-Hardware
 [submodule "Generation 3/Software"]
 	path = Generation 3/Software
-	url = https://github.com/floesche/Panel-G3-Software
+	url = https://github.com/reiserlab/Panel-G3-Software
 [submodule "Generation 3/Firmware"]
 	path = Generation 3/Firmware
 	url = https://github.com/floesche/panels_g3_firmware
