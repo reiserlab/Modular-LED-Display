@@ -32,7 +32,7 @@ exclude: [
 
   # Generation 4
   ## Arena
-  "Generation 4/Arena/Production", "Generation 4/Arena/Schematic",
+  "Generation 4/Arena/Schematic",
   ## Display Tools
   "Generation 4/Display_Tools/Function_Maker_G4/support", 
   "Generation 4/Display_Tools/G4 Panel Programming/panels_g4_firmware", "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
@@ -47,7 +47,7 @@ exclude: [
   "Generation 4/Hardware/atmega328", "Generation 4/Hardware/max6960",  "Generation 4/Hardware/stm32", 
   ## Panel Programming
   "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
-  "Generation 4/Panel/Production", "Generation 4/Panel/Schematic",
+  "Generation 4/Panel/Schematic",
 ]
 
 relative_links:
