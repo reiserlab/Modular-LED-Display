@@ -10,8 +10,6 @@ This guide describes the parts that are needed for a modular LED display of Gene
 
 An assembled arena consists of the following larger building blocks: There are up to 48 LED panels placed between two arena boards. The whole setup is controlled from a dedicated computer and signals can be recorded via an additional breakout board. Most of these building blocks consist of several smaller parts. The following sections describe how these can be bought or manufactured.
 
-
-
 # LED Panels
 
 In Generation 4, the panels are 4×4cm² and consist of two PCBs: The one with the LEDs is sometimes called driver, the PCB behind it is the communication board or comm. The two PCB use board-to-board connectors, and the comm boards have two additional board-to-board connector to connect to the neighboring comm board or arena PCB. Both boards, driver and comm, have microcontroller units (MCU) that need to be programmed. Therefore an arduino based programmer is needed.
@@ -22,9 +20,8 @@ The programmer is built from 3 PCB: An Arduino shield, the comm programmer, and 
 
 The use of the programmer will be explained in more detail in another section, but general principle is as follows: The Arduino shield needs to be mounted on an Arduino. The same shield can be used for programming the communication boards and the driver boards. Connect the corresponding programmer board via a ribbon cable to the Arduino shield, and the board you want to program to the programmer board.
 
-{::comment}TODO: Add link to firmware flashg section{:/comment}
+{::comment}TODO: Add link to firmware flashing section{:/comment}
 {::comment}TODO: Add images with of what programming looks like{:/comment}
-
 
 ---
 {:.clear}
@@ -46,7 +43,6 @@ Production files for the communication board programmer are available in [versio
 
 *Function:* adapt the signal from the Arduino (P2) to the communication board connector (P3), while also powering the communication board during programming (P1).
 
-
 ---
 {:.clear}
 
@@ -57,9 +53,6 @@ The driver programmer has double the size of a panel board, it is 40×80mm².
 The most recent version of the production files is [version v0.3](https://github.com/floesche/panels_g4_hardware/tree/master/atmega328/four_panel/20mm_matrix/ver3/programmer/driver_programmer/gerber_v0p3). Once again this directory contains a zip file ready to be used with a manufacturer. The production files contain gerber files, a drill file, and a BOM.
 
 *Function:* adapt the signal from the ribbon connector (P4) to the four driver board connectors (P0…P3), while also powering the driver board during programming (P5). The switch (S1) allows to select which driver MCU will be programmed (usually all 4 are on).
-
-
-
 
 ## Communication Board 
 {:.clear}
@@ -99,13 +92,13 @@ Once the hardware is put together, the arena is going to be controlled from a de
 
 To set up an arena, you will need the following items – all of which are described above.
 
-- [ ] 1 Arduino Uno (buy one, e.g. at [1](https://store.arduino.cc/usa/arduino-uno-rev3), [2](https://www.digikey.com/short/zr4nd5))
-- [ ] 1 Arduino Shield (build yourself)
-- [ ] 1 Communication Board Programmer (build yourself, components according to BOM)
-- [ ] 1 Driver Board Programmer (build yourself, components according to BOM)
-- [ ] N Communication Boards (build yourself; N= number of panels; components according to BOM)
-- [ ] N Driver Boards (build yourself; N= number of panels; components according to BOM)
-- [ ] 2 Arena Boards (build yourself; one with components according to `BOM_Top.xlsx`, one with `BOM_Bottom.xlsx`)
-- [ ] 1 Arena Interconnect Board (build yourself)
-- [ ] Computer with PCIe slot
-- [ ] National Instruments NI PCIe-7842R Card
+- 1 Arduino Uno (buy one, e.g. at [1](https://store.arduino.cc/usa/arduino-uno-rev3), [2](https://www.digikey.com/short/zr4nd5))
+- 1 Arduino Shield (build yourself)
+- 1 Communication Board Programmer (build yourself, components according to BOM)
+- 1 Driver Board Programmer (build yourself, components according to BOM)
+- N Communication Boards (build yourself; N= number of panels; components according to BOM)
+- N Driver Boards (build yourself; N= number of panels; components according to BOM)
+- 2 Arena Boards (build yourself; one with components according to `BOM_Top.xlsx`, one with `BOM_Bottom.xlsx`)
+- 1 Arena Interconnect Board (build yourself)
+- Computer with PCIe slot
+- National Instruments NI PCIe-7842R Card
