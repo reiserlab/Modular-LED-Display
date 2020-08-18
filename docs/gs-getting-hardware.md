@@ -91,6 +91,9 @@ Here we share a 12-18 arena where the board occupies 299×206mm², designed as a
 
 The 12-18 arena v1.1 has a ribbon cable input. An additional Arena Interconnect Board adapts the VHDI cable to the required ribbon cable format. This board is a simple 2 layer PCB within the dimensions of 4.9×8.4mm². The production files are available in [version v1.0](https://github.com/floesche/Arena-G4-Hardware/tree/master/interconnect/production_v1p0). The design was done in-house at Janelia. Recent tests suggest, that the ribbon cable introduces noise in the communication. The ribbon cable should be as short as possible to reduce the noise.
 
+# Computer and National Instruments card
+
+Once the hardware is put together, the arena is going to be controlled from a dedicated computer. Two applications, namely MATLAB and a Simulink based custom application, need to run in parallel on this machine. The faster this machine the better, but we cannot give a recommendation on what the lower limit is. Most recently we used Dell Precision 5820 Workstations, but other recent PC with a PCIe slot will most likely work, too. This machine will need to have a National Instruments Multifunction Reconfigurable I/O device, specifically the PCIe-7842, installed. Note that the card does not always work in all PCIe slots. In our test systems, the card worked in 2 out of 5 slots.
 
 # Checklist
 
@@ -104,3 +107,5 @@ To set up an arena, you will need the following items – all of which are descr
 - [ ] N Driver Boards (build yourself; N= number of panels; components according to BOM)
 - [ ] 2 Arena Boards (build yourself; one with components according to `BOM_Top.xlsx`, one with `BOM_Bottom.xlsx`)
 - [ ] 1 Arena Interconnect Board (build yourself)
+- [ ] Computer with PCIe slot
+- [ ] National Instruments NI PCIe-7842R Card
