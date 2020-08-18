@@ -73,7 +73,7 @@ The communicaiton board is a 40×40mm² PCB with two layers, most recently avail
 ---
 {:.clear}
 
-The texts above include links directly to the directory containing production files. From there you can navigate one directory up to see the [KiCAD](https://https://kicad-pcb.org/) EDA source files, in case you want to modify them. These boards were developed by [IORodeo](https://iorodeo.com) and shared under a creative commons license. The schematics might require remapping of symbols when you first open the files.
+The texts above include links directly to the directory containing production files. From there you can navigate one directory up to see the [KiCAD](https://kicad-pcb.org/) EDA source files, in case you want to modify them. These boards were developed by [IORodeo](https://iorodeo.com) and shared under a creative commons license. The schematics might require remapping of symbols when you first open the files.
 
 ## Driver Board
 

@@ -40,7 +40,7 @@ This page uses [kramdown](https://kramdown.gettalong.org/) to generate HTML from
 
 # You repo on this page.
 
-If you want your git repository included in the page, then please [get in contact](Contact). We could then discuss which menu item would be best fitting your code, hardware, or documentation. Here are some hints on how to prepare your documentation for this page. In this documentation, we use the following terms:
+If you want your git repository included in the page, then please [get in contact](../Contact). We could then discuss which menu item would be best fitting your code, hardware, or documentation. Here are some hints on how to prepare your documentation for this page. In this documentation, we use the following terms:
 
 - **Repository**: This is where your code and documentation lives. The repository can be owned by anyone; we don't need special access to a repository to integrated the documentation into the *Display Site*.
 - **Display Site** or **this site** or **display website**: The website that lives at <https://reiserlab.github.io/Modular-LED-Display>. This is the generated output of the *Display Repository*.
