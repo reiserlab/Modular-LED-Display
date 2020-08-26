@@ -82,7 +82,7 @@ Here we share a 12-18 arena where the board occupies 299×206mm², designed as a
 
 ## Arena Interconnect Board
 
-The 12-18 arena v1.1 has a ribbon cable input. An additional Arena Interconnect Board adapts the VHDI cable to the required ribbon cable format. This board is a simple 2 layer PCB within the dimensions of 4.9×8.4mm². The production files are available in [version v1.0](https://github.com/floesche/Arena-G4-Hardware/tree/master/interconnect/production_v1p0). The design was done in-house at Janelia. Recent tests suggest, that the ribbon cable introduces noise in the communication. The ribbon cable should be as short as possible to reduce the noise.
+The 12-18 arena v1.1 has a ribbon cable input. An additional Arena Interconnect Board adapts the VHDI cable to the required ribbon cable format. This board is a simple 2 layer PCB within the dimensions of 4.9×8.4mm². The production files are available in [version v1.1](https://github.com/floesche/Arena-G4-Hardware/tree/master/interconnect/production_v1). The design was done in-house at Janelia. Recent tests suggest, that the ribbon cable introduces noise in the communication. The ribbon cable should be as short as possible to reduce the noise.
 
 # Computer and National Instruments card
 
