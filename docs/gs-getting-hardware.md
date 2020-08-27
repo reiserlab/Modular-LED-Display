@@ -14,7 +14,32 @@ An assembled arena consists of the following larger building blocks: There are u
 
 In Generation 4, the panels are 4×4cm² and consist of two PCBs: The one with the LEDs is sometimes called driver, the PCB behind it is the communication board or comm. The two PCB use board-to-board connectors, and the comm boards have two additional board-to-board connector to connect to the neighboring comm board or arena PCB. Both boards, driver and comm, have microcontroller units (MCU) that need to be programmed. Therefore an arduino based programmer is needed.
 
+
+
+## Driver Board
+
+The driver board is a 40×40mm² PCB with 6 layers, most recent production files are available as [version v1.3](https://github.com/floesche/Panel-G4-Hardware/tree/master/production-v1/). Most components on the driver board are SMD, factory assembly is recommended for these boards.
+
+*Function:* receive signals on the four connectors (J1…J4), one for each quadrant. Each quadrant uses an ATMEGA328P-MU (U1…U4) to turn the LEDs (D1…256) on and off. The LEDs in each quadrant are organized in 8 columns × 8 rows. The ATMEGAs use a row-scan algorithm, where at each point in time a single row is active from which any number of the up to 8 columns are active. Each column uses its own resistor, therefore LEDs of different colors can be used for each column.
+
+---
+
+>  The driver board was designed in-house at Janelia's [jET](https://www.janelia.org/support-team/janelia-experimental-technology) group. The [OrCAD](https://www.orcad.com/) EDA source file is provided for reference, although the production files might have been generated from a different version.
+
+
+## Communication Board 
+{:.clear}
+
+![A rendering of the communication board](../assets/getting-started/pcb_comm-board.jpg){:.ifr}
+
+The communicaiton board is a 40×40mm² PCB with two layers, most recently available as [version v0.3](https://github.com/floesche/panels_g4_hardware/tree/master/atmega328/four_panel/20mm_matrix/ver3/comm/gerber_v0p3). The connectors are designed as through-hole, other components are SMD.
+
+*Function:* receive signals (P1), send them on (P2), and find the signals relevant for the current panel. This processing is done with the help of a 20MHz ATMEGA328P-AUR (IC5). The relevant signals are passet to one of the four driver board quadrants (P4…P7).
+
+
+
 ## The Programmer
+{:.clear}
 
 The programmer is built from 3 PCB: An Arduino shield, the comm programmer, and the driver programmer. The three boards are designed to be assembled by hand: These simple 2-layer boards use very few through-hole components and only one of each board is needed for the setup of an arena. 
 
@@ -54,27 +79,15 @@ The most recent version of the production files is [version v0.3](https://github
 
 *Function:* adapt the signal from the ribbon connector (P4) to the four driver board connectors (P0…P3), while also powering the driver board during programming (P5). The switch (S1) allows to select which driver MCU will be programmed (usually all 4 are on).
 
-## Communication Board 
-{:.clear}
-
-![A rendering of the communication board](../assets/getting-started/pcb_comm-board.jpg){:.ifr}
-
-The communicaiton board is a 40×40mm² PCB with two layers, most recently available as [version v0.3](https://github.com/floesche/panels_g4_hardware/tree/master/atmega328/four_panel/20mm_matrix/ver3/comm/gerber_v0p3). The connectors are designed as through-hole, other components are SMD.
-
-*Function:* receive signals (P1), send them on (P2), and find the signals relevant for the current panel. This processing is done with the help of a 20MHz ATMEGA328P-AUR (IC5). The relevant signals are passet to one of the four driver board quadrants (P4…P7).
 
 ---
 {:.clear}
 
-The texts above include links directly to the directory containing production files. From there you can navigate one directory up to see the [KiCAD](https://kicad-pcb.org/) EDA source files, in case you want to modify them. These boards were developed by [IORodeo](https://iorodeo.com) and shared under a creative commons license. The schematics might require remapping of symbols when you first open the files.
+> The texts for the programmers and communication board include links directly to the directory containing production files. From there you can navigate one directory up to see the [KiCAD](https://kicad-pcb.org/) EDA source files, in case you want to modify them. These boards were developed by [IORodeo](https://iorodeo.com) and shared under a creative commons license. The schematics might require remapping of symbols when you first open the files.
 
-## Driver Board
-
-The driver board is a 40×40mm² PCB with 6 layers, most recent production files are available as [version v1.3](https://github.com/floesche/Panel-G4-Hardware/tree/master/production-v1/). Most components on the driver board are SMD, factory assembly is recommended for these boards. The design was done in-house at Janelia's [jET](https://www.janelia.org/support-team/janelia-experimental-technology) group. The [OrCAD](https://www.orcad.com/) EDA source file is provided for reference, although the production files might vary.
-
-*Function:* receive signals on the four connectors (J1…J4), one for each quadrant. Each quadrant uses an ATMEGA328P-MU (U1…U4) to turn the LEDs (D1…256) on and off. The LEDs in each quadrant are organized in 8 columns × 8 rows. The ATMEGAs use a row-scan algorithm, where at each point in time a single row is active from which any number of the up to 8 columns are active. Each column uses its own resistor, therefore LEDs of different colors can be used for each column.
 
 # Arena Board
+{:.clear}
 
 The arena board organized the panels in a geometry and provides structural integrity to the whole setup. Different shapes of cylindrical arenas have been built. They are often described by their number of panel columns populated and the virtual ones forming a full circle. A 12-12 arena is a closed cylinder formed by 12 columns in total. All of them can be populated in this design. A 12-18 arena is a cylinder that would be formed by 18 columns. Out of those, 12 can be populated. 
 
