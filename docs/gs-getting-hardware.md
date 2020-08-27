@@ -70,7 +70,7 @@ The texts above include links directly to the directory containing production fi
 
 ## Driver Board
 
-The driver board is a 40×40mm² PCB with 6 layers, most recent production files are available as [version v1.2](https://github.com/floesche/Panel-G4-Hardware/tree/master/production-v1p2/). Most components on the driver board are SMD, factory assembly is recommended for these boards. The design was done in-house at Janelia's [jET](https://www.janelia.org/support-team/janelia-experimental-technology) group. The [OrCAD](https://www.orcad.com/) EDA source file is provided for reference, although the production files might vary.
+The driver board is a 40×40mm² PCB with 6 layers, most recent production files are available as [version v1.3](https://github.com/floesche/Panel-G4-Hardware/tree/master/production-v1/). Most components on the driver board are SMD, factory assembly is recommended for these boards. The design was done in-house at Janelia's [jET](https://www.janelia.org/support-team/janelia-experimental-technology) group. The [OrCAD](https://www.orcad.com/) EDA source file is provided for reference, although the production files might vary.
 
 *Function:* receive signals on the four connectors (J1…J4), one for each quadrant. Each quadrant uses an ATMEGA328P-MU (U1…U4) to turn the LEDs (D1…256) on and off. The LEDs in each quadrant are organized in 8 columns × 8 rows. The ATMEGAs use a row-scan algorithm, where at each point in time a single row is active from which any number of the up to 8 columns are active. Each column uses its own resistor, therefore LEDs of different colors can be used for each column.
 
