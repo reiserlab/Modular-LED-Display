@@ -18,7 +18,7 @@ In Generation 4, the panels are 4×4cm² and consist of two PCBs: The one with t
 
 ## Driver Board
 
-The driver board is a 40×40mm² PCB with 6 layers, most recent production files are available as [version v1.3](https://github.com/floesche/Panel-G4-Hardware/tree/master/production-v1/). Most components on the driver board are SMD, factory assembly is recommended for these boards.
+The driver board is a 40×40mm² PCB with 6 layers, most recent production files are available as [version v1.4](https://github.com/floesche/Panel-G4-Hardware/tree/master/production-v1/). Most components on the driver board are SMD, factory assembly is recommended for these boards.
 
 *Function:* receive signals on the four connectors (J1…J4), one for each quadrant. Each quadrant uses an ATMEGA328P-MU (U1…U4) to turn the LEDs (D1…256) on and off. The LEDs in each quadrant are organized in 8 columns × 8 rows. The ATMEGAs use a row-scan algorithm, where at each point in time a single row is active from which any number of the up to 8 columns are active. Each column uses its own resistor, therefore LEDs of different colors can be used for each column.
 
