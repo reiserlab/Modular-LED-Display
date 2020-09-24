@@ -9,23 +9,19 @@ nav_order: 22
 
 # Introduction
 
-The 4th generation (G4 for short) of modular LED displays is capable of showing 16 bit stimuli with up to 500Hz for 16-level brightness scale and 1500Hz on a 2-level brightness scale. Different forms of arena boards can be used to place the 40×40mm² panels each with 16×16 LEDs in columns up to 4 panels in height. 
+The Modular LED Display Generation 4 (G4 for short) is capable of refresh rates of up to 500Hz with 256 brightness levels and 1500Hz for turning the LEDs on or off. Arranging panels in a 12×4 grid, G4 can drive up to 48 panels simultaneously. Each panel has 16×16 LEDs on a 40×40mm² footprint. G4 is therefore faster and has a higher pixel density compared to previous generations.
 
-While the complexity and capability of the G4 displays has increased over previous generations, they are more accessible and easy to use through a set of advanced software tools. These "Display Tools" can be used to defined patterns and movements, arrange them into complex experimental protocols, and run data analysis on the results. These easy to use GUIs modify script which can be further customized by advanced users, should the experimental requirements go beyond what the current set of "Display Tools" supports.
+G4 Modular LED Displays are more user friendly than previous generations. An [extensive set of software tools](#Display-Tools) supports the user in generating stimuli, running experiments, and analyzing results. The arenas can be operated from a host computer either through the set of convenient tools or, for more direct manipulation, directly through an API. There is no more the need to manually transferring protocols and stimuli via SD cards to the arena controller as in previous generations. This improves usability, development speed, and debugging.
 
-# Setup
+# Acquisition and Assembly
 
-Setting up a G4 arena requires a one-time effort to get hardware, firmware, and software up and running. We describe this process in the Setup documentation.
+The "modularity" aspect of the LED displays allow flexibility in setting up experiments. This gives you fine grained control over setting up your experiments, but true to the Peter Parker principle, this requires more detailed understanding than an out-of-the-box system. This means, that you need to choose which parts to use since not all hardware and software components are required for all setups – in fact, they might not be compatible with each other. 
 
-## Difference to Generation 3
+The section about acquisition allows you to acquire the necessary knowledge of which components are useful for which use cases. Furthermore this section also guides you through the process of acquiring the necessary hardware. Whether you have no previous knowledge, or you realize at some point that some hardware is missing, this is the section where you can find these type of answers.
 
-The main differences to the [Generation 3](/Generation 3) are the size of the panel (40×40mm² instead of 32×32mm² for G3), the use of Serial Peripheral Interface (SPI) instead of I²C, and synchronous controller driven updates, which means that patterns are only shown when the controller is sending data.
+Once you know what you want and you have the necessary components in your lab, the assembly section explains in much detail how to build a working system from these modules. At the end of this section you should have a G4 system where you can turn LEDs on and off. We hope this section to be similarly useful for people who just worked through the acquisition section, as well as experienced users who have all components in their drawers but want to set up or verify an experimental rig.
 
-## Working principle from 10,000 feet
 
-The general working principle of a G4 Arena is as follows: A dedicated software called "G4 Host" is waiting for description of stimuli. Read about how these stimuli are generated as part of the [Display Tool](#Display-Tools) documentation. The "G4 Host" sends this description of stimuli through the PCIe I/O card via several SPI channels to the arena board. The PCIe card is basically a Field-programmable Gate Array (FPGA) allowing for fast yet flexible communication between the computer and the arena. On the arena board the channels are distributed to different columns of panels. A column of panel can have up to four panels stacked on top of each other and typically an arena has up to twelve columns. Each of the panels consists of two different PCBs, the communication PCB and the driver PCB. The communication PCB has one microcontroller (MCU) handling the communication with the driver panel and the other panels in the column. The driver panel has four MCUs which are responsible for turning the LEDs on and off.
-
-The FPGA on the PCIe card gets programmed through the "G4 Host" application. As long as the "G4 Host" is set up correctly and running on the computer, the PCIe card should be working. The arena boards are custom built for specific experiments, but do not contain programmable components. For the panel, each of the communication boards and each of the driver boards need to be programmed with specific firmware before they are installed on the arena.
 
 # Overview of G4 Display Tools
 {:#Display-Tools}
@@ -61,7 +57,3 @@ These scripts – using many of the functions described in the previous tools �
 ## Data Analysis
 
 These scripts can be used to read data logged and acquired by the G4 display system into MATLAB. Each experiment (marked by `start log` and `stop log` commands) outputs a folder of log files in .TDMS format, which can be read and converted into a MATLAB struct using the `G4_TDMS_folder2struct` function. These log files contain data and timestamps corresponding to the frames displayed during that experiment as well as the commands received over TCP. Any active analog output and analog input channels are also logged by both voltage and corresponding timestamp. Additional scripts are included for further processing, analyzing, and plotting data from two example categories of experiments – a tethered fly walking on an air-suspended ball, and a tethered flying fly monitored with a wingbeat analyzer. An example of a full data analysis pipeline is shown in the `test_G4_Data_Analysis.m` script.
-
-
-
-
