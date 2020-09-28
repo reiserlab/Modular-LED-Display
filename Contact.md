@@ -2,6 +2,7 @@
 title: Contact
 description: [Get in Contact]
 nav_order: 99
+has_children: true
 ---
 
 # Contact
@@ -9,6 +10,8 @@ nav_order: 99
 Please contact [Michael Reiser](https://www.janelia.org/people/michael-reiser) about anything related to the panel.
 
 If you spot mistakes in this data collection, feel free to blame it on [Frank Loesche](https://www.janelia.org/people/frank-loesche) and preferably let him know about it.
+
+Pull requests for improvements are greatly appreciated. In the best case, they will follow our [guidelines](docs/Guidelines.md) to help getting towards a consistent documentation.
 
 ## Mailing list
 

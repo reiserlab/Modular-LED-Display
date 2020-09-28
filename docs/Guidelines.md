@@ -1,5 +1,6 @@
 ---
 title: Guidelines
+parent: Contact
 nav_order: 98
 ---
 
