@@ -20,4 +20,4 @@ More interestingly, you can find the documentation for [Generation 3](../Generat
 
 ---
 
-[^1]: If you come across terms in newer documentations that are not introduced properly, your best guess is to look them up in this early guide, but please also [let us know about it](../Contact.md) and we will fix this.
+[^1]: If you come across terms in newer documentations that are not introduced properly, your best guess is to look them up in this early guide, but please also [let us know about it](../Contact.html) and we will fix this.

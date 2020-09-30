@@ -22,12 +22,12 @@ Anyone interested in running experiments with modular LED displays will find som
 
 - **Target audience**: Engineers supporting the setup process.
 - **Prerequisites**: None
-- **Provides**: Ordering lists and assembly instructions
+- **Provides**: List of steps to take with advanced reading list – roughly in sequential order.
 - **Expected outcome**: Arena that can display basic patterns
 
-For new systems, we currently recommend using Generation 4 modular displays as they are resonably stable and provide the highest spatial and temporal resolution of the available systems.
+For new systems, we currently recommend using Generation 4 modular displays as they are reasonably stable and provide the highest spatial and temporal resolution of the available systems.
 
-## Setting up the experiment
+## [Experiment Creation](../Generation 4/Display_Tools/docs/G4DisplayOverview.md)
 
 - **Target audience**: Experimenter
 - **Prerequisites**: Acquiring the hardware; Historic background (optional)
@@ -36,7 +36,7 @@ For new systems, we currently recommend using Generation 4 modular displays as t
 
 Researchers that want to use modular LED displays to answer questions using a model animal can follow this guide to set up a new experiment. While some steps can be taken before a physical arena is available, its completion requires access to a complete setup.
 
-## Running an experiment
+## [Running an experiment](../Generation 4/Display_Tools/docs/G4Run_Overview.md)
 
 - **Target audience**: Experimenter
 - **Prerequisites**: Setting up the experiment; Historic background (optional)
@@ -45,7 +45,7 @@ Researchers that want to use modular LED displays to answer questions using a mo
 
 During data collection, these guides act as reminders how to run the experiments and have been proven helpful in troubleshooting the system.
 
-## Analyzing the data
+## [Analyzing the data](../Generation 4/Display_Tools/docs/DAtools_overview.md)
 
 - **Target audience**: Experimenter; PI
 - **Prerequisites**: Running an experiment
