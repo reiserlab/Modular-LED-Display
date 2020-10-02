@@ -12,7 +12,7 @@ If the arena does not turn on, check that the connection between the interconnec
 
 Using a voltmeter, check that the arena board is being supplied with 5 V as expected.
 
-Some issues in the past have been caused by mistakes in the arena board assembly. The connectors between the arena board and the LED panels have sometimes been placed on the wrong side of the arena board or have had the gendered 15-pin connectors switched between the top and bottom arena boards. To see if this is the case, remove all of the LED panels from the arena board and plug one column back in, but inserted backwards (where the LEDs are facing to the outside of the arena). If an “all on” command turns on the LEDs in this case, then the connectors were placed incorrectly.
+Some issues in the past have been caused by mistakes in the arena board assembly. The connectors between the arena board and the LED panels have sometimes been placed on the wrong side of the arena board or have had the gendered 15-pin connectors switched between the top and bottom arena boards. To see if this is the case, remove all of the LED panels from the arena board and plug one column back in, but inserted backwards (where the LEDs are facing to the outside of the arena). If an "all on"{:.gui-txt} command turns on the LEDs in this case, then the connectors were placed incorrectly.
 
 ## `Error: Create Folder…`
 
@@ -23,7 +23,7 @@ If the `G4 Host.exe` reports *Error: Create Folder in FileIO […] HHMI – Gene
 - `Log Files`, and
 - `Patterns`.
 
-Create empty directories if they don’t exist.
+Create empty directories if they don't exist.
 
 ## Computer freezes at startup
  
@@ -35,9 +35,9 @@ If *Start Log*{:.gui-btn} leads to an error in the status window, then your appl
 
 ## *Deque timeout* is activated in PControl
 
-After running `PControl_G4`, check the LabVIEW window to see if the green light labelled *dequeue timeout*{:.gui-txt} is lit. If it is, it may be that the transfer speeds between the PCIe card and the computer’s memory is too slow. If the computer is relatively new/fast, one possible cause of this problem has been noted with newer Dell workstations, which can be fixed by updating the BIOS. 
+After running `PControl_G4`, check the LabVIEW window to see if the green light labelled *dequeue timeout*{:.gui-txt} is lit. If it is, it may be that the transfer speeds between the PCIe card and the computer's memory is too slow. If the computer is relatively new/fast, one possible cause of this problem has been noted with newer Dell workstations, which can be fixed by updating the BIOS. 
 
-Regardless of the computer make/model, it may be worth updating the computer's BIOS and seeing if that helps, which can be done by finding your PC’s manufacture support webpage and downloading the latest BIOS installer (e.g. for Dells: <https://www.dell.com/support/home/us/en/04>).
+Regardless of the computer make/model, it may be worth updating the computer's BIOS and seeing if that helps, which can be done by finding your PC's manufacture support webpage and downloading the latest BIOS installer (e.g. for Dells: <https://www.dell.com/support/home/us/en/04>).
 
 ## Flickering LEDs
 
