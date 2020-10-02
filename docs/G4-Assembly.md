@@ -12,7 +12,7 @@ Before starting to assemble an arena, make sure you have [acquired the necessary
 ## Flash firmware
 {:.clear}
 
-The driver board has four and the comm board one additional micro controller. If you ordered 48 panels, then this step requires you to program 240 MCUs. Follow the the steps in the ["Firmware" document](../Generation 4/Firmware/), but be aware that this step can take some time. On the upside: you will only need to do this once.
+The driver board has four and the comm board one additional micro controller. If you ordered 48 panels, then this step requires you to program 240 MCUs. Follow the the steps in the ["Firmware" document](../Generation 4/Firmware/docs), but be aware that this step can take some time. On the upside: you will only need to do this once.
 
 ## Assemble columns
 

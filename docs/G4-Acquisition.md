@@ -25,7 +25,7 @@ While the complexity and capability of the G4 displays have increased over previ
 
 ## Difference to Generation 3
 
-The main differences to the [Generation 3](/Generation 3) are the size of the panel (40×40mm² instead of 32×32mm² for G3). Within a panel area, the number of LEDs increased from 8×8 in G3 to 16×16 in G4. Consequently, G4 has an LED every 2.5mm at a higher density than the 4mm distance between LEDs in G3.
+The main differences to the [Generation 3](../Generation 3) are the size of the panel (40×40mm² instead of 32×32mm² for G3). Within a panel area, the number of LEDs increased from 8×8 in G3 to 16×16 in G4. Consequently, G4 has an LED every 2.5mm at a higher density than the 4mm distance between LEDs in G3.
 
 Technically, the displays now show synchronous controller driven updates, which means that patterns are only shown when the controller is sending data. 
 

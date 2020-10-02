@@ -6,7 +6,7 @@ nav_order: 2
 
 # Acquiring the hardware
 
-This is a reminder and reading guide for how to get started setting up the most recent modular LED Display, currently [Generation 4](../Generation 4). It is basically a compact version of the text [Acquisition](G4-Acquisition.md), which would be a good place to get started on more details.
+This is a reminder and reading guide for how to get started setting up the most recent modular LED Display, currently [Generation 4](../docs/G4-index.md). It is basically a compact version of the text [Acquisition](G4-Acquisition.md), which would be a good place to get started on more details.
 
 Read more about earlier version in the sections [Generation 2](../Generation 3/Software/docs/g2-panels.md) and [Generation 3](../Generation 3/index.md).
 
@@ -45,11 +45,24 @@ The turnaround times will depend on your supply chains, but should be fairly qui
 - VHDCI cables
 - Breakout Box
 
-{::comment}
-TODO: Add assembly and troubleshooting
-
 # Assembly
+
+Once you have all the components needed for a setup, you need to assemble the actual setup.
+
+## Flash firmware
+
+Each panel has five micro controller units (MCU) that need to be programmed. Using the programmer, you will need to [flash the firmware](../Generation 4/Firmware/docs/) on each of the driver boards as well as each communication board. Panels that come from the manufacturer are not preprogrammed and are not operational without this. For panels that you had stored or inherited from a colleague, this is not always necessary: the software has been stable for a long time. Please check the date on the latest firmware version for your setup and decide based on this, if you need to update it.
+
+## Assemble columns and arena
+
+Once the individual parts of the arena are ready to be used, assemble the panels from the driver and comm board. Then [assemble those panels into column](../docs/G4-Assembly.md#assemble-columns). Finally connect the assembled columns to the arena boards.
+
+## Install software and initial operation
+
+To test and operate the G4 arena, you need to [install the "Panel_Host" software](../docs/G4-Assembly.html#install-software). This pre-compiled application is responsible for the communication between the computer and the arena. For an initial test you can use this software to turn on all LEDs. In addition, you should install the Display Tools that provide a user friendly interface to the arena on top of the "Panel_Host" software.
 
 # Troubleshooting
 
-{:/comment}
+The G4 arena is a complex system where many things can go wrong. It is therefore very likely that you will need to [troubleshoot](../docs/G4-troubleshooting.html) your setup at several points in the process of setting it up and running it. The [troubleshooting guide](../docs/G4-troubleshooting.html) as well as some of the more detailed documents contain information on how to do this, but if you ever get stuck, don't hesitate to [get in contact](../Contact.md).
+
+Once you have a working setup, you can continue the getting started guides with the description on [how to set up an experiment](../Generation 4/Display_Tools/docs/G4DisplayOverview.md)
