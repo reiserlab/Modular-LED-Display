@@ -34,7 +34,7 @@ exclude: [
   ## Arena
   "Generation 4/Arena/Schematic",
   ## Display Tools
-  "Generation 4/Display_Tools/Function_Maker_G4/support", 
+  "Generation 4/Display_Tools/G4_Function_Generator/support", 
   "Generation 4/Display_Tools/G4 Panel Programming/panels_g4_firmware", "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
   "Generation 4/Display_Tools/G4_Data_Analysis/data plotting", "Generation 4/Display_Tools/G4_Data_Analysis/data processing",  
   "Generation 4/Display_Tools/G4_Data_Analysis/new_data_processing", 
