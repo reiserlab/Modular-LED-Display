@@ -10,7 +10,9 @@ has_children: true
 
 If the arena does not turn on, check that the connection between the interconnect board and the VHDCI cable is good. The VHDCI cables can sometimes need a very tight fit to make all the connections.
 
-Using a voltmeter, check that the arena board is being supplied with 5 V as expected.
+![Measuring power supply](../assets/G4/troubleshoot_voltage.jpg){:.ifr}
+
+Using a voltmeter, check that the arena board is being supplied with 5V as expected. Assuming your panels are mounted with the pins down and the receptacles pointing upwards and you look at it from outside the arena, the most right pin is the power supply and the second is ground.
 
 Some issues in the past have been caused by mistakes in the arena board assembly. The connectors between the arena board and the LED panels have sometimes been placed on the wrong side of the arena board or have had the gendered 15-pin connectors switched between the top and bottom arena boards. To see if this is the case, remove all of the LED panels from the arena board and plug one column back in, but inserted backwards (where the LEDs are facing to the outside of the arena). If an "all on"{:.gui-txt} command turns on the LEDs in this case, then the connectors were placed incorrectly.
 
