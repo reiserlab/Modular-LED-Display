@@ -6,7 +6,6 @@ nav_order: 98
 
 # Documentation guidelines
 
-
 Layout and form are secondary aspects of this page whose primary goal is to bundle existing documentation in one place. Still, we are grateful for [any hints on how to improve any aspect of it](../Contact.md). The headers, text, and images follow standard layout conventions. Important parts like **notes** or **warnings** are highlighted by **bold** text. Monospaced font with a gray background is used for code snippets and file paths. For example, `clear; disp("Hello World");` would be code and `/home/reiserlab/Documents` or `C:\Users\Reiserlab\Documents\` would describe directories.
 
 When we describe the interaction with graphical user interfaces (GUI), we use a gray background with colored text for any element shown on the screen. For example, *Refresh Rate: 1000Hz*{:.gui-txt} means that we refer to the text "Refresh Rate: 1000Hz" displayed on a GUI. If we write about clickable buttons, then *OK*{:.gui-btn} would be an example for a confirmation button.
@@ -39,7 +38,7 @@ This is some text with a [link to the Reiser Lab website](https://www.janelia.or
 
 This page uses [kramdown](https://kramdown.gettalong.org/) to generate HTML from the Markdown files. If you have any more exciting ideas on how to format your text, for example using tables, syntax highlighting for code blocks, or blockquotes, then have a look at [kramdown's excellent documentation](https://kramdown.gettalong.org/syntax.html) – or just let us know what you want to do.
 
-# You repo on this page.
+# Your repo on this page
 
 If you want your git repository included in the page, then please [get in contact](../Contact). We could then discuss which menu item would be best fitting your code, hardware, or documentation. Here are some hints on how to prepare your documentation for this page. In this documentation, we use the following terms:
 
