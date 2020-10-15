@@ -6,7 +6,7 @@ nav_order: 98
 
 # Whitepaper: Sharing PCB designs
 
-Since the early [Modular LED Displays](/) more than 15 years ago, sharing custom-designed electronics has been an integral part of the development. When we combined more than 15 different repositories authored by various contributors into this website, the importance of having a consistent code and documentation quality became apparent. This document suggests how to achieve comparable coverage for printed circuit board (PCB) designs. This text's suggestions are based on experience from organizing the different generations of the displays and are driven by the idea to "publish early, publish often."
+Since the early [Modular LED Displays](../index.md) more than 15 years ago, sharing custom-designed electronics has been an integral part of the development. When we combined more than 15 different repositories authored by various contributors into this website, the importance of having a consistent code and documentation quality became apparent. This document suggests how to achieve comparable coverage for printed circuit board (PCB) designs. This text's suggestions are based on experience from organizing the different generations of the displays and are driven by the idea to "publish early, publish often."
 
 Please feel encouraged to share your modifications of the design by following the [checklist](#checklist). In case you want to know more details, we linked each checklist item with a more detailed description. If you are unsure, please [get in contact](../Contact.md) or submit the files through [GitHub](#contribute): a not-yet-perfect file is often more useful for others than a finished and polished version not yet released.
 
