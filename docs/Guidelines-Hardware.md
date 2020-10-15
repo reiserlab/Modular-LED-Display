@@ -9,7 +9,7 @@ nav_order: 98
 
 Since the early [Modular LED Displays](/) more than 15 years ago, sharing custom designed electronics has been an integral part of the development. When we combined more than 15 different repositories authored by different contributors into this website, the importance of having a consistent code and documentation quality became apparent. This document suggests how to achieve a comparable coverage for printed circuit board (PCB) designs. The suggestions in this text are based on experience from organizing the different generations of the displays and are driven by the idea to "publish early, publish often".
 
-Please feel encouraged to share your modifications of the design by following the [checklist](#checklist). In case you want to know more details, we linked each checklist item with a more detailed description. If you are unsure, please [get in contact](../Contact.md) or submit the files through GitHub: a not-yet-perfect file is often more useful for others than a finished and polished version not yet released.
+Please feel encouraged to share your modifications of the design by following the [checklist](#checklist). In case you want to know more details, we linked each checklist item with a more detailed description. If you are unsure, please [get in contact](../Contact.md) or submit the files through [GitHub](#contribute): a not-yet-perfect file is often more useful for others than a finished and polished version not yet released.
 
 ## Checklist
 
@@ -37,11 +37,11 @@ While the above files should be available for each hardware revision, some of th
 ## EDA Design
 {:#design}
 
-Two different toolsets are being used to develop PCBs for the Modular LED Display, namely OrCAD and KiCad. While the [generated output files](#fabrication-files) follow industry standards and are reasonably similar to each other, the design files (or "sources") are not interchangeable. The design files for a display component are only available for one of the two toolsets.
+Two different toolsets are being used to develop PCBs for the Modular LED Display, namely [OrCAD](https://www.orcad.com/) and [KiCad](https://kicad-pcb.org/). While most of the [generated output files](#fabrication-files) follow industry standards and are reasonably similar to each other, the design files (or "sources") are not interchangeable. Each design files for a component of the Modular LED Display are only available for one of the two toolsets, depending on who designed this particular module.
 
-If the design is based on an existing version from the repository, please let us know which one you used. You can use the storage to archive any design-related file, for example, and including project files such as the `*.pro` files for a KiCad project.
+If your submission is based on an existing version from the repository, please let us know which one you used. You can use the repositories to archive any design-related file, from  project files such as the `*.pro` files for a KiCad project to component libraries. Please let us know if any of the files are not compatible with the currently used [license](#license).
 
-Both toolsets divide the design process into the schematic design phase and the PCB design. 
+OrCAD and KiCad both divide the design process into a [schematic design](#schematics) phase and a [PCB design](#pcb). Here a quick run through about which files would be interesting to share:
 
 ### Schematic design
 {:#schematics}
@@ -53,6 +53,7 @@ Since schematic drawings are generated from schematic design files, it can help 
 The handover between the schematic design and the PCB design is, among others, a netlist file. Since the netlist can be generated from a valid schematic design file, it is unnecessary to keep track of these files in the repositories.
 
 ### PCB design
+{:#pcb}
 
 The purpose of the repositories and documentation is to enable other labs to produce their own Modular LED Displays. Different manufacturers and assemblers of PCBs might require slightly different versions of the fabrication files. Therefore it is necessary to share the PCB design files so that these labs can generate fabrication files according to their assembly houses. At this time (2020), some manufacturers also start accepting design files, for example, from KiCad to export the fabrication files in the exact format they need. So even if you decide not to share the schematic design files and only want to provide a schematic drawing instead, a shared PCB design file will make life easier for everyone.
 
@@ -268,12 +269,12 @@ With the following steps, you can make a suggestion directly through GitHub:
 
 Choose the file you want to edit on GitHub, for example, this [Guidelines-Hardware.md](https://github.com/reiserlab/Modular-LED-Display/blob/master/docs/Guidelines-Hardware.md)
 
-![]()
+![](../assets/contribute_open-url.png)
 
 Click on the edit button with the pen icon, at which point you will be asked to log into GitHub (if you haven't done that yet):
 
-![]()
+![](../assets/contribute_propose-change.png)
 
-You can now change the file directly and switch between *Edit file*{:.gui-txt} and *Preview changes*{:.gui-txt} as often as you like. 
+You can now change the file directly. Ignore the first few lines between `---` and the second `---` or learn more about it in the [Documentation Guidelines](Guidelines.md). While editing the file, you can *preview changes*{:.gui-txt} and then switch back to *Edit file*{:.gui-txt} until you are happy with your changes. To save the changed version, write a short summary in one line and, if necessary, a longer description what you did and then click on *Propose changes*{:.gui-btn}. This creates a copy of the file in your github account, called a "fork" in git lingo. Let us know about your proposition and click on *Create pull request*{:.gui-btn}.
 
-![]()
+![](../assets/contribute_pull-request.png)
