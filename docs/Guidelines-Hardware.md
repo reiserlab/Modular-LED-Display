@@ -1,14 +1,15 @@
 ---
 title: PCB Guidelines
+subtitle: testtest
 parent: Contact
 nav_order: 98
 ---
 
-# PCB Guidelines
+# Whitepaper: Sharing PCB designs
 
-This document suggests what form files related to PCB design should be submitted and then hosted on the hardware related repositories for [Modular LED Displays](/). While it is open for discussion, please follow the current suggestion as closely as possible for consistency across different repositories and hardware generations. But in general, all repositories follow a "publish early, publish often" approach: It is more important to upload a not-yet-perfect file than waiting for it to finish.
+Since the early [Modular LED Displays](/) more than 15 years ago, sharing custom designed electronics has been an integral part of the development. When we combined more than 15 different repositories authored by different contributors into this website, the importance of having a consistent code and documentation quality became apparent. This document suggests how to achieve a comparable coverage for printed circuit board (PCB) designs. The suggestions in this text are based on experience from organizing the different generations of the displays and are driven by the idea to "publish early, publish often".
 
-In general, it should be sufficient to follow the [checklist](#checklist). Each list item links to a text where more details are provided in case there is something unclear.
+Please feel encouraged to share your modifications of the design by following the [checklist](#checklist). In case you want to know more details, we linked each checklist item with a more detailed description. If you are unsure, please [get in contact](../Contact.md) or submit the files through GitHub: a not-yet-perfect file is often more useful for others than a finished and polished version not yet released.
 
 ## Checklist
 
@@ -29,8 +30,8 @@ While the above files should be available for each hardware revision, some of th
 - [Schematics Design](#schematics) (e.g., `*.sch` for Cadence and KiCad)
 - [suggestion for a version number](#version)
 - [alternative license](#license)
-- rendering of boards
-- photo of produced board
+- [rendering of boards](#pictures)
+- [photo of produced board](#pictures)
 - [suggestion for improving the documentation](#documentation)
 
 ## EDA Design
@@ -252,6 +253,7 @@ Files on the repositories are published under the [CERN Open Hardware License we
 {:#documentation}
 
 ## Renderings and photos
+{:#pictures}
 
 ![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr}
 
