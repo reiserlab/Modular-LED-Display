@@ -8,42 +8,40 @@ nav_order: 98
 
 Since the early [Modular LED Displays](../index.md) more than 15 years ago, sharing custom-designed electronics has been an integral part of the development. When we combined more than 15 different repositories authored by various contributors into this website, the importance of having a consistent code and documentation quality became apparent. This document suggests how to achieve comparable coverage for printed circuit board (PCB) designs. This text's suggestions are based on experience from organizing the different generations of the displays and are driven by the idea to "publish early, publish often."
 
-Please feel encouraged to share your modifications of the design by following the [checklist](#checklist). In case you want to know more details, we linked each checklist item with a more detailed description. Some of these sections contain links to "Further Readings" if you are looking for even more information. If you are unsure, please [get in contact](../Contact.md) or submit the files through [GitHub](#contribute): a not-yet-perfect file is often more useful for others than a finished and polished version not yet released.
+Please feel encouraged to share your modifications of the design by following the [checklist](#checklist). In case you want to know more details, we linked each checklist item with a more detailed description. Some of these sections contain links to "Further Readings" if you are looking for even more information. If you are unsure, please [get in contact](../Contact.md) or submit the files through [GitHub](#how-to-contribute): a not-yet-perfect file is often more useful for others than a finished and polished version not yet released.
 
 ## Checklist
 
 We would appreciate the following files for each change. If you submit these files to us when you also send them to the manufacturer, there should be almost no additional work required. If you want to send intermediate versions between hardware revisions, we can use the repositories to keep track of that, too.
 
-- [Schematic drawing](#schematics) (e.g., `*.pdf`)
-- [PCB Design](#design)  (e.g., `*.brd` for OrCAD or `*.kicad_pcb` for KiCad)
-- [Gerber files](#gerber) (e.g., `*.art` for OrCAD or `*.gbr` for KiCad)
-- [drill file](#drill) (e.g., `*.drl` for OrCAD and KiCad)
-- [Bill of Materials](#bom) (e.g., `*.csv` or `*.xlsx`)
+- [Schematic drawing](#schematic-design) (e.g., `*.pdf`)
+- [PCB Design](#eda-design)  (e.g., `*.brd` for OrCAD or `*.kicad_pcb` for KiCad)
+- [Gerber files](#gerber-files) (e.g., `*.art` for OrCAD or `*.gbr` for KiCad)
+- [drill file](#drill-files) (e.g., `*.drl` for OrCAD and KiCad)
+- [Bill of Materials](#bill-of-materials) (e.g., `*.csv` or `*.xlsx`)
 - [Invoice or price estimate](#invoice) (e.g., `*.pdf` or text)
-- [Short description and file version this was based on](#version)
+- [Short description and file version this was based on](#versioning)
 
 While the above files should be available for each hardware revision, some of the files below are nice-to-have, but not crucial. Like the manufacturers' feedback, others depend on the assembler and can take different forms (e.g., emails, screenshots, update files) and follow different schedules. Others, like photos and renderings, are purely for improving the documentation.
 
-- [placement file](#centroid) (e.g., `*.txt`)
-- [feedback from manufacturer](#feedback)
-- [Schematics Design](#schematics) (e.g., `*.sch` for Cadence and KiCad)
-- [suggestion for a version number](#version)
+- [placement file](#placement-files) (e.g., `*.txt`)
+- [feedback from manufacturer](#feedback-from-the-manufacturers)
+- [Schematics Design](#schematic-design) (e.g., `*.sch` for Cadence and KiCad)
+- [suggestion for a version number](#versioning)
 - [alternative license](#license)
-- [rendering of boards](#pictures)
-- [photo of produced board](#pictures)
+- [rendering of boards](#renderings-and-photos)
+- [photo of produced board](#renderings-and-photos)
 - [suggestion for improving the documentation](#documentation)
 
 ## EDA Design
-{:#design}
 
 Two different toolsets are being used to develop PCBs for the Modular LED Display, namely [OrCAD](https://www.orcad.com/) and [KiCad](https://kicad-pcb.org/). While most of the [generated output files](#fabrication-files) follow industry standards and are reasonably similar to each other, the design files (or "sources") are not interchangeable. Each set of a component's design files are only available for one of the two toolsets, depending on who designed this particular module.
 
 If your submission is based on an existing version from the repository, please let us know which one you used. You can use the repositories to archive any design-related file, from  project files such as the `*.pro` files for a KiCad project to component libraries. Please let us know if any of the files are not compatible with the currently used [license](#license).
 
-mvOrCAD and KiCad both divide the design process into a [schematic design](#schematics) phase and a [PCB design](#pcb). Here a quick run through about which files would be interesting to share:
+mvOrCAD and KiCad both divide the design process into a [schematic design](#schematic-design) phase and a [PCB design](#pcb). Here a quick run through about which files would be interesting to share:
 
 ### Schematic design
-{:#schematics}
 
 The focus of the repositories is on the production of Modular LED Displays and, therefore, the PCB design. Yet, to understand the PCB design, it is necessary to track changes in the schematics. Therefore some visualization of the schematic drawing should be provided every time something has changed. In the past, these schematics were shown through documents such as `*.pdf` files. Other image formats like `*.png` files are not ideal, but better than nothing.
 
@@ -65,7 +63,6 @@ Some designs might require additional files; please make sure to share all files
 "Fabrication files" is a set of files sufficient to produce the PCBs. The EDA tools generate the files from the PCB design files. Although file types are, in general, defined by industry standards, there are small differences between manufacturers and tools. OrCAD and KiCad support different settings for each of the generated files. It would be tedious to explain the various options. Instead, we list some best practices that create something similar to the lowest common denominator and have proven to work so far. We hope to improve these descriptions over time.
 
 ### Gerber files
-{:#gerber}
 
 Files in the [Gerber format](https://www.ucamco.com/en/gerber) describe the different layers of a PCB in a vector format. By now, all manufacturers can work with the "Extended Gerber format RS-274X". The Gerber format is ASCII based, which is well suited to track changes through git. The standard file extension is `*.grb`, and KiCad produces such files through the *File*{:.gui-txt} → *Plot*{:.gui-txt} menu. OrCAD generates RS-274X files with the extension `*.art`, which can easily be renamed – either on our side or the manufacturers' side.
 
@@ -87,7 +84,6 @@ The following screenshot shows which options have worked well in the past. Note 
 - [Bay Area Circuits: Advantages of the Gerber X2 Format](https://bayareacircuits.com/advantages-of-the-gerber-x2-format/)
 
 ### Drill files
-{:#drill}
 
 [Several drill file standards](https://en.wikipedia.org/wiki/PCB_NC_formats) are available, but the use is not as consistent across manufacturers as for the Gerber files. Nevertheless, the Excellon-2 drill format, an extension of the  IPC-NC-349 standard with the file extension `*.drl`, is widely supported and generated through OrCAD and KiCad. Similar to the Gerber files, Excellon drill files are ASCII-based file formats, allowing easy change tracking through git. The CAD commands generally follow the Gerber syntax, but there are a few differences and exceptions.
 
@@ -115,7 +111,6 @@ In KiCAD, a similar result can be achieved by selecting the *Excellon*{:.gui-txt
 - [PCB Prime: Drilling and Drill File Tips](https://pcbprime.com/pcb-tips/drill-file/)
 
 ### Bill of Materials
-{:#bom}
 
 The Bill of Materials (BOM) is a spreadsheet that matches the component names from design with actual physical components. Both tools, OrCAD and KiCad, can automatically generate these lists but might need some post-processing. Similarly to the drill files, there is no standard, but there are several recommendations and best practices. In general, `*.csv` and `*.xlsx` files are accepted, and we use both across the repositories.
 
@@ -151,7 +146,6 @@ Finally, in the **Notes**, you can specify if it is `OK to use the generic part 
 - [PCBWay: Files Requested for PCBA](https://www.pcbway.com/assembly-file-requirements.html)
 
 ### Placement file
-{:#centroid}
 
 For board assembly, especially using SMT technology, a placement file is required. This file is sometimes called centroid file after its file format, Insertion, Pick'n'Place, or XY file. This file can be generated by the software tools OrCAD and KiCad. Many manufacturers can produce them from the Gerber files, but since this takes a long time and is an error-prone process, it is recommended to provide them.
 
@@ -181,7 +175,6 @@ The **Layer** specifies where the component is placed. Consequently, it also def
 - [JLCPCB: Pick & Place File for SMT Assembly](https://support.jlcpcb.com/article/79-pick-place-file-for-smt-assembly)
 
 ## Invoice
-{:#invoice}
 
 One topic that regularly comes up in conversations is the question about costs for a Modular LED Display. If you provide an estimate for the quote or invoice, we can add an anonymized version for outside labs. As there are huge differences between manufacturers and over time, other labs can follow up on the most relevant information.
 
@@ -191,8 +184,7 @@ Please provide this basic information: The **order date**, a **quantity**, **typ
 
 - [PCBWay: share project](https://www.pcbway.com/project/)
 
-## Feedback from the manufacturer
-{:#feedback}
+## Feedback from the manufacturers
 
 Engineering and design are iterative processes that can be improved through feedback. The manufacturing process offers the chance to enhance the Modular LED Displays by improving issues that the manufacturer's engineers and systems find. In many cases, an additional engineering feed is paid to the manufacturer, which often depends on the number of problems they have to fix on their side. For once, it would be a waste to not use the information you paid for. And secondly, having to solve the same problems repeatedly for similar orders over time is a waste of time and other resources.
 
@@ -202,11 +194,11 @@ Not all manufacturers provide feedback; sometimes, you have to explicitly ask fo
 
 ![Trace to close to the edge](../assets/error_trace.jpg){:.ifr}
 
-Depending on the machines the manufacturer has at the shop, their process might be more sensitive to trace location, trace width, or distance between traces than the constraints defined in the design software. In this example, the two yellow arrows on the right point out that the traces come close to the edge. Since the margin of slack can be similar across different machines for different manufacturers, and if there is no other downside, it might be worth considering to reroute these parts. This could require updating the [design files](#design) and then regenerating the next batch's [fabrication files](#fabrication).
+Depending on the machines the manufacturer has at the shop, their process might be more sensitive to trace location, trace width, or distance between traces than the constraints defined in the design software. In this example, the two yellow arrows on the right point out that the traces come close to the edge. Since the margin of slack can be similar across different machines for different manufacturers, and if there is no other downside, it might be worth considering to reroute these parts. This could require updating the [design files](#eda-design) and then regenerating the next batch's [fabrication files](#fabrication).
 
 On the other hand, the arrow on the left shows a problem related to the panelization for this particular manufacturer, where the exact location can not be generalized to other manufacturers. Unless you want to engineer the panelization into the component's design, this specific problem might not be worth considering for a general solution.
 
-Other examples are the distance between traces: the design rule check (DRC) during the design might use a different constraint than the manufacturer's settings. Consequently, some traces might appear too close to each other or nearby a component. Suppose there is enough space on the board. In that case, it might be worth modifying that particular trace or even the rules in the [design file](#design) instead of seeing the same error over and over across different manufacturers.
+Other examples are the distance between traces: the design rule check (DRC) during the design might use a different constraint than the manufacturer's settings. Consequently, some traces might appear too close to each other or nearby a component. Suppose there is enough space on the board. In that case, it might be worth modifying that particular trace or even the rules in the [design file](#eda-design) instead of seeing the same error over and over across different manufacturers.
 
 ### BOM corrections
 
@@ -222,19 +214,17 @@ Different suppliers use other product numbers, and different assemblers might ge
 
 Always try to keep the description of the package in sync with the actual part number. In the above BOM, the items in lines six and seven were specified as 0603 packages, but the part number suggests that these are really 0402 packages. Wrong sized can lead to faulty orders and unexpected costs: if the smallest component is smaller than specified throughout the quotation process and can lead to unforeseen delays.
 
-By adding an additional column for a supplier in the BOM, this potential problem can be fixed. If the footprint of a component changes and might influence the PCB itself or several generated files, including pick'n'place and BOM, this might require an adaptation of the [design files](#design).
+By adding an additional column for a supplier in the BOM, this potential problem can be fixed. If the footprint of a component changes and might influence the PCB itself or several generated files, including pick'n'place and BOM, this might require an adaptation of the [design files](#eda-design).
 
 ### Drill files
 
 ![Drill file errors](../assets/error_drill.png){:.ifr}
 
-In the past, [drill files](#drill) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header, as in the example from a manufacturer's feedback on the right. Not all manufacturers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
+In the past, [drill files](#drill-files) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header, as in the example from a manufacturer's feedback on the right. Not all manufacturers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
 
-Since drill files are ASCII files, one way is to add the header information. "Further readings" in the [drill file section](#drill) provide some starting information on how to do this. In other cases, repeat codes caused the issue since not all machines support these newer file format features. While these issues can be fixed by editing the `*.drl` file as well, it is often easier to export another drill file following the suggestion in the [drill file section](#drill).
-
+Since drill files are ASCII files, one way is to add the header information. "Further readings" in the [drill file section](#drill-files) provide some starting information on how to do this. In other cases, repeat codes caused the issue since not all machines support these newer file format features. While these issues can be fixed by editing the `*.drl` file as well, it is often easier to export another drill file following the suggestion in the [drill file section](#drill-files).
 
 # Versioning
-{:#version}
 
 The file versioning loosely follows [Semantic Versioning](https://semver.org/). Within a generation, the version number has two components, for example, [comm-v0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3). This is an abbreviation for [Modular LED Display communication board version 4.0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3).
 
@@ -249,18 +239,18 @@ Small changes, such as incremental improvements to design files or altered fabri
 
 Files on the repositories are published under the [CERN Open Hardware License weakly reciprocal version 2.0 (CERN-OHL-W)](http://cern.ch/cern-ohl) and/or the [Creative Commons Attribution ShareAlike 4.0 International (CC BY-SA 4.0)](http://creativecommons.org/licenses/by-sa/4.0/) licenses. If you require another license, send a request along with your submission.
 
-# Documentation and how to contribute
-{:#documentation}
+# Documentation
+
+Different applications and knowledge require various emphasis within the documentation. If you figured something out that wasn't documented before, then please consider [contributing](#how-to-contribute). Taking pictures during the hardware design and production is one of the things that are not essential, but useful to have:
 
 ## Renderings and photos
-{:#pictures}
 
 ![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr}
 
 Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, OrCAD, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. This is not very important and can be done whenever needed, but if the files are easily generated and available, why not add it to the repositories? An example from this website for the comm board is shown in the image on the right.
 
-## How to contribute
-{:#contribute .clear}
+# How to contribute
+{:.clear}
 
 This guideline is part of a living set of documents published on the website <https://reiserlab.github.io/Modular-LED-Display/>. Each repository that contains files for the Modular LED Display also includes the documentation for those files and makes it very easy to update the information whenever something changes. There is no need to download any specific software to edit the documentation. Just edit the text files in your favorite editor (= double click the file) and [send us the change](../Contact.md) or suggest a change through GitHub directly.
 

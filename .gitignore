@@ -8,3 +8,6 @@ _site/
 .jekyll-metadata
 
 # End of https://www.toptal.com/developers/gitignore/api/jekyll
+
+docs/*pdf
+docs/*docx
