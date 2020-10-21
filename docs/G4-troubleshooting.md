@@ -10,7 +10,7 @@ has_children: true
 
 If the arena does not turn on, check that the connection between the interconnect board and the VHDCI cable is good. The VHDCI cables can sometimes need a very tight fit to make all the connections.
 
-![Measuring power supply](../assets/G4/troubleshoot_voltage.jpg){:.ifr}
+![Measuring power supply](../assets/G4/troubleshoot_voltage.jpg){:.ifr .pop}
 
 Using a voltmeter, check that the arena board is being supplied with 5V as expected. Assuming your panels are mounted with the pins down and the receptacles pointing upwards and you look at it from outside the arena, the most right pin is the power supply and the second is ground.
 
@@ -45,4 +45,4 @@ Regardless of the computer make/model, it may be worth updating the computer's B
 
 If you see some or all the LEDs flicker similar to the image on the right, this could be caused by noise from a long ribbon cable. 
 
-![Flickering LEDs](../assets/G4/arena_flicker_cable.gif){:.ifr}
+![Flickering LEDs](../assets/G4/arena_flicker_cable.gif){:.ifr .pop}

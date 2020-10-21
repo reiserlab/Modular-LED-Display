@@ -73,7 +73,7 @@ There is no standard for how the files are named. Therefore the manufacturers re
 
 The following screenshot shows which options have worked well in the past. Note the coordinate format with units in mm and a precision of 4 before and 6 digits after the comma. Make sure to select the X2 format and generate a job file.
 
-![KiCad plot settings that work well](../assets/KiCad_plot-grb.png)
+![KiCad plot settings that work well](../assets/KiCad_plot-grb.png){:.ifr .pop}
 
 #### Further Readings
 
@@ -90,19 +90,21 @@ Emphasizing all file format features would be tedious, but a few settings seem t
 
 #### OrCAD
 
+![OrCAD NC Drill settings](../assets/OrCAD_drill.png){:.ifr .pop}
 The OrCAD default configuration does not generate standard-compliant drill files, but the following settings have worked well. Note that *Auto tool select*{:.gui-txt} is chosen, and *Repeat codes*{:.gui-txt} is not – which is different from the default. The drilling should also be done by layer pair, which defines the starting and end layer for the drill, instead of generating a separate drill file for each layer.
 
-![OrCAD NC Drill settings](../assets/OrCAD_drill.png)
-
+![OrCAD NC Drill settings](../assets/OrCAD_drill-parameters.png){:.ifr .pop}
 In addition to the above options, OrCAD works best with setting the following *Parameters…*{:.gui-btn}. The format should have a precision of *3*{:.gui-txt} before and *3*{:.gui-txt} after the comma. The coordinates should be *Absolute*{:.gui-txt} and *Metric*{:.gui-txt}, and the *Enhanced Excellon format*{:.gui-txt} should be selected. No zero suppression or one of the trailing or leading suppression should all work well.
-
-![OrCAD NC Drill settings](../assets/OrCAD_drill-parameters.png)
+{:.clear}
 
 #### KiCad
+{:.clear}
+
+![KiCad drill file options](../assets/KiCad_plot-drl.png){:.ifr .pop}
 
 In KiCAD, a similar result can be achieved by selecting the *Excellon*{:.gui-txt} file format with *PTH and NPTH in single file*{:.gui-txt}, an *Absolute Drill Origin*{:.gui-txt} and *Drill Units*{:.gui-txt} in *Millimeters*{:.gui-txt}. In this case, the screenshot shows how to keep all zeroes, which will be the only structural difference to the file generated in OrCAD with the options shown above.
 
-![KiCad drill file options](../assets/KiCad_plot-drl.png)
+
 
 #### Further Readings
 
@@ -191,7 +193,7 @@ Not all manufacturers provide feedback; sometimes, you have to explicitly ask fo
 
 ### Traces and routing
 
-![Trace to close to the edge](../assets/error_trace.jpg){:.ifr}
+![Trace to close to the edge](../assets/error_trace.jpg){:.ifr .pop}
 
 Depending on the machines the manufacturer has at the shop, their process might be more sensitive to trace location, trace width, or distance between traces than the constraints defined in the design software. In this example, the two yellow arrows on the right point out that the traces come close to the edge. Since the margin of slack can be similar across different machines for different manufacturers, and if there is no other downside, it might be worth considering to reroute these parts. This could require updating the [design files](#eda-design) and then regenerating the next batch's [fabrication files](#fabrication).
 
@@ -201,13 +203,13 @@ Other examples are the distance between traces: the design rule check (DRC) duri
 
 ### BOM corrections
 
-![Example feedback on BOM](../assets/error_bom_1.png){:.ifr}
+![Example feedback on BOM](../assets/error_bom_1.png){:.ifr .pop}
 
 The automatic generation of BOM files through the design tools can lead to unexpected results.  Suppose there is a small difference in a component's specification, such as an additional space in the component description like `220Ohm` vs. `220 Ohm`. In that case, it can lead to duplicate BOM lines. Manufacturers bill per unique part, so reducing the number of lines in the BOM avoids potential problems and save money. In the example feedback on the right, a manufacturer has highlighted this particular problem for several lines, including the first, second, seventh, and eighth.
 
 Some differences between the specified component and the description are minimal, or the context in which they are used makes it easy to find a replacement. Correcting the original design files can reduce the communication cycles for future orders. This will also prevent problems for cases where these differences actually matter, and a prospective manufacturer might miss that problem. Examples of this particular issue are shown in the above example for lines four and the last line.
 
-![Example feedback on BOM](../assets/error_bom_2.png){:.ifr}
+![Example feedback on BOM](../assets/error_bom_2.png){:.ifr .pop}
 
 Different suppliers use other product numbers, and different assemblers might get their components from various suppliers. Suppose a manufacturer identifies a problem with the product number. In that case, it might be worth checking if the column **MPN** really contains the manufacturers' product number and not the id from a supplier. In the example on the right, the BOM accidentally had a Digikey product number in the **MPN** column in lines two, three, and eight. Besides, if an assembler suggests the product number from a different supplier, it might save you some time and confusion down the road if you add a new column, e.g., for **MouserPN**. You might not need it immediately, but if you have the files open anyway and work through it, why not reduce future work.
 
@@ -217,7 +219,7 @@ By adding an additional column for a supplier in the BOM, this potential problem
 
 ### Drill files
 
-![Drill file errors](../assets/error_drill.png){:.ifr}
+![Drill file errors](../assets/error_drill.png){:.ifr .pop}
 
 In the past, [drill files](#drill-files) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header, as in the example from a manufacturer's feedback on the right. Not all manufacturers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
 
@@ -244,12 +246,14 @@ Different applications and knowledge require various emphasis within the documen
 
 ## Renderings and photos
 
-![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr}
+![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr .pop}
 
 Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, OrCAD, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. This is not very important and can be done whenever needed, but if the files are easily generated and available, why not add it to the repositories? An example from this website for the comm board is shown in the image on the right.
 
 # How to contribute
 {:.clear}
+
+![Screenshot of GitHub website for this file with the "pen button" visible](../assets/contribute_open-url.png){:.ifr .pop}
 
 This guideline is part of a living set of documents published on the website <https://reiserlab.github.io/Modular-LED-Display/>. Each repository that contains files for the Modular LED Display also includes the documentation for those files and makes it very easy to update the information whenever something changes. There is no need to download any specific software to edit the documentation. Just edit the text files in your favorite editor (= double click the file) and [send us the change](../Contact.md) or suggest a change through GitHub directly.
 
@@ -257,11 +261,9 @@ With the following steps, you can make a suggestion directly through GitHub:
 
 Choose the file you want to edit on GitHub, for example, this [Guidelines-Hardware.md](https://github.com/reiserlab/Modular-LED-Display/blob/master/docs/Guidelines-Hardware.md)
 
-![Screenshot of GitHub website for this file with the "pen button" visible](../assets/contribute_open-url.png)
-
-Click on the edit button with the pen icon, at which point you will be asked to log into GitHub (if you haven't done that yet):
-
-![Screenshot of the online editor at GitHub with "propose change" button](../assets/contribute_propose-change.png)
+![Screenshot of the online editor at GitHub with "propose change" button](../assets/contribute_propose-change.png){:.ifr .pop}
+Click on the edit button with the pen icon, at which point you will be asked to log into GitHub (if you haven't done that yet).
+{:.clear}
 
 You can now change the file directly. Ignore the first few lines between `---` and the second `---` or learn more about it in the [Documentation Guidelines](Guidelines.md). While editing the file, you can *preview changes*{:.gui-txt} and then switch back to *Edit file*{:.gui-txt} until you are happy with your changes. To save the changed version, write a short summary in one line and, if necessary, a longer description of what you did, and then click on *Propose changes*{:.gui-btn}. This creates a copy of the file in your GitHub account, called a "fork" in git lingo. Let us know about your proposition and click on *Create pull request*{:.gui-btn}.
 
