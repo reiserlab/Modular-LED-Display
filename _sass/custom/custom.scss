@@ -48,7 +48,6 @@ kbd{
 	width:30%;
 	margin-left:15px;
 	margin-bottom:5px;
-	transition: transform .2s;
+	transition: transform .5s;
 }
 .ifr:hover{transform: scale(1.05);}
-.ifr:active{transform:scale(2.5) translate(-20%,0);}

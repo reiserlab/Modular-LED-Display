@@ -39,7 +39,7 @@ Two different toolsets are being used to develop PCBs for the Modular LED Displa
 
 If your submission is based on an existing version from the repository, please let us know which one you used. You can use the repositories to archive any design-related file, from  project files such as the `*.pro` files for a KiCad project to component libraries. Please let us know if any of the files are not compatible with the currently used [license](#license).
 
-mvOrCAD and KiCad both divide the design process into a [schematic design](#schematic-design) phase and a [PCB design](#pcb). Here a quick run through about which files would be interesting to share:
+mvOrCAD and KiCad both divide the design process into a [schematic design](#schematic-design) phase and a [PCB design](#pcb-design). Here a quick run through about which files would be interesting to share:
 
 ### Schematic design
 
@@ -50,7 +50,6 @@ Since schematic drawings are generated from schematic design files, it can help 
 The handover between the schematic design and the PCB design is, among others, a netlist file. Since the netlist can be generated from a valid schematic design file, it is unnecessary to keep track of these files in the repositories.
 
 ### PCB design
-{:#pcb}
 
 The purpose of the repositories and documentation is to enable other labs to produce their own Modular LED Displays. Different manufacturers and assemblers of PCBs might require slightly different versions of the fabrication files. Therefore it is necessary to share the PCB design files so that these labs can generate fabrication files according to their assembly houses. At this time (2020), some manufacturers also start accepting design files, for example, from KiCad to export the fabrication files in the exact format they need. So even if you decide not to share the schematic design files and only want to provide a schematic drawing instead, a shared PCB design file will make life easier for everyone.
 
