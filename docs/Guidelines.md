@@ -86,17 +86,22 @@ We accept some non-standard syntax for the Markdown files to influence the *Disp
 If you want an image only to span part of the page and float on the right side of the text, you could specify something like this:
 
 ```markdown
-
 ![alternate text](assets/my-image.png){: width="30%" .float-right}
 
-This is some text that will be shown on the left side of the image. 
+This is some text that will be shown on the left side of the image.
 
 # Next header{:.clear}
 
-The above header will not float anymore.
+![alternate text](assetss/my-image.png){:.ifr .pop}
+
+The above header will not float anymore. Consequently the second image
+is never shown floating besides the first one.
+
+The `.ifr` class lets the image float at the right with 30% width 
+and `.pop` allows a click to zoom in.
 ```
 
-In the example above, a `width="30%"` argument will be added to the HTML `<img>` tag. Also, `.float-right` technically adds the class to the image that lets the image float on the right side. Adding the class `{:.clear}` to a following element ends the float (at the latest) by that element.
+In the example above, a `width="30%"` argument will be added to the HTML `<img>` tag. Also, `.float-right` technically adds the class to the image that lets the image float on the right side. Adding the class `{:.clear}` to a following element ends the float (at the latest) by that element. The shorthand class name `.ifr` positions an image floating on the right and with a maximum width of 30% of the text width. Also, the class `.pop` allows the user of the website to click on the image to see a zoomed version.
 
 Two additional classes `gui-txt` and `gui-btn` are currently used to highlight text as something printed on a (MATLAB) GUI, or as something clickable like a button or menu. For example:
 
