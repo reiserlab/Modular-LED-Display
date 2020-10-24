@@ -187,7 +187,7 @@ Please provide this basic information: The **order date**, a **quantity**, **typ
 
 ## Feedback from the manufacturers
 
-Engineering and design are iterative processes that can be improved through feedback. The manufacturing process offers the chance to enhance the Modular LED Displays by improving issues that the manufacturer's engineers and systems find. In many cases, an additional engineering feed is paid to the manufacturer, which often depends on the number of problems they have to fix on their side. For once, it would be a waste to not use the information you paid for. And secondly, having to solve the same problems repeatedly for similar orders over time is a waste of time and other resources.
+Engineering and design are iterative processes that can be improved through feedback. The manufacturing process offers the chance to enhance the Modular LED Displays by improving issues that the manufacturer's engineers and systems find. In many cases, an additional engineering fee is paid to the manufacturer, which often depends on the number of problems they have to fix on their side. For one, it would be a waste to not use the information you paid for. And secondly, having to solve the same problems repeatedly for similar orders over time is a waste of time and other resources.
 
 Not all manufacturers provide feedback; sometimes, you have to explicitly ask for it. Also, the format, quality, and thoroughness of the feedback differ between manufacturers, and not all problems can be generalized to other manufacturers. Consequently, there is no simple recipe on how to use the input. Instead, here are a few examples of feedback and how this could become part of the next version.
 
@@ -221,7 +221,7 @@ By adding an additional column for a supplier in the BOM, this potential problem
 
 ![Drill file errors](../assets/error_drill.png){:.ifr .pop}
 
-In the past, [drill files](#drill-files) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header, as in the example from a manufacturer's feedback on the right. Not all manufacturers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
+In the past, [drill files](#drill-files) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header as in the example screenshot of an error message that a manufacturer sent to us. Not all manufacturers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
 
 Since drill files are ASCII files, one way is to add the header information. "Further readings" in the [drill file section](#drill-files) provide some starting information on how to do this. In other cases, repeat codes caused the issue since not all machines support these newer file format features. While these issues can be fixed by editing the `*.drl` file as well, it is often easier to export another drill file following the suggestion in the [drill file section](#drill-files).
 
@@ -246,9 +246,11 @@ Different applications and knowledge require various emphasis within the documen
 
 ## Renderings and photos
 
+Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, OrCAD, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. Often this step is not considered important during the design phase and it's certainly more exciting to try a new arrival than to take a picture.
+
 ![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr .pop}
 
-Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, OrCAD, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. This is not very important and can be done whenever needed, but if the files are easily generated and available, why not add it to the repositories? An example from this website for the comm board is shown in the image on the right.
+Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x](../Generation 4/Panel/docs/driver.md#driver-v2) and [driver-v1.2](../Generation 4/Panel/docs/driver.md#driver-v1)). Especially since renderings in OrCAD and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully the [example show on the right for the comm board](../Generation 4/Hardware/docs/comm.md) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to a useful documentation.
 
 # How to contribute
 {:.clear}
