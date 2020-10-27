@@ -2,6 +2,8 @@
 from pandocfilters import toJSONFilter
 import re
 
+# simple pandoc filter that removes attributes defined in kramdown style (eg {:.class})
+
 inkramdownattribute = False
 
 def kramdown(k, v, fmt, meta):

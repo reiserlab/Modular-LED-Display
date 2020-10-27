@@ -12,7 +12,7 @@ Please feel encouraged to share your modifications of the design by following th
 
 ## Checklist
 
-We would appreciate the following files for each change. If you submit these files to us when you also send them to the manufacturer, there should be almost no additional work required. If you want to send intermediate versions between hardware revisions, we can use the repositories to keep track of that, too.
+We would appreciate the following files for each change. If you submit these files to us when you also send them to the PCB manufacturer and assembly houses, there should be almost no additional work required. If you want to send intermediate versions between hardware revisions, we can use the repositories to keep track of that, too.
 
 - [Schematic drawing](#schematic-design) (e.g., `*.pdf`)
 - [PCB Design](#eda-design)  (e.g., `*.brd` for OrCAD or `*.kicad_pcb` for KiCad)
@@ -22,10 +22,10 @@ We would appreciate the following files for each change. If you submit these fil
 - [Invoice or price estimate](#invoice) (e.g., `*.pdf` or text)
 - [Short description and file version this was based on](#versioning)
 
-While the above files should be available for each hardware revision, some of the files below are nice-to-have, but not crucial. Like the manufacturers' feedback, others depend on the assembler and can take different forms (e.g., emails, screenshots, update files) and follow different schedules. Others, like photos and renderings, are purely for improving the documentation.
+While the above files should be available for each hardware revision, some of the files below are nice-to-have, but not crucial. Like for the PCB manufacturers' feedback, the actual form and schedule depend on external factors, for example if they prefer to communicate through an online system or via email. Others, like photos and renderings, are intended to improve the documentation, are not crucial to produce the PCBs, but save time and effort in the future.
 
 - [placement file](#placement-files) (e.g., `*.txt`)
-- [feedback from manufacturer](#feedback-from-the-manufacturers)
+- [feedback from PCB manufacturer](#feedback-from-the-pcb-manufacturers)
 - [Schematics Design](#schematic-design) (e.g., `*.sch` for Cadence and KiCad)
 - [suggestion for a version number](#versioning)
 - [alternative license](#license)
@@ -51,7 +51,7 @@ The handover between the schematic design and the PCB design is, among others, a
 
 ### PCB design
 
-The purpose of the repositories and documentation is to enable other labs to produce their own Modular LED Displays. Different manufacturers and assemblers of PCBs might require slightly different versions of the fabrication files. Therefore it is necessary to share the PCB design files so that these labs can generate fabrication files according to their assembly houses. At this time (2020), some manufacturers also start accepting design files, for example, from KiCad to export the fabrication files in the exact format they need. So even if you decide not to share the schematic design files and only want to provide a schematic drawing instead, a shared PCB design file will make life easier for everyone.
+The purpose of the repositories and documentation is to enable other labs to produce their own Modular LED Displays. Different PCB manufacturers and assemblers might require slightly different versions of the fabrication files. Therefore it is necessary to share the PCB design files so that these labs can generate fabrication files according to their assembly houses. At this time (2020), some PCB manufacturers also start accepting design files, for example, from KiCad to export the fabrication files in the exact format they need. So even if you decide not to share the schematic design files and only want to provide a schematic drawing instead, a shared PCB design file will make life easier for everyone.
 
 PCBs for the Modular LED Displays were designed either with OrCAD or KiCad. The design files for OrCAD uses `*.brd` as a file extension while KiCad uses `*.kicad_pcb` at this stage. For example, the G4 panel driver starting with version 1, has been developed in OrCAD while the panel communication board is being developed in KiCAD. Consequently, the [driver board's repository](https://github.com/floesche/Panel-G4-Hardware) is used to track the latest design iteration in the OrCAD file format as a `*.brd` file. Similarly, the [comm board's repository](https://github.com/floesche/panels_g4_hardware/tree/master/atmega328/four_panel/20mm_matrix/ver3/comm/) contains the latest design iteration in a KiCad file format that uses the extension `*.kicad_pcb`.
 
@@ -59,15 +59,15 @@ Some designs might require additional files; please make sure to share all files
 
 ## Fabrication files
 
-"Fabrication files" is a set of files sufficient to produce the PCBs. The EDA tools generate the files from the PCB design files. Although file types are, in general, defined by industry standards, there are small differences between manufacturers and tools. OrCAD and KiCad support different settings for each of the generated files. It would be tedious to explain the various options. Instead, we list some best practices that create something similar to the lowest common denominator and have proven to work so far. We hope to improve these descriptions over time.
+"Fabrication files" is a set of files sufficient to produce the PCBs. The EDA tools generate the files from the PCB design files. Although file types are, in general, defined by industry standards, there are small differences between PCB manufacturers and tools. OrCAD and KiCad support different settings for each of the generated files. It would be tedious to explain the various options. Instead, we list some best practices that create something similar to the lowest common denominator and have proven to work so far. We hope to improve these descriptions over time.
 
 ### Gerber files
 
-Files in the [Gerber format](https://www.ucamco.com/en/gerber) describe the different layers of a PCB in a vector format. By now, all manufacturers can work with the "Extended Gerber format RS-274X". The Gerber format is ASCII based, which is well suited to track changes through git. The standard file extension is `*.grb`, and KiCad produces such files through the *File*{:.gui-txt} → *Plot*{:.gui-txt} menu. OrCAD generates RS-274X files with the extension `*.art`, which can easily be renamed – either on our side or the manufacturers' side.
+Files in the [Gerber format](https://www.ucamco.com/en/gerber) describe the different layers of a PCB in a vector format. By now, all PCB manufacturers can work with the "Extended Gerber format RS-274X". The Gerber format is ASCII based, which is well suited to track changes through git. The standard file extension is `*.grb`, and KiCad produces such files through the *File*{:.gui-txt} → *Plot*{:.gui-txt} menu. OrCAD generates RS-274X files with the extension `*.art`, which can easily be renamed – either on our side or the PCB manufacturers' side.
 
 Both tools generate one file per layer, for example, copper layers, the solder paste layers on front and back for surface-mount technology (SMT) boards, and the silkscreen. Some designs use additional files to describe the edge cuts or the application of adhesives. For a four-layer PCB, this can mean almost any number of Gerber files are produced, typically nine for an SMT board: 4×copper, front + back silkscreen, front + back solder paste, and edge cuts.
 
-There is no standard for how the files are named. Therefore the manufacturers require a description of the order of files and other parameters such as board thickness and distance between layers. This is either done through an additional file often called `Assembly.art` (for OrCAD) or a human-readable JSON file with the extension `*-job.gbrjob` (for KiCAD).
+There is no standard for how the files are named. Therefore the PCB manufacturers require a description of the order of files and other parameters such as board thickness and distance between layers. This is either done through an additional file often called `Assembly.art` (for OrCAD) or a human-readable JSON file with the extension `*-job.gbrjob` (for KiCAD).
 
 #### KiCad
 
@@ -84,9 +84,9 @@ The following screenshot shows which options have worked well in the past. Note 
 
 ### Drill files
 
-[Several drill file standards](https://en.wikipedia.org/wiki/PCB_NC_formats) are available, but the use is not as consistent across manufacturers as for the Gerber files. Nevertheless, the Excellon-2 drill format, an extension of the  IPC-NC-349 standard with the file extension `*.drl`, is widely supported and generated through OrCAD and KiCad. Similar to the Gerber files, Excellon drill files are ASCII-based file formats, allowing easy change tracking through git. The CAD commands generally follow the Gerber syntax, but there are a few differences and exceptions.
+[Several drill file standards](https://en.wikipedia.org/wiki/PCB_NC_formats) are available, but the use is not as consistent across PCB manufacturers as for the Gerber files. Nevertheless, the Excellon-2 drill format, an extension of the  IPC-NC-349 standard with the file extension `*.drl`, is widely supported and generated through OrCAD and KiCad. Similar to the Gerber files, Excellon drill files are ASCII-based file formats, allowing easy change tracking through git. The CAD commands generally follow the Gerber syntax, but there are a few differences and exceptions.
 
-Emphasizing all file format features would be tedious, but a few settings seem to work better than others. Specifically, many manufacturing machines don't support the relatively new "repeat code," which makes the file shorter but computation on the manufacturing machines more complex. For example, the command `R50X004` would repeatedly drill a hole 50 times along the X-axis 4mm apart. Functionally this is the same as specifying all 50 locations. On the other hand, most CAM drills support the correct bit's automatic selection, so they can be specified in the file header instead of a description in an external text.
+Emphasizing all file format features would be tedious, but a few settings seem to work better than others. Specifically, many drilling machines don't support the relatively new "repeat code," which makes the file shorter but computation on the drilling machines more complex. For example, the command `R50X004` would repeatedly drill a hole 50 times along the X-axis 4mm apart. Functionally this is the same as specifying all 50 locations. On the other hand, most CAM drills support the correct bit's automatic selection, so they can be specified in the file header instead of a description in an external text.
 
 #### OrCAD
 
@@ -115,15 +115,15 @@ In KiCAD, a similar result can be achieved by selecting the *Excellon*{:.gui-txt
 
 The Bill of Materials (BOM) is a spreadsheet that matches the component names from design with actual physical components. Both tools, OrCAD and KiCad, can automatically generate these lists but might need some post-processing. Similarly to the drill files, there is no standard, but there are several recommendations and best practices. In general, `*.csv` and `*.xlsx` files are accepted, and we use both across the repositories.
 
-Arguably the most crucial feature of a BOM is descriptive headers: the manufacturer will open the file and then try to match columns to the expected fields with as little manual intervention and margin for error as possible.
+Arguably the most crucial feature of a BOM is descriptive headers: the assembler will open the file and then try to match columns to the expected fields with as little manual intervention and margin for error as possible.
 
 - **ID**, **Item**, or **Line #** (optional): unique row number
 - **Qty**: number of components of this type
 - **RefDes**: A single reference designator or a list of designators as used in the schematics
 - **Description**: Generic description of part
 - **Footprint** or **Package**: the components package
-- **Manufacturer** (optional): Manufacturer name
-- **MPN** or **Manufacturer #**: Manufacturer product number, e.g., `RMCF0603JT220R`.
+- **Manufacturer** (optional): Component manufacturer name
+- **MPN** or **Manufacturer #**: Component manufacturer product number, e.g., `RMCF0603JT220R`.
 - [SUPPLIER]PN, e.g., **DigikeyPN** (optional): PN of a specific supplier, e.g., DigiKey, Mouser, LCSC, for example, `RMCF0603JT220RDKR-ND`
 - **Notes** or **Instructions**: Additional comments, for example, specify if it's OK to use a generic component from the **Description** or determine alternatives to the suggested part.
 
@@ -133,9 +133,9 @@ The **RefDes** should be a unique value for your design, often a letter followed
 
 The **Description** field can be used to describe the component. For example, a 220Ω resistor with ±5% tolerance, 100mW power, and a 0603 (1608 metric) package can be represented as `220 OHM, 5% 3/10W 0603`. You should also generate a separate **Footprint** column, which can help identify the smallest package or the number of contacts if the assembly house requires that information.
 
-It is generally helpful to name a particular component even for rather generic components like capacitors, connectors, or resistors. For that, specify the **Manufacturer product number** and since that might not be unique, give a **manufacturer** name. For example, you could stipulate the **manufacturer** `Yageo` and the **MPN** `RC0603JR-07220RL`. 
+It is generally helpful to name a particular component even for rather generic components like capacitors, connectors, or resistors. For that, specify the **Manufacturer product number** and since that might not be unique, give a **manufacturer** name of the company that produced this particular part. For example, you could stipulate the **manufacturer** `Yageo` and the **MPN** `RC0603JR-07220RL`. 
 
-If you know the supplier product number, you can specify it in additional columns. For example, the **DigikeyPN** could be `311-220GRDKR-ND`, the **MouserPN** `603-RC0603JR-07220RL`, and the **LCSCPN** `C114683`. Different assembly houses will use other suppliers and might prefer different manufacturers. Columns for different suppliers can be added whenever needed or known. A good search engine to find electronic parts and distributors is [Octopart](https://octopart.com/).
+If you know the supplier product number, you can specify it in additional columns. For example, the **DigikeyPN** could be `311-220GRDKR-ND`, the **MouserPN** `603-RC0603JR-07220RL`, and the **LCSCPN** `C114683`. Different assembly houses will use other suppliers and might prefer different component manufacturers for passive components like resistors or capacitors. Columns for different suppliers can be added whenever needed or known. A good search engine to find electronic parts and distributors is [Octopart](https://octopart.com/).
 
 Finally, in the **Notes**, you can specify if it is `OK to use the generic part from the description`, which might be OK for resistors, but not for LEDs on the driver board. You can also use this column to specify alternatives; for example, `if unavailable, use Stackpole RMCF0603JT220R or resistor matching description`. You could even request `if unavailable, get in contact` if you have specific constraints for that part and want to be involved in finding an alternative. This is also the place to specify if components are consigned or if you are going to assemble them yourself.
 
@@ -148,7 +148,7 @@ Finally, in the **Notes**, you can specify if it is `OK to use the generic part 
 
 ### Placement file
 
-For board assembly, especially using SMT technology, a placement file is required. This file is sometimes called centroid file after its file format, Insertion, Pick'n'Place, or XY file. This file can be generated by the software tools OrCAD and KiCad. Many manufacturers can produce them from the Gerber files, but since this takes a long time and is an error-prone process, it is recommended to provide them.
+For board assembly, especially using SMT technology, a placement file is required. This file is sometimes called centroid file after its file format, Insertion, Pick'n'Place, or XY file. This file can be generated by the software tools OrCAD and KiCad. Many assemblers can produce them from the [Gerber files](#gerber-files), but since this takes a long time and is an error-prone process, it is recommended to provide them.
 
 The centroid format is a text-based file format, either as a fixed-width spreadsheet or column separation similar to a CSV. The file extension is often `*.txt` (OrCAD), `*.csv`, or `*.pos` (KiCad) and recommendations are given in the [IPC](https://en.wikipedia.org/wiki/IPC_(electronics))-7351B design document. A pick'n'place file contains the following columns:
 
@@ -177,41 +177,41 @@ The **Layer** specifies where the component is placed. Consequently, it also def
 
 ## Invoice
 
-One topic that regularly comes up in conversations is the question about costs for a Modular LED Display. If you provide an estimate for the quote or invoice, we can add an anonymized version for outside labs. As there are huge differences between manufacturers and over time, other labs can follow up on the most relevant information.
+One topic that regularly comes up in conversations is the question about costs for a Modular LED Display. If you provide an estimate for the quote or invoice, we can add an anonymized version for outside labs. As there are huge differences between PCB manufacturers and over time, other labs can follow up on the most relevant information.
 
-Please provide this basic information: The **order date**, a **quantity**, **type of order** (e.g., PCB fabrication, assembly, parts order, or a combination of those), the **price you paid**, and if there is a difference, the initial **quote** you received. Some manufacturers allow sharing projects publicly with a **project ID**, which will allow others to order the same item. If you have such an ID for the project, it can simplify future orders by sharing this identifier.
+Please provide this basic information: The **order date**, a **quantity**, **type of order** (e.g., PCB fabrication, assembly, parts order, or a combination of those), the **price you paid**, and if there is a difference, the initial **quote** you received. Some PCB manufacturers allow sharing projects publicly with a **project ID**, which will allow others to order the same item. If you have such an ID for the project, it can simplify future orders by sharing this identifier.
 
 #### Further Readings
 
 - [PCBWay: share project](https://www.pcbway.com/project/)
 
-## Feedback from the manufacturers
+## Feedback from the PCB manufacturers
 
-Engineering and design are iterative processes that can be improved through feedback. The manufacturing process offers the chance to enhance the Modular LED Displays by improving issues that the manufacturer's engineers and systems find. In many cases, an additional engineering fee is paid to the manufacturer, which often depends on the number of problems they have to fix on their side. For one, it would be a waste to not use the information you paid for. And secondly, having to solve the same problems repeatedly for similar orders over time is a waste of time and other resources.
+Engineering and design are iterative processes that can be improved through feedback. The manufacturing process offers the chance to enhance the Modular LED Displays by improving issues that the PCB manufacturer's engineers and systems find. In many cases, an additional engineering fee is paid to the PCB manufacturer, which often depends on the number of problems they have to fix on their side. For one, it would be a waste to not use the information you paid for. And secondly, having to solve the same problems repeatedly for similar orders over time is a waste of time and other resources.
 
-Not all manufacturers provide feedback; sometimes, you have to explicitly ask for it. Also, the format, quality, and thoroughness of the feedback differ between manufacturers, and not all problems can be generalized to other manufacturers. Consequently, there is no simple recipe on how to use the input. Instead, here are a few examples of feedback and how this could become part of the next version.
+Not all PCB manufacturers provide feedback; sometimes, you have to explicitly ask for it. Also, the format, quality, and thoroughness of the feedback differ between PCB manufacturers, and not all problems can be generalized to other PCB manufacturers or assembly houses. Consequently, there is no simple recipe on how to use the input. Instead, here are a few examples of feedback and how this could become part of the next version.
 
 ### Traces and routing
 
 ![Trace to close to the edge](../assets/error_trace.jpg){:.ifr .pop}
 
-Depending on the machines the manufacturer has at the shop, their process might be more sensitive to trace location, trace width, or distance between traces than the constraints defined in the design software. In this example, the two yellow arrows on the right point out that the traces come close to the edge. Since the margin of slack can be similar across different machines for different manufacturers, and if there is no other downside, it might be worth considering to reroute these parts. This could require updating the [design files](#eda-design) and then regenerating the next batch's [fabrication files](#fabrication).
+Depending on the machines the PCB manufacturer has at the shop, their process might be more sensitive to trace location, trace width, or distance between traces than the constraints defined in the design software. In this example, the two yellow arrows on the right point out that the traces come close to the edge. Since the margin of slack can be similar across different machines for different PCB manufacturers, and if there is no other downside, it might be worth considering to reroute these parts. This could require updating the [design files](#eda-design) and then regenerating the next batch's [fabrication files](#fabrication).
 
-On the other hand, the arrow on the left shows a problem related to the panelization for this particular manufacturer, where the exact location can not be generalized to other manufacturers. Unless you want to engineer the panelization into the component's design, this specific problem might not be worth considering for a general solution.
+On the other hand, the arrow on the left shows a problem related to the panelization for this particular PCB manufacturer, where the exact location can not be generalized to other PCB manufacturers. Unless you want to engineer the panelization into the component's design, this specific problem might not be worth considering for a general solution.
 
-Other examples are the distance between traces: the design rule check (DRC) during the design might use a different constraint than the manufacturer's settings. Consequently, some traces might appear too close to each other or nearby a component. Suppose there is enough space on the board. In that case, it might be worth modifying that particular trace or even the rules in the [design file](#eda-design) instead of seeing the same error over and over across different manufacturers.
+Other examples are the distance between traces: the design rule check (DRC) during the design might use a different constraint than the PCB manufacturer's settings. Consequently, some traces might appear too close to each other or nearby a component. Suppose there is enough space on the board. In that case, it might be worth modifying that particular trace or even the rules in the [design file](#eda-design) instead of seeing the same error over and over across different PCB manufacturers.
 
 ### BOM corrections
 
 ![Example feedback on BOM](../assets/error_bom_1.png){:.ifr .pop}
 
-The automatic generation of BOM files through the design tools can lead to unexpected results.  Suppose there is a small difference in a component's specification, such as an additional space in the component description like `220Ohm` vs. `220 Ohm`. In that case, it can lead to duplicate BOM lines. Manufacturers bill per unique part, so reducing the number of lines in the BOM avoids potential problems and save money. In the example feedback on the right, a manufacturer has highlighted this particular problem for several lines, including the first, second, seventh, and eighth.
+The automatic generation of BOM files through the design tools can lead to unexpected results.  Suppose there is a small difference in a component's specification, such as an additional space in the component description like `220Ohm` vs. `220 Ohm`. In that case, it can lead to duplicate BOM lines. Assembly houses bill per unique part, so reducing the number of lines in the BOM avoids potential problems and save money. In the example feedback on the right, an assembler has highlighted this particular problem for several lines, including the first, second, seventh, and eighth.
 
-Some differences between the specified component and the description are minimal, or the context in which they are used makes it easy to find a replacement. Correcting the original design files can reduce the communication cycles for future orders. This will also prevent problems for cases where these differences actually matter, and a prospective manufacturer might miss that problem. Examples of this particular issue are shown in the above example for lines four and the last line.
+Some differences between the specified component and the description are minimal, or the context in which they are used makes it easy to find a replacement. Correcting the original design files can reduce the communication cycles for future orders. This will also prevent problems for cases where these differences actually matter, and a prospective assembler might miss that problem. Examples of this particular issue are shown in the above example for lines four and the last line.
 
 ![Example feedback on BOM](../assets/error_bom_2.png){:.ifr .pop}
 
-Different suppliers use other product numbers, and different assemblers might get their components from various suppliers. Suppose a manufacturer identifies a problem with the product number. In that case, it might be worth checking if the column **MPN** really contains the manufacturers' product number and not the id from a supplier. In the example on the right, the BOM accidentally had a Digikey product number in the **MPN** column in lines two, three, and eight. Besides, if an assembler suggests the product number from a different supplier, it might save you some time and confusion down the road if you add a new column, e.g., for **MouserPN**. You might not need it immediately, but if you have the files open anyway and work through it, why not reduce future work.
+Different suppliers use other product numbers, and different assemblers might get their components from various suppliers. Suppose an assembler identifies a problem with the product number. In that case, it might be worth checking if the column **MPN** really contains the manufacturers' product number and not the id from a supplier. In the example on the right, the BOM accidentally had a Digikey product number in the **MPN** column in lines two, three, and eight. Besides, if an assembler suggests the product number from a different supplier, it might save you some time and confusion down the road if you add a new column, e.g., for **MouserPN**. You might not need it immediately, but if you have the files open anyway and work through it, why not reduce future work.
 
 Always try to keep the description of the package in sync with the actual part number. In the above BOM, the items in lines six and seven were specified as 0603 packages, but the part number suggests that these are really 0402 packages. Wrong sized can lead to faulty orders and unexpected costs: if the smallest component is smaller than specified throughout the quotation process and can lead to unforeseen delays.
 
@@ -221,7 +221,7 @@ By adding an additional column for a supplier in the BOM, this potential problem
 
 ![Drill file errors](../assets/error_drill.png){:.ifr .pop}
 
-In the past, [drill files](#drill-files) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header as in the example screenshot of an error message that a manufacturer sent to us. Not all manufacturers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
+In the past, [drill files](#drill-files) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header as in the example screenshot of an error message that an assembler sent to us. Not all PCB manufacturers and assemblers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the PCB manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
 
 Since drill files are ASCII files, one way is to add the header information. "Further readings" in the [drill file section](#drill-files) provide some starting information on how to do this. In other cases, repeat codes caused the issue since not all machines support these newer file format features. While these issues can be fixed by editing the `*.drl` file as well, it is often easier to export another drill file following the suggestion in the [drill file section](#drill-files).
 
