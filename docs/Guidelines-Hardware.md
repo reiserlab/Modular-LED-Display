@@ -22,7 +22,7 @@ We would appreciate the following files for each change. If you submit these fil
 - [Invoice or price estimate](#invoice) (e.g., `*.pdf` or text)
 - [Short description and file version this was based on](#versioning)
 
-While the above files should be available for each hardware revision, some of the files below are nice-to-have, but not crucial. Like for the PCB manufacturers' feedback, the actual form and schedule depend on external factors, for example if they prefer to communicate through an online system or via email. Others, like photos and renderings, are intended to improve the documentation, are not crucial to produce the PCBs, but save time and effort in the future.
+While the above files should be available for each hardware revision, some of the files below are nice-to-have, but not crucial. For the PCB manufacturers' feedback, the actual form and schedule depend on external factors; some prefer to communicate through an online system, others favor email. Providing photos and renderings is intended to improve the documentation and are not crucial to producing the PCBs, but having them saves future time and effort with minimal initial work.
 
 - [placement file](#placement-files) (e.g., `*.txt`)
 - [feedback from PCB manufacturer](#feedback-from-the-pcb-manufacturers)
@@ -127,7 +127,7 @@ Arguably the most crucial feature of a BOM is descriptive headers: the assembler
 - [SUPPLIER]PN, e.g., **DigikeyPN** (optional): PN of a specific supplier, e.g., DigiKey, Mouser, LCSC, for example, `RMCF0603JT220RDKR-ND`
 - **Notes** or **Instructions**: Additional comments, for example, specify if it's OK to use a generic component from the **Description** or determine alternatives to the suggested part.
 
-The ID is optional but can help during the communication with the assembler. For example, you can say that "item 24 can be replaced by…" in an email. 
+The ID is optional but can help during the communication with the assembler. For example, you can say that "item 24 can be replaced by…" in an email. One way to provide alternatives for a part is to use additional letter indices; for example, ID `24a` could reference `C0603JR-07220RL`, and ID `24b` could specify `RMCF0603JT220R`. Use the **Notes** field to clarify this.
 
 The **RefDes** should be a unique value for your design, often a letter followed by a number such as `R1`, `C15`, or `U132`. 
 
@@ -135,9 +135,9 @@ The **Description** field can be used to describe the component. For example, a 
 
 It is generally helpful to name a particular component even for rather generic components like capacitors, connectors, or resistors. For that, specify the **Manufacturer product number** and since that might not be unique, give a **manufacturer** name of the company that produced this particular part. For example, you could stipulate the **manufacturer** `Yageo` and the **MPN** `RC0603JR-07220RL`. 
 
-If you know the supplier product number, you can specify it in additional columns. For example, the **DigikeyPN** could be `311-220GRDKR-ND`, the **MouserPN** `603-RC0603JR-07220RL`, and the **LCSCPN** `C114683`. Different assembly houses will use other suppliers and might prefer different component manufacturers for passive components like resistors or capacitors. Columns for different suppliers can be added whenever needed or known. A good search engine to find electronic parts and distributors is [Octopart](https://octopart.com/).
+If you know the supplier product number, you can specify it in additional columns. For example, the **DigikeyPN** could be `311-220GRDKR-ND`, the **MouserPN** `603-RC0603JR-07220RL`, and the **LCSCPN** `C114683`. Different assembly houses will use other suppliers and might prefer different component manufacturers for passive parts like resistors or capacitors. Columns for different suppliers can be added whenever needed or known. A good search engine to find electronic components and distributors is [Octopart](https://octopart.com/).
 
-Finally, in the **Notes**, you can specify if it is `OK to use the generic part from the description`, which might be OK for resistors, but not for LEDs on the driver board. You can also use this column to specify alternatives; for example, `if unavailable, use Stackpole RMCF0603JT220R or resistor matching description`. You could even request `if unavailable, get in contact` if you have specific constraints for that part and want to be involved in finding an alternative. This is also the place to specify if components are consigned or if you are going to assemble them yourself.
+Finally, in the **Notes**, you can specify if it is `OK to use the generic part from the description`, which might be OK for resistors, but not for LEDs on the driver board. You can also use this column to specify alternatives; for example, `alternative for 24a` or `if unavailable, use Stackpole RMCF0603JT220R or resistor matching description`. You could even request `if unavailable, get in contact` if you have specific constraints for that part and want to be involved in finding an alternative. This is also the place to specify if components are consigned or if you are going to assemble them yourself.
 
 #### Further Readings
 
@@ -195,7 +195,7 @@ Not all PCB manufacturers provide feedback; sometimes, you have to explicitly as
 
 ![Trace to close to the edge](../assets/error_trace.jpg){:.ifr .pop}
 
-Depending on the machines the PCB manufacturer has at the shop, their process might be more sensitive to trace location, trace width, or distance between traces than the constraints defined in the design software. In this example, the two yellow arrows on the right point out that the traces come close to the edge. Since the margin of slack can be similar across different machines for different PCB manufacturers, and if there is no other downside, it might be worth considering to reroute these parts. This could require updating the [design files](#eda-design) and then regenerating the next batch's [fabrication files](#fabrication).
+Depending on the machines the PCB manufacturer has at the shop, their process might be more sensitive to trace location, trace width, or distance between traces than the design software's constraints. In this example, the two yellow arrows on the right point out that the traces come close to the edge. Since the margin of slack can be similar across different machines for different PCB manufacturers, and if there is no other downside, it might be worth considering to reroute these parts. This could require updating the [design files](#eda-design) and then regenerating the next batch's [fabrication files](#fabrication).
 
 On the other hand, the arrow on the left shows a problem related to the panelization for this particular PCB manufacturer, where the exact location can not be generalized to other PCB manufacturers. Unless you want to engineer the panelization into the component's design, this specific problem might not be worth considering for a general solution.
 
@@ -221,7 +221,7 @@ By adding an additional column for a supplier in the BOM, this potential problem
 
 ![Drill file errors](../assets/error_drill.png){:.ifr .pop}
 
-In the past, [drill files](#drill-files) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header as in the example screenshot of an error message that an assembler sent to us. Not all PCB manufacturers and assemblers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the PCB manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
+In the past, [drill files](#drill-files) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header, as in the example screenshot of an error message that an assembler sent to us. Not all PCB manufacturers and assemblers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the PCB manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
 
 Since drill files are ASCII files, one way is to add the header information. "Further readings" in the [drill file section](#drill-files) provide some starting information on how to do this. In other cases, repeat codes caused the issue since not all machines support these newer file format features. While these issues can be fixed by editing the `*.drl` file as well, it is often easier to export another drill file following the suggestion in the [drill file section](#drill-files).
 
@@ -242,15 +242,15 @@ Files on the repositories are published under the [CERN Open Hardware License we
 
 # Documentation
 
-Different applications and knowledge require various emphasis within the documentation. If you figured something out that wasn't documented before, then please consider [contributing](#how-to-contribute). Taking pictures during the hardware design and production is one of the things that are not essential, but useful to have:
+Different applications and knowledge require various emphasis within the documentation. If you figured something out that wasn't documented before, then please consider [contributing](#how-to-contribute). Taking pictures during the hardware design and production is one of the things that are not essential but useful to have:
 
 ## Renderings and photos
 
-Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, OrCAD, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. Often this step is not considered important during the design phase and it's certainly more exciting to try a new arrival than to take a picture.
+Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, OrCAD, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. This step is often not considered necessary during the design phase, and it's certainly more exciting to try a new arrival than to take a picture.
 
 ![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr .pop}
 
-Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x](../Generation 4/Panel/docs/driver.md#driver-v2) and [driver-v1.2](../Generation 4/Panel/docs/driver.md#driver-v1)). Especially since renderings in OrCAD and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully the [example show on the right for the comm board](../Generation 4/Hardware/docs/comm.md) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to a useful documentation.
+Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x](../Generation 4/Panel/docs/driver.md#driver-v2) and [driver-v1.2](../Generation 4/Panel/docs/driver.md#driver-v1)). Especially since renderings in OrCAD and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully, the [example shown on the right for the comm board](../Generation 4/Hardware/docs/comm.md) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to useful documentation.
 
 # How to contribute
 {:.clear}
