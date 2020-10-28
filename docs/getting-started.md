@@ -2,6 +2,7 @@
 title: "Getting Started"
 nav_order: 5
 has_children: true
+has_toc: false
 ---
 
 # How to get started

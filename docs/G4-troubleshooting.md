@@ -3,6 +3,7 @@ title: Troubleshoot
 parent: Generation 4
 nav_order: 99
 has_children: true
+has_toc: false
 ---
 
 The classification of errors is not always possible and sometimes counterintuitive.
@@ -58,7 +59,6 @@ After running `PControl_G4`, check the LabVIEW window to see if the green light 
 
 Regardless of the computer make/model, it may be worth updating the computer's BIOS and seeing if that helps, which can be done by finding your PC's manufacture support webpage and downloading the latest BIOS installer (e.g. for Dells: <https://www.dell.com/support/home/us/en/04>).
 
-
 ## "You must select a trial" or "Only one trial may be selected." 
 
 Some of the functionality in the [protocol designer](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md) can only be performed on one condition at a time. If you get this error, scroll through all your trials and make sure one and only one condition is selected.
@@ -98,3 +98,9 @@ If you get this error message regarding the configuration file or any other impo
 If everything is in the correct location, this error could mean that you as a user do not have permission to edit the file in question. Sometimes, especially if the configuration file is located in a root or program files folder, a user may not be allowed to edit those files unless their user profile is set to administrator privileges. If the user cannot edit the file, then the Designer cannot edit the file on the user's behalf. Fixing the permissions will fix the error.
 
 This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md#trouble-shooting)
+
+## Results not saved
+
+When running the experiment, there is either an error message related to `TDMS`, or there will be no results recorded. In that case, please double check, that you don't have any old version of the TDMSReader installed on your machine, specifically not version 2.5. To check this, you can run the MATLAB command `contains(path, "TDMSReaderv2p5")` – a return value of `1` signifies that the old version is installed. Please remove it from your computer or at least from the MATLAB path.
+
+This error should have been caught during the [G4 software setup](../Generation 4/Display_Tools/docs/G4_Software_Setup.md).

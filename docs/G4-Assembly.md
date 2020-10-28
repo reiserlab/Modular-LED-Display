@@ -3,6 +3,7 @@ title: Assembly
 parent: Generation 4
 nav_order: 1
 has_children: true
+has_toc: false
 ---
 
 Before starting to assemble an arena, make sure you have [acquired the necessary parts](G4-Acquisition.md).

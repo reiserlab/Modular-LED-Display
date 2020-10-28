@@ -3,6 +3,7 @@ title: Acquisition
 parent: Generation 4
 nav_order: 1
 has_children: true
+has_toc: false
 ---
 
 Here we describe what is needed to operate a Modular LED Display of the 4th generation. The first part concerns the knowledge necessary to make the decisions for hardware acquisition in the second part.

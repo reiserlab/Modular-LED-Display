@@ -53,6 +53,3 @@ To estimate the power requirement, here an back-of-the-envelope calculation for 
 With 5 ATMega328 per panel (4 on the [driver](../Generation 4/Panel/docs/driver.md), 1 on the [comm board](../Generation 4/Hardware/docs/comm.md)) and 48 panels, up to 240 ATmega328 need to be powered all the time. Assuming another 20mA per MCU, this amounts to roughly 5A. Together with the 3A for the LEDs this ends at around 8A, which explains why a 10A works well in most setups.
 
 The initial developer of the system suggested to budget roughly 0.25A for each used panel, which arrives at a similar result for typical setups.
-
-
-
