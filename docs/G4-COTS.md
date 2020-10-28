@@ -5,6 +5,9 @@ grand_parent: Generation 4
 nav_order: 9
 ---
 
+1. TOC
+{:toc}
+
 # Computer
 {:#computer}
 

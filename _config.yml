@@ -7,7 +7,7 @@ search_enabled: true
 color_scheme: "panel"
 
 kramdown:
-  toc_levels: "1"
+  toc_levels: "1,2"
 
 exclude: [
   # Generation 2

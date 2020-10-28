@@ -9,17 +9,17 @@ nav_order: 22
 
 # Introduction
 
-The Modular LED Display Generation 4 (G4 for short) is capable of refresh rates of up to 500Hz with 256 brightness levels and 1500Hz for turning the LEDs on or off. Arranging panels in a 12×4 grid, G4 can drive up to 48 panels simultaneously. Each panel has 16×16 LEDs on a 40×40mm² footprint. G4 is, therefore, faster and has a higher pixel density compared to previous generations.
+The Modular LED Display Generation 4 (G4 for short) is capable of refresh rates of up to 500Hz with 256 brightness levels. Just turning individual LEDs on and off increases the refresh to 1500Hz. Arranging panels in a 12×4 grid, G4 can concurrently drive up to 48 panels. Each panel has 16×16 LEDs on a 40×40mm² footprint. G4 is faster and has a higher pixel density compared to previous generations.
 
-G4 Modular LED Displays are more user friendly than previous generations. An [extensive set of software tools](#Display-Tools) supports the user in generating stimuli, running experiments, and analyzing results. The arenas can be operated from a host computer either through convenient tools or, for more direct manipulation, directly through an API. Protocols and stimuli don't need to be transferred manually on SD cards as in previous generations. This improves usability, development speed, and debugging.
+G4 Modular LED Displays are more user friendly than earlier generations. An [extensive set of software tools](#Display-Tools) supports the user in generating stimuli, running experiments, and analyzing results. They can run the arenas from a host computer either through convenient tools or for more direct manipulation, through an API. No need to transfer protocols and stimuli via SD card, as it used to be in previous generations. This improves usability, development speed, and debugging.
 
 # Acquisition and Assembly
 
-The "modularity" aspect of the LED displays allows flexibility in setting up experiments. This gives you fine-grained control over setting up your experiments, but true to the Peter Parker principle, this requires more detailed understanding than an out-of-the-box system. Consequently, you need to choose which parts to use since not all hardware and software components are necessary for all setups – they might not be compatible with each other. 
+The "modularity" aspect of the LED displays allows flexibility in setting up experiments. This gives you fine-grained control over setting up your experiments, but true to the Peter Parker principle [^1], this requires a more detailed understanding than an out-of-the-box system. Consequently, you need to choose which parts to use since not every hardware and software components are necessary for all setups – they might not be compatible with each other. 
 
-The section about acquisition allows you to acquire the necessary knowledge of which components are useful for which use cases. Furthermore, this section also guides you through the process of acquiring the necessary hardware. Whether you have no previous knowledge, or you realize at some point that some hardware is missing, this is the section where you can find these type of answers.
+The section addressing acquisition allows you to gain the knowledge of which components are useful for which use cases. This section also guides you through acquiring the hardware. Whether you have no previous knowledge, or you realize at some point that pieces of hardware are missing, this is the section where you can find these types of answers.
 
-Once you know what you want and you have the necessary components in your lab, the assembly section explains in much detail how to build a working system from these modules. At the end of this section you should have a G4 system where you can turn LEDs on and off. We hope this section to be similarly useful for people who just worked through the acquisition section, as well as experienced users who have all components in their drawers but want to set up or verify an experimental rig.
+Once you know what you want and you have the components in your lab, the assembly section explains in much detail how to build a working setup from these modules. At the end of this section you should have a G4 arena where you can turn LEDs on and off. We hope this section to be useful for people who just worked through the acquisition section. Hopefully it is also interesting for experienced users who have the components in their drawers and want to set up or verify an experimental rig.
 
 # Overview of G4 Display Tools
 {:#Display-Tools}
@@ -57,3 +57,7 @@ These scripts – using many of the functions described in the previous tools �
 ## [Data Analysis](../Generation 4/Display_Tools/docs/Data_analysis_documentation.md)
 
 These scripts can be used to read data logged and acquired by the G4 display system into MATLAB. Each experiment (marked by `start log` and `stop log` commands) outputs a folder of log files in .TDMS format, which can be read and converted into a MATLAB struct using the `G4_TDMS_folder2struct` function. These log files contain data and timestamps corresponding to the frames displayed during that experiment as well as the commands received over TCP. Any active analog output and analog input channels are also logged by both voltage and corresponding timestamp. Additional scripts are included for further processing, analyzing, and plotting data from two example categories of experiments – a tethered fly walking on an air-suspended ball, and a tethered flying fly monitored with a wingbeat analyzer. An example of a full data analysis pipeline is shown in the `test_G4_Data_Analysis.m` script.
+
+---
+
+[^1]: ["With great power there must also come great responsibility"](https://en.wikipedia.org/wiki/With_great_power_comes_great_responsibility), a historic proverb popularized by Stan Lee in "Spider-Man"

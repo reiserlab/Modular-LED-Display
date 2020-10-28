@@ -7,6 +7,9 @@ has_children: true
 
 Here we describe what is needed to operate a Modular LED Display of the 4th generation. The first part concerns the knowledge necessary to make the decisions for hardware acquisition in the second part.
 
+1. TOC
+{:toc}
+
 # Knowledge
 
 You probably have a use case in mind when reading this. You can still learn about the initial motivation to develop modular LED Displays at ["Theory and Practice of Insect Flight Simulators."](../Generation 3/Software/docs/g2-user-guide.md)
