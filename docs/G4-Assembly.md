@@ -25,7 +25,7 @@ Once you planned your layout, connect roughly half of a column to the top arena,
 
 ## Connect arena
 
-Connect the arena to the interconnect board using the ribbon cable, and connect the interconnect board to the PCIe card (slot 1) using the [SHC68-68-RDIO](G4-COTS.md#vhdci) cable. If you want to use the breakout box, you can connect it to the PCIe card (slot 0) with an [SHC68M-68F-RMIO](G4-COTS.md#vhdci) cable.
+Connect the arena to the interconnect board using the ribbon cable, and connect the interconnect board to the PCIe card (slot 1) using the [SHC68-68-RDIO](G4-COTS.md#vhdci-cables) cable. If you want to use the breakout box, you can connect it to the PCIe card (slot 0) with an [SHC68M-68F-RMIO](G4-COTS.md#vhdci-cables) cable.
 
 Once you connect the power supply, the arena should be up and running. But you won't notice, since it doesn't receive any commands yet. So before powering it up, make sure to install the software.
 

@@ -16,35 +16,27 @@ The computer acts as a controller for the arena and we recommend the use of a de
 # Multi I/O card
 {:#rio-card}
 
-This is a FPGA based reconfigurable high speed IO device which can deliver the required multiple SPI channels within the anticipated time constraints. In addition, a connected [breakout box](#breakout) allows easy recording several analog data channels through the same device that is used to record other experimental data.
+This is a FPGA based reconfigurable high speed IO device which can deliver the required multiple SPI channels within the anticipated time constraints. In addition, a connected [breakout box](#ni-breakout-box) allows easy recording several analog data channels through the same device that is used to record other experimental data.
 
-The controller is implemented based on a National Instruments Multifunction Reconfigurable I/O device, specifically the [National Instruments PCIe-7842R](https://www.ni.com/en-us/support/model.pcie-7842.html). This card has 3 sockets of the "very-high-density cable interconnect" format (VHDCI). One connection will go to the [arena](../Generation 4/Arena/docs/arena.md) (eg through an [interconnect board](../Generation 4/Arena/docs/arena.md#interconnect)). Another one can be used with a [breakout box](#breakout).
+The controller is implemented based on a National Instruments Multifunction Reconfigurable I/O device, specifically the [National Instruments PCIe-7842R](https://www.ni.com/en-us/support/model.pcie-7842.html). This card has 3 sockets of the "very-high-density cable interconnect" format (VHDCI). One connection will go to the [arena](../Generation 4/Arena/docs/arena.md) (eg through an [interconnect board](../Generation 4/Arena/docs/arena.md#interconnect)). Another one can be used with a [breakout box](#ni-breakout-box).
 
 Note that the card does not always work in all PCIe slots in all computers. In our test systems, the card worked in 2 out of 5 slots, most likely because these slots had too little PCI lanes.
 
 # VHDCI cable(s)
-{:#vhdci}
 
-For the connection between PCIe card and interconnect board, you will need one [SHC68-68-RDIO](https://www.ni.com/en-us/shop/accessories/products/digital-cable.html?skuId=30215) cable. For the connection between the PCIe card and the [breakout box](#breakout) a [SHC68M-68F-RMIO](https://www.ni.com/en-us/support/model.shc68m-68f-rmio-cable.html) cable was recommended. Both use the same connector, but we could only get reliable results when using the cables in the described way.
+For the connection between PCIe card and interconnect board, you will need one [SHC68-68-RDIO](https://www.ni.com/en-us/shop/accessories/products/digital-cable.html?skuId=30215) cable. For the connection between the PCIe card and the [breakout box](#ni-breakout-box) a [SHC68M-68F-RMIO](https://www.ni.com/en-us/support/model.shc68m-68f-rmio-cable.html) cable was recommended. Both use the same connector, but we could only get reliable results when using the cables in the described way.
 
 # NI Breakout box
-{:#breakout}
 
 The breakout box takes a 68 pin VHDCI connection form the Multi I/O card as input and exposes some of those channels as BNC or D-sub connections.
 
-{::comment}
-TODO: needs to be confirmed
-
-We are currently using connector blocks like the NI [BNC-2090A](http://sine.ni.com/nips/cds/view/p/lang/pt/nid/203462) inside a CA-1000 enclosure.
-{:/comment}
+We are currently using connector blocks like the NI [CB-68LPR](https://www.ni.com/en-us/shop/accessories/products/terminal-block.html?modelId=119553) inside a CA-1000 enclosure. We are using "BNC I/O Panelettes" (NI number 184737-01).
 
 # Arduino Uno
-{:#arduino}
 
 The programmer is currently built around an Arduino Uno. The are widely available, for example at [1](https://store.arduino.cc/usa/arduino-uno-rev3) and [2](https://www.digikey.com/short/zr4nd5). The Arduino will be used to program the panel MCUs.
 
 # Power supply
-{:#power-supply}
 
 In the past we have had no problems with 5V 10A power supplies such as [this one](https://www.adafruit.com/product/658) for typical arenas with around 40 panels. Depending on your setup, power supply with more or less amperage should work. The connectors on G4 arenas use a 2.1mm power connector with a positive center.
 

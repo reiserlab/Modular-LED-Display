@@ -71,8 +71,8 @@ In 2018 a typical setup for behavioral rigs could contain the following items. N
 
 - 2 [12-12 arena boards](../Generation 4/Arena/docs/arena.md#12-12), one populated as bottom, one as top
 - 36 LED panels (36 [driver-v1.5](../Generation 4/Panel/docs/driver.md#driver-v1) and 36 [comm-v0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3) PCBs)
-- [breakout box](G4-COTS.md#breakout)
-- [VHDCI cables](G4-COTS.md#vhdci)
+- [breakout box](G4-COTS.md#ni-breakout-box)
+- [VHDCI cables](G4-COTS.md#vhdci-cables)
 - arena [interconnect-v1.1](../Generation 4/Arena/docs/arena.md#interconnect) board
 - [power supply](G4-COTS.md#power-supply)
 - [PCIe card](G4-COTS.md#rio-card)
