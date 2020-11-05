@@ -26,11 +26,11 @@ While the above files should be available for each hardware revision, some of th
 
 - [placement file](#placement-files) (e.g., `*.txt`)
 - [feedback from PCB manufacturer](#feedback-from-the-pcb-manufacturers)
-- [Schematics Design](#schematic-design) (e.g., `*.sch` for Cadence and KiCad)
+- [Schematics Design](#schematic-design) (e.g., `*.dsn` for Cadence and `*.sch` KiCad)
 - [suggestion for a version number](#versioning)
 - [alternative license](#license)
-- [rendering of boards](#renderings-and-photos)
-- [photo of produced board](#renderings-and-photos)
+- [rendering of boards](#renderings-and-photos) (e.g. `*.jpg` and `*.png`)
+- [photo of produced board](#renderings-and-photos) (e.g. `*.jpg` and `*.png`)
 - [suggestion for improving the documentation](#documentation)
 
 ## EDA Design
