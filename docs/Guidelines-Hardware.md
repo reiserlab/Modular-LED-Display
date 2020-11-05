@@ -77,11 +77,19 @@ Both tools generate one file per layer, for example, copper layers, the solder p
 
 There is no standard for how the files are named. Therefore the PCB manufacturers require a description of the order of files and other parameters such as board thickness and distance between layers. This is either done through an additional file often called `Assembly.art` (for Cadence). This file contains a cross section chart that visualizes all layers in their respective order including their dielectric layers and layer thickness. KiCad on the other hand produces a human-readable JSON file with the extension `*-job.gbrjob` and the same information in text form. A standard that is currently developing and getting more widely accepted is the "Gerber Job" file format. Since there is no standard, make sure to check with your PCB manufacturer what format they accept.
 
-#### KiCad
+#### OrCAD
 
-The following screenshot shows which options have worked well in the past. Note the coordinate format with units in mm and a precision of 4 before and 6 digits after the comma. Make sure to select the X2 format and generate a job file.
+![OrCAD Gerber settings that work well](../assets/OrCAD_gerber-parameter.png){:.ifr .pop}
+You need to set a few parameters to get a good quality gerber file. The screenshot is taken from Cadence OrCAD, but options in Cadence Allegro will look fairly similar. When you choose *Export*{:.gui-txt} → *Gerber*{:.gui-txt}, make sure to set the *General Parameters*{:.gui-txt} as shown in the screenshot. Pay attention to the *Device type*{:.gui-txt} which should be *Gerber RS274X*{:.gui-txt}, to the *Output units*{:.gui-txt} which should be *Millimeters*{:.gui-txt}, and the *Format*{:.gui-txt}, which should have 4 integer places and 6 decimal places. 
+
+![Example error](../assets/OrCAD_gerber-parameter_example-error.png){:.ifr .pop .clear}
+Especially not setting the precision in the format can lead to errors that are difficult to spot. The screenshot on the right shows vias that should be in the center of the plane cutouts, but due to a wrong format, some of them connect to the plane (while most don't).
+
+#### KiCad
+{:.clear}
 
 ![KiCad plot settings that work well](../assets/KiCad_plot-grb.png){:.ifr .pop}
+The screenshot shows which options have worked well in the past for KiCad. Note the coordinate format with units in mm and a precision of 4 before and 6 digits after the comma. Make sure to select the X2 format and generate a job file.
 
 #### Further Readings
 
