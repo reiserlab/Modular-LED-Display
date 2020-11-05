@@ -15,14 +15,14 @@ Please feel encouraged to share your modifications of the design by following th
 We would appreciate the following files for each change. If you submit these files to us when you also send them to the PCB manufacturer and assembly houses, there should be almost no additional work required. If you want to send intermediate versions between hardware revisions, we can use the repositories to keep track of that, too.
 
 - [Schematic drawing](#schematic-design) (e.g., `*.pdf`)
-- [PCB Design](#eda-design)  (e.g., `*.brd` for OrCAD or `*.kicad_pcb` for KiCad)
-- [Gerber files](#gerber-files) (e.g., `*.art` for OrCAD or `*.gbr` for KiCad)
-- [drill file](#drill-files) (e.g., `*.drl` for OrCAD and KiCad)
+- [PCB Design](#eda-design)  (e.g., `*.brd` for Cadence or `*.kicad_pcb` for KiCad)
+- [Gerber files](#gerber-files) (e.g., `*.art` for Cadence or `*.gbr` for KiCad)
+- [drill file](#drill-files) (e.g., `*.drl` for Cadence and KiCad)
 - [Bill of Materials](#bill-of-materials) (e.g., `*.csv` or `*.xlsx`)
 - [Invoice or price estimate](#invoice) (e.g., `*.pdf` or text)
 - [Short description and file version this was based on](#versioning)
 
-While the above files should be available for each hardware revision, some of the files below are nice-to-have, but not crucial. For the PCB manufacturers' feedback, the actual form and schedule depend on external factors; some prefer to communicate through an online system, others favor email. Providing photos and renderings is intended to improve the documentation and are not crucial to producing the PCBs, but having them saves future time and effort with minimal initial work.
+While the above files should be available for each hardware revision, some of the files below are nice-to-have, but not crucial. For the PCB manufacturers' feedback, the actual form and schedule depend on external factors; some prefer to communicate through an online system, others favor email, and a few don't give any feedback. Providing photos and renderings is intended to improve the documentation and are not crucial to producing the PCBs, but having them saves future time and effort with minimal initial work.
 
 - [placement file](#placement-files) (e.g., `*.txt`)
 - [feedback from PCB manufacturer](#feedback-from-the-pcb-manufacturers)
@@ -35,17 +35,21 @@ While the above files should be available for each hardware revision, some of th
 
 ## EDA Design
 
-Two different toolsets are being used to develop PCBs for the Modular LED Display, namely [OrCAD](https://www.orcad.com/) and [KiCad](https://kicad-pcb.org/). While most of the [generated output files](#fabrication-files) follow industry standards and are reasonably similar to each other, the design files (or "sources") are not interchangeable. Each set of a component's design files are only available for one of the two toolsets, depending on who designed this particular module.
+Two different toolsets are being used to develop PCBs for the Modular LED Display, namely a software offered by the company "Cadence Design Systems" and [KiCad](https://kicad-pcb.org/). While most of the [generated output files](#fabrication-files) follow industry standards and are reasonably similar to each other, the design files (or "sources") are not interchangeable between the two types specified above. Each set of a component's design files are only available for one of the two toolsets, depending on who designed this particular module.
+
+The company "Cadence Design Systems" offer different solutions for Electronic Design Automation (EDA) such as ["Cadence Allegro"](https://www.cadence.com/en_US/home/tools/pcb-design-and-analysis/pcb-layout/allegro-pcb-designer.html) (Allegro for short) and ["Cadence OrCAD"](https://www.orcad.com/) (OrCAD for short). To our understanding and according to our tests, either one of these commercial solutions can be used to modify design files such as `*.brd`. Therefore we use the term "Cadence" if either Allegro or OrCAD can be used. Before buying the software for this project, consult with the customer support what best suits your needs.
+
+KiCad is an open source tool that can be licensed without cost.
 
 If your submission is based on an existing version from the repository, please let us know which one you used. You can use the repositories to archive any design-related file, from  project files such as the `*.pro` files for a KiCad project to component libraries. Please let us know if any of the files are not compatible with the currently used [license](#license).
 
-mvOrCAD and KiCad both divide the design process into a [schematic design](#schematic-design) phase and a [PCB design](#pcb-design). Here a quick run through about which files would be interesting to share:
+Cadence and KiCad both divide the design process into a [schematic design](#schematic-design) phase and a [PCB design](#pcb-design). Here a quick run through about which files would be interesting to share:
 
 ### Schematic design
 
 The focus of the repositories is on the production of Modular LED Displays and, therefore, the PCB design. Yet, to understand the PCB design, it is necessary to track changes in the schematics. Therefore some visualization of the schematic drawing should be provided every time something has changed. In the past, these schematics were shown through documents such as `*.pdf` files. Other image formats like `*.png` files are not ideal, but better than nothing.
 
-Since schematic drawings are generated from schematic design files, it can help track the schematic designs in the repositories, too. Both tools, OrCAD and (old versions of) KiCad, use the file extension `*.sch` for the schematic design files, while recent versions of KiCad switched to `*.kicad_sch`. Some of the designs can consist of several schematic files or additional library files containing details for used electrical components. Please provide all files necessary for opening the schematic. As a user of your toolset, you probably know best which files are required. 
+Since schematic drawings are generated from schematic design files, it can help track the schematic designs in the repositories, too. Cadence, and more specific OrCAD uses `*.dsn` files. Recent versions of KiCad switched to `*.kicad_sch` file extensions while old versions use `*.sch` for the schematic design files. Some of the designs can consist of several schematic files or additional library files containing details for used electrical components. Please provide all files necessary for opening the schematic. As a user of your toolset, you probably know best which files are required. 
 
 The handover between the schematic design and the PCB design is, among others, a netlist file. Since the netlist can be generated from a valid schematic design file, it is unnecessary to keep track of these files in the repositories.
 
@@ -53,21 +57,25 @@ The handover between the schematic design and the PCB design is, among others, a
 
 The purpose of the repositories and documentation is to enable other labs to produce their own Modular LED Displays. Different PCB manufacturers and assemblers might require slightly different versions of the fabrication files. Therefore it is necessary to share the PCB design files so that these labs can generate fabrication files according to their assembly houses. At this time (2020), some PCB manufacturers also start accepting design files, for example, from KiCad to export the fabrication files in the exact format they need. So even if you decide not to share the schematic design files and only want to provide a schematic drawing instead, a shared PCB design file will make life easier for everyone.
 
-PCBs for the Modular LED Displays were designed either with OrCAD or KiCad. The design files for OrCAD uses `*.brd` as a file extension while KiCad uses `*.kicad_pcb` at this stage. For example, the G4 panel driver starting with version 1, has been developed in OrCAD while the panel communication board is being developed in KiCAD. Consequently, the [driver board's repository](https://github.com/floesche/Panel-G4-Hardware) is used to track the latest design iteration in the OrCAD file format as a `*.brd` file. Similarly, the [comm board's repository](https://github.com/floesche/panels_g4_hardware/tree/master/atmega328/four_panel/20mm_matrix/ver3/comm/) contains the latest design iteration in a KiCad file format that uses the extension `*.kicad_pcb`.
+PCBs for the Modular LED Displays were designed either with Cadence or KiCad. The design files for Cadence uses `*.brd` as a file extension while KiCad uses `*.kicad_pcb` at this stage. For example, the G4 panel driver starting with version 1, has been developed in Cadence while the panel communication board is being developed in KiCAD. Consequently, the [driver board's repository](https://github.com/floesche/Panel-G4-Hardware) is used to track the latest design iteration in the Cadence file format as a `*.brd` file. Similarly, the [comm board's repository](https://github.com/floesche/panels_g4_hardware/tree/master/atmega328/four_panel/20mm_matrix/ver3/comm/) contains the latest design iteration in a KiCad file format that uses the extension `*.kicad_pcb`.
 
 Some designs might require additional files; please make sure to share all files that are necessary to open the PCB design file. For example, footprints of other components can be in a `*.kicad_mod` file.
 
+### Further Readings
+
+- [CirctuiHub: Taking the hard out of hardware](https://circuithub.com/how-it-works): Explains how to upload native design files to the manufacturer and use their revision history system
+
 ## Fabrication files
 
-"Fabrication files" is a set of files sufficient to produce the PCBs. The EDA tools generate the files from the PCB design files. Although file types are, in general, defined by industry standards, there are small differences between PCB manufacturers and tools. OrCAD and KiCad support different settings for each of the generated files. It would be tedious to explain the various options. Instead, we list some best practices that create something similar to the lowest common denominator and have proven to work so far. We hope to improve these descriptions over time.
+"Fabrication files" is a set of files sufficient to produce the PCBs. The EDA tools generate the files from the PCB design files. Although file types are, in general, defined by industry standards, there are small differences between PCB manufacturers and tools. Either Cadence tool as well as KiCad support different settings for each of the generated files. It would be tedious to explain the various options. Instead, we list some best practices that create something similar to the lowest common denominator and have proven to work so far. We hope to improve these descriptions over time.
 
 ### Gerber files
 
-Files in the [Gerber format](https://www.ucamco.com/en/gerber) describe the different layers of a PCB in a vector format. By now, all PCB manufacturers can work with the "Extended Gerber format RS-274X". The Gerber format is ASCII based, which is well suited to track changes through git. The standard file extension is `*.grb`, and KiCad produces such files through the *File*{:.gui-txt} → *Plot*{:.gui-txt} menu. OrCAD generates RS-274X files with the extension `*.art`, which can easily be renamed – either on our side or the PCB manufacturers' side.
+Files in the [Gerber format](https://www.ucamco.com/en/gerber) describe the different layers of a PCB in a vector format. By now, all PCB manufacturers can work with the "Extended Gerber format RS-274X". The Gerber format is ASCII based, which is well suited to track changes through git. The standard file extension is `*.grb`, and KiCad produces such files through the *File*{:.gui-txt} → *Plot*{:.gui-txt} menu. Cadence generates RS-274X files with the extension `*.art`, which can easily be renamed – either on our side or the PCB manufacturers' side.
 
 Both tools generate one file per layer, for example, copper layers, the solder paste layers on front and back for surface-mount technology (SMT) boards, and the silkscreen. Some designs use additional files to describe the edge cuts or the application of adhesives. For a four-layer PCB, this can mean almost any number of Gerber files are produced, typically nine for an SMT board: 4×copper, front + back silkscreen, front + back solder paste, and edge cuts.
 
-There is no standard for how the files are named. Therefore the PCB manufacturers require a description of the order of files and other parameters such as board thickness and distance between layers. This is either done through an additional file often called `Assembly.art` (for OrCAD) or a human-readable JSON file with the extension `*-job.gbrjob` (for KiCAD).
+There is no standard for how the files are named. Therefore the PCB manufacturers require a description of the order of files and other parameters such as board thickness and distance between layers. This is either done through an additional file often called `Assembly.art` (for Cadence). This file contains a cross section chart that visualizes all layers in their respective order including their dielectric layers and layer thickness. KiCad on the other hand produces a human-readable JSON file with the extension `*-job.gbrjob` and the same information in text form. A standard that is currently developing and getting more widely accepted is the "Gerber Job" file format. Since there is no standard, make sure to check with your PCB manufacturer what format they accept.
 
 #### KiCad
 
@@ -81,17 +89,18 @@ The following screenshot shows which options have worked well in the past. Note 
 - [Ucamco: Gerber Format](https://www.ucamco.com/en/gerber)
 - [Bitelle: RS274x Gerber Files](https://www.7pcb.com/blog/rs274x-gerber-files.php)
 - [Bay Area Circuits: Advantages of the Gerber X2 Format](https://bayareacircuits.com/advantages-of-the-gerber-x2-format/)
+- [Ucamo: Gerber Job Format](https://www.ucamco.com/en/gerber/gerber-job-file)
 
 ### Drill files
 
-[Several drill file standards](https://en.wikipedia.org/wiki/PCB_NC_formats) are available, but the use is not as consistent across PCB manufacturers as for the Gerber files. Nevertheless, the Excellon-2 drill format, an extension of the  IPC-NC-349 standard with the file extension `*.drl`, is widely supported and generated through OrCAD and KiCad. Similar to the Gerber files, Excellon drill files are ASCII-based file formats, allowing easy change tracking through git. The CAD commands generally follow the Gerber syntax, but there are a few differences and exceptions.
+[Several drill file standards](https://en.wikipedia.org/wiki/PCB_NC_formats) are available, but the use is not as consistent across PCB manufacturers as for the Gerber files. Nevertheless, the Excellon-2 drill format, an extension of the  IPC-NC-349 standard with the file extension `*.drl`, is widely supported and generated through Cadence and KiCad. Similar to the Gerber files, Excellon drill files are ASCII-based file formats, allowing easy change tracking through git. The CAD commands generally follow the Gerber syntax, but there are a few differences and exceptions.
 
 Emphasizing all file format features would be tedious, but a few settings seem to work better than others. Specifically, many drilling machines don't support the relatively new "repeat code," which makes the file shorter but computation on the drilling machines more complex. For example, the command `R50X004` would repeatedly drill a hole 50 times along the X-axis 4mm apart. Functionally this is the same as specifying all 50 locations. On the other hand, most CAM drills support the correct bit's automatic selection, so they can be specified in the file header instead of a description in an external text.
 
-#### OrCAD
+#### OrCAD (possibly similar for Allegro)
 
 ![OrCAD NC Drill settings](../assets/OrCAD_drill.png){:.ifr .pop}
-The OrCAD default configuration does not generate standard-compliant drill files, but the following settings have worked well. Note that *Auto tool select*{:.gui-txt} is chosen, and *Repeat codes*{:.gui-txt} is not – which is different from the default. The drilling should also be done by layer pair, which defines the starting and end layer for the drill, instead of generating a separate drill file for each layer.
+The Cadence default configuration does not generate standard-compliant drill files, but the following settings have worked well. The screenshots are taken from OrCAD, but the menus in Allegro, the other Cadence tool, should be very similar. Note that *Auto tool select*{:.gui-txt} is chosen, and *Repeat codes*{:.gui-txt} is not – which is different from the default. The drilling should also be done by layer pair, which defines the starting and end layer for the drill, instead of generating a separate drill file for each layer.
 
 ![OrCAD NC Drill settings](../assets/OrCAD_drill-parameters.png){:.ifr .pop}
 In addition to the above options, OrCAD works best with setting the following *Parameters…*{:.gui-btn}. The format should have a precision of *3*{:.gui-txt} before and *3*{:.gui-txt} after the comma. The coordinates should be *Absolute*{:.gui-txt} and *Metric*{:.gui-txt}, and the *Enhanced Excellon format*{:.gui-txt} should be selected. No zero suppression or one of the trailing or leading suppression should all work well.
@@ -102,9 +111,7 @@ In addition to the above options, OrCAD works best with setting the following *P
 
 ![KiCad drill file options](../assets/KiCad_plot-drl.png){:.ifr .pop}
 
-In KiCAD, a similar result can be achieved by selecting the *Excellon*{:.gui-txt} file format with *PTH and NPTH in single file*{:.gui-txt}, an *Absolute Drill Origin*{:.gui-txt} and *Drill Units*{:.gui-txt} in *Millimeters*{:.gui-txt}. In this case, the screenshot shows how to keep all zeroes, which will be the only structural difference to the file generated in OrCAD with the options shown above.
-
-
+In KiCAD, a similar result can be achieved by selecting the *Excellon*{:.gui-txt} file format with *PTH and NPTH in single file*{:.gui-txt}, an *Absolute Drill Origin*{:.gui-txt} and *Drill Units*{:.gui-txt} in *Millimeters*{:.gui-txt}. In this case, the screenshot shows how to keep all zeroes, which will be the only structural difference to the file generated in Cadence with the options shown above.
 
 #### Further Readings
 
@@ -113,7 +120,7 @@ In KiCAD, a similar result can be achieved by selecting the *Excellon*{:.gui-txt
 
 ### Bill of Materials
 
-The Bill of Materials (BOM) is a spreadsheet that matches the component names from design with actual physical components. Both tools, OrCAD and KiCad, can automatically generate these lists but might need some post-processing. Similarly to the drill files, there is no standard, but there are several recommendations and best practices. In general, `*.csv` and `*.xlsx` files are accepted, and we use both across the repositories.
+The Bill of Materials (BOM) is a spreadsheet that matches the component names from design with actual physical components. Both tools, Cadence and KiCad, can automatically generate these lists but might need some post-processing. Similarly to the drill files, there is no standard, but there are several recommendations and best practices. In general, `*.csv` and `*.xlsx` files are accepted, and we use both across the repositories.
 
 Arguably the most crucial feature of a BOM is descriptive headers: the assembler will open the file and then try to match columns to the expected fields with as little manual intervention and margin for error as possible.
 
@@ -148,9 +155,9 @@ Finally, in the **Notes**, you can specify if it is `OK to use the generic part 
 
 ### Placement file
 
-For board assembly, especially using SMT technology, a placement file is required. This file is sometimes called centroid file after its file format, Insertion, Pick'n'Place, or XY file. This file can be generated by the software tools OrCAD and KiCad. Many assemblers can produce them from the [Gerber files](#gerber-files), but since this takes a long time and is an error-prone process, it is recommended to provide them.
+For board assembly, especially using SMT technology, a placement file is required. This file is sometimes called centroid file after its file format, Insertion, Pick'n'Place, or XY file. This file can be generated by Cadence and KiCad. Many assemblers can produce them from the [Gerber files](#gerber-files), but since this takes a long time and is an error-prone process, it is recommended to provide them.
 
-The centroid format is a text-based file format, either as a fixed-width spreadsheet or column separation similar to a CSV. The file extension is often `*.txt` (OrCAD), `*.csv`, or `*.pos` (KiCad) and recommendations are given in the [IPC](https://en.wikipedia.org/wiki/IPC_(electronics))-7351B design document. A pick'n'place file contains the following columns:
+The centroid format is a text-based file format, either as a fixed-width spreadsheet or column separation similar to a CSV. The file extension is often `*.txt` (Cadence), `*.csv`, or `*.pos` (KiCad) and recommendations are given in the [IPC](https://en.wikipedia.org/wiki/IPC_(electronics))-7351B design document. A pick'n'place file contains the following columns:
 
 - **RefDes**: unique designator
 - **Footprint** (optional): Description of the package, e.g., `0603R`
@@ -163,9 +170,9 @@ The **RefDes** is the same designator used in the design files and the BOM. Unli
 
 The **Footprint** or **Package** column helps the assembler identify the best machine but is not considered essential as the information should be in the BOM.
 
-The **Location** columns describe the components offset from the board origin. The board origin is the bottom left, as seen from the top side of the board. The units are given in inches. Usually, the center of the component is the reference for the placement, but for some parts like connectors or other off-centered elements, the reference is at a different location. Besides, some assemblers prefer the location of pin 1 as a reference. Some tools like OrCAD will ask you which location you want to write to your centroid file. If in question, choose to provide the file with mid reference. There are instances where all three types are provided in the same file, then using **Mid X/Y**, **Ref X/Y**, and **Pad X/Y** as columns names. For some of the Modular LED Display fabrication files, we have provided all three types of pick'n'place files.
+The **Location** columns describe the components offset from the board origin. The board origin is the bottom left, as seen from the top side of the board. The units are given in inches. Usually, the center of the component is the reference for the placement, but for some parts like connectors or other off-centered elements, the reference is at a different location. Besides, some assemblers prefer the location of pin 1 as a reference. Some tools like Cadence will ask you which location you want to write to your centroid file. If in question, choose to provide the file with mid reference. There are instances where all three types are provided in the same file, then using **Mid X/Y**, **Ref X/Y**, and **Pad X/Y** as columns names. For some of the Modular LED Display fabrication files, we have provided all three types of pick'n'place files. Cadence calls these files `body center.txt`, `origin.txt`, and `Pin1.txt`.
 
-The **Rotation** is a value in degree clockwise for parts on the bottom and counter-clockwise for parts on top. 
+The **Rotation** is a value in degree clockwise for parts on the bottom and counter-clockwise for parts on top.
 
 The **Layer** specifies where the component is placed. Consequently, it also defines how the location and rotation are interpreted. An LED on the top with a rotation of 90 should have the cathode pointing down; the same LED with a rotation of 90 on the bottom side will have the cathode point upwards. 
 
@@ -179,7 +186,7 @@ The **Layer** specifies where the component is placed. Consequently, it also def
 
 One topic that regularly comes up in conversations is the question about costs for a Modular LED Display. If you provide an estimate for the quote or invoice, we can add an anonymized version for outside labs. As there are huge differences between PCB manufacturers and over time, other labs can follow up on the most relevant information.
 
-Please provide this basic information: The **order date**, a **quantity**, **type of order** (e.g., PCB fabrication, assembly, parts order, or a combination of those), the **price you paid**, and if there is a difference, the initial **quote** you received. Some PCB manufacturers allow sharing projects publicly with a **project ID**, which will allow others to order the same item. If you have such an ID for the project, it can simplify future orders by sharing this identifier.
+Please provide this basic information: The **order date**, a **quantity**, **type of order** (e.g., PCB manufacturer, assembly, parts order, or a combination of those), the **price you paid**, and if there is a difference, the initial **quote** you received. Some PCB manufacturers allow sharing projects publicly with a **project ID**, which will allow others to order the same item. If you have such an ID for the project, it can simplify future orders by sharing this identifier.
 
 #### Further Readings
 
@@ -187,7 +194,7 @@ Please provide this basic information: The **order date**, a **quantity**, **typ
 
 ## Feedback from the PCB manufacturers
 
-Engineering and design are iterative processes that can be improved through feedback. The manufacturing process offers the chance to enhance the Modular LED Displays by improving issues that the PCB manufacturer's engineers and systems find. In many cases, an additional engineering fee is paid to the PCB manufacturer, which often depends on the number of problems they have to fix on their side. For one, it would be a waste to not use the information you paid for. And secondly, having to solve the same problems repeatedly for similar orders over time is a waste of time and other resources.
+Engineering and design are iterative processes that can be improved through feedback. The manufacturing process offers the chance to enhance the Modular LED Displays by improving issues that the PCB manufacturer's engineers and systems find. Depending on the number of problems they have to fix on their side, PCB manufacturers might charge additional engineering fees. For one, it would be a waste to not use the information you paid for. And secondly, having to solve the same problems repeatedly for similar orders over time is a waste of time and other resources.
 
 Not all PCB manufacturers provide feedback; sometimes, you have to explicitly ask for it. Also, the format, quality, and thoroughness of the feedback differ between PCB manufacturers, and not all problems can be generalized to other PCB manufacturers or assembly houses. Consequently, there is no simple recipe on how to use the input. Instead, here are a few examples of feedback and how this could become part of the next version.
 
@@ -199,7 +206,7 @@ Depending on the machines the PCB manufacturer has at the shop, their process mi
 
 On the other hand, the arrow on the left shows a problem related to the panelization for this particular PCB manufacturer, where the exact location can not be generalized to other PCB manufacturers. Unless you want to engineer the panelization into the component's design, this specific problem might not be worth considering for a general solution.
 
-Other examples are the distance between traces: the design rule check (DRC) during the design might use a different constraint than the PCB manufacturer's settings. Consequently, some traces might appear too close to each other or nearby a component. Suppose there is enough space on the board. In that case, it might be worth modifying that particular trace or even the rules in the [design file](#eda-design) instead of seeing the same error over and over across different PCB manufacturers.
+Other examples are the distance between traces: the design rule check (DRC) during the design might use a different constraint than the PCB manufacturer's settings. Consequently, some traces might appear too close to each other or nearby a component. Suppose there is enough space on the board. In that case, it might be worth modifying that particular trace or even the rules in the [design file](#eda-design) instead of seeing the same error over and over across different PCB manufacturers. On the other hand, some PCB manufacturer might give feedback based on the requirements from their specific machines that are not generalizable. Furthermore, the work and risk of changing traces and pads when using differential pairs or same length traces, or when relying on impedance match might outweigh the benefit of improving the general design. This is just to mention, that there can be good reasons not to integrate the manufacturer's feedback.
 
 ### BOM corrections
 
@@ -246,11 +253,11 @@ Different applications and knowledge require various emphasis within the documen
 
 ## Renderings and photos
 
-Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, OrCAD, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. This step is often not considered necessary during the design phase, and it's certainly more exciting to try a new arrival than to take a picture.
+Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, either Cadence software, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. This step is often not considered necessary during the design phase, and it's certainly more exciting to try a new arrival than to take a picture.
 
 ![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr .pop}
 
-Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x](../Generation 4/Panel/docs/driver.md#driver-v2) and [driver-v1.2](../Generation 4/Panel/docs/driver.md#driver-v1)). Especially since renderings in OrCAD and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully, the [example shown on the right for the comm board](../Generation 4/Hardware/docs/comm.md) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to useful documentation.
+Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x](../Generation 4/Panel/docs/driver.md#driver-v2) and [driver-v1.2](../Generation 4/Panel/docs/driver.md#driver-v1)). Especially since renderings in Cadence and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully, the [example shown on the right for the comm board](../Generation 4/Hardware/docs/comm.md) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to useful documentation.
 
 # How to contribute
 {:.clear}
