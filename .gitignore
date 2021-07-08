@@ -11,3 +11,5 @@ _site/
 
 docs/*pdf
 docs/*docx
+
+.ruby-version
