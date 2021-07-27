@@ -70,7 +70,7 @@ To get a system up and running, you will need to decide how many panels you will
 In 2018 a typical setup for behavioral rigs could contain the following items. Note that the assembled arena has 9 out of the 12 columns populated, each column with 4 panels.
 
 - 2 [12-12 arena boards](../Generation 4/Arena/docs/arena.md#12-12), one populated as bottom, one as top
-- 36 LED panels (36 [driver-v1.5](../Generation 4/Panel/docs/driver.md#driver-v1) and 36 [comm-v0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3) PCBs)
+- 36 LED panels (36 [driver-v1.x](../Generation 4/Panel/docs/driver.md#driver-v1) and 36 [comm-v0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3) PCBs)
 - [breakout box](G4-COTS.md#ni-breakout-box)
 - [VHDCI cables](G4-COTS.md#vhdci-cables)
 - arena [interconnect-v1.1](../Generation 4/Arena/docs/arena.md#interconnect) board
