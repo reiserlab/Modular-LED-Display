@@ -13,8 +13,6 @@ The classification of errors is not always possible and sometimes counterintuiti
 
 # Hardware
 
-Anything r
-
 ## Arena does not turn on
 
 If the arena does not turn on, check that the connection between the interconnect board and the VHDCI cable is good. The VHDCI cables can sometimes need a very tight fit to make all the connections.
