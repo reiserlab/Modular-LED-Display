@@ -11,5 +11,5 @@ localhost:
 	@bundle exec jekyll serve 
 
 update:
-		@gem update
-		@bundle update
+	@gem update
+	@bundle update
