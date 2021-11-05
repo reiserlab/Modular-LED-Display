@@ -10,7 +10,7 @@ In their publication ["A modular display system for insect behavioral neuroscien
 
 As part of this current website, Mark Frye, Michael B. Reiser, and Michael H. Dickinson give another less formal introduction in [Theory and Practice of Insect Flight Simulators](../Generation 3/Software/docs/g2-user-guide.md). This document not only gives a historic overview of arenas, but also explains how to tether flies, and how to use an optical wingbeat analyzer. The last parts of the document describe the Panel Controller and other elements that were specific to the Generation 2 and Generation 3 arenas, but they also introduce terms that have been used since[^1].
 
-To follow the history of the modular LED displays chronologically, you could dive into the detailed description of the [Generation 2](../Generation 3/Software/docs/g2-panels.md) panel systems. That might only be of interest for historic reasons and if you are trying to fix an existing installation in your lab. 
+To follow the history of the modular LED displays chronologically, you could dive into the detailed description of the [Generation 2](../Generation 3/Software/docs/g2-system.md) panel systems. That might only be of interest for historic reasons and if you are trying to fix an existing installation in your lab. 
 
 ![Link to the github repository this particular page is generated from](../assets/getting-started/web_footer.png){:.ifr}
 
