@@ -10,7 +10,6 @@ Layout and form are secondary aspects of this page whose primary goal is to bund
 
 When we describe the interaction with graphical user interfaces (GUI), we use a gray background with colored text for any element shown on the screen. For example, *Refresh Rate: 1000Hz*{:.gui-txt} means that we refer to the text "Refresh Rate: 1000Hz" displayed on a GUI. If we write about clickable buttons, then *OK*{:.gui-btn} would be an example for a confirmation button.
 
-
 ## How is the page created?
 
 All documentation you see on this page is generated from Markdown documents. Markdown is a simple text-based way of structuring text documents. This means you can read these Markdown documents in any text editor or on GitHub without additional software. The markup should be intuitive and not distract you from reading, for example, if you want to *emphasize* a word, you just put an asterisk before and after the word like so: \**emphasize*\*. If you want to make it **bold**, put two asterisks: \*\***bold**\*\*. That is unintrusive and potentially even intuitive. 
@@ -37,6 +36,8 @@ This is some text with a [link to the Reiser Lab website](https://www.janelia.or
 ```
 
 This page uses [kramdown](https://kramdown.gettalong.org/) to generate HTML from the Markdown files. If you have any more exciting ideas on how to format your text, for example using tables, syntax highlighting for code blocks, or blockquotes, then have a look at [kramdown's excellent documentation](https://kramdown.gettalong.org/syntax.html) – or just let us know what you want to do.
+
+Internal links can either refer to the source markdown file in the directory or to the generated output URL. For example this current file can be referenced by `[read the guidelines](Guidelines.md)` or by `[read it here]({{site.baseurl}}/docs/Guidelines.html)`. Note the relative navigation for the file and the absolute path for the URL. This distinction is rather a convention than a rule.
 
 # Your repo on this page
 

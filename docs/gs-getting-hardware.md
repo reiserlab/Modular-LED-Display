@@ -55,14 +55,14 @@ Each panel has five micro controller units (MCU) that need to be programmed. Usi
 
 ## Assemble columns and arena
 
-Once the individual parts of the arena are ready to be used, assemble the panels from the driver and comm board. Then [assemble those panels into column](../docs/G4-Assembly.md#assemble-columns). Finally connect the assembled columns to the arena boards.
+Once the individual parts of the arena are ready to be used, assemble the panels from the driver and comm board. Then [assemble those panels into column]({{site.baseurl}}/docs/G4-Assembly.html#assemble-columns). Finally connect the assembled columns to the arena boards.
 
 ## Install software and initial operation
 
-To test and operate the G4 arena, you need to [install the "Panel_Host" software](../docs/G4-Assembly.html#install-software). This pre-compiled application is responsible for the communication between the computer and the arena. For an initial test you can use this software to turn on all LEDs. In addition, you should install the Display Tools that provide a user friendly interface to the arena on top of the "Panel_Host" software.
+To test and operate the G4 arena, you need to [install the "Panel_Host" software]({{site.baseurl}}/docs/G4-Assembly.html#install-software). This pre-compiled application is responsible for the communication between the computer and the arena. For an initial test you can use this software to turn on all LEDs. In addition, you should install the Display Tools that provide a user friendly interface to the arena on top of the "Panel_Host" software.
 
 # Troubleshooting
 
-The G4 arena is a complex system where many things can go wrong. It is therefore very likely that you will need to [troubleshoot](../docs/G4-troubleshooting.html) your setup at several points in the process of setting it up and running it. The [troubleshooting guide](../docs/G4-troubleshooting.html) as well as some of the more detailed documents contain information on how to do this, but if you ever get stuck, don't hesitate to [get in contact](../Contact.md).
+The G4 arena is a complex system where many things can go wrong. It is therefore very likely that you will need to [troubleshoot]({{site.baseurl}}/docs/G4-troubleshooting.html) your setup at several points in the process of setting it up and running it. The [troubleshooting guide]({{site.baseurl}}/docs/G4-troubleshooting.html) as well as some of the more detailed documents contain information on how to do this, but if you ever get stuck, don't hesitate to [get in contact]({{site.baseurl}}/Contact.html).
 
 Once you have a working setup, you can continue the getting started guides with the description on [how to set up an experiment](../Generation 4/Display_Tools/docs/G4DisplayOverview.md)
