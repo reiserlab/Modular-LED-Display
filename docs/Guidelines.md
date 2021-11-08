@@ -6,7 +6,7 @@ nav_order: 98
 
 # Documentation guidelines
 
-Layout and form are secondary aspects of this page whose primary goal is to bundle existing documentation in one place. Still, we are grateful for [any hints on how to improve any aspect of it](../Contact.md). The headers, text, and images follow standard layout conventions. Important parts like **notes** or **warnings** are highlighted by **bold** text. Monospaced font with a gray background is used for code snippets and file paths. For example, `clear; disp("Hello World");` would be code and `/home/reiserlab/Documents` or `C:\Users\Reiserlab\Documents\` would describe directories.
+Layout and form are secondary aspects of this page whose primary goal is to bundle existing documentation in one place. Still, we are grateful for [any hints on how to improve any aspect of it]({{site.baseurl}}/Contact.md). The headers, text, and images follow standard layout conventions. Important parts like **notes** or **warnings** are highlighted by **bold** text. Monospaced font with a gray background is used for code snippets and file paths. For example, `clear; disp("Hello World");` would be code and `/home/reiserlab/Documents` or `C:\Users\Reiserlab\Documents\` would describe directories.
 
 When we describe the interaction with graphical user interfaces (GUI), we use a gray background with colored text for any element shown on the screen. For example, *Refresh Rate: 1000Hz*{:.gui-txt} means that we refer to the text "Refresh Rate: 1000Hz" displayed on a GUI. If we write about clickable buttons, then *OK*{:.gui-btn} would be an example for a confirmation button.
 
@@ -14,7 +14,7 @@ When we describe the interaction with graphical user interfaces (GUI), we use a 
 
 All documentation you see on this page is generated from Markdown documents. Markdown is a simple text-based way of structuring text documents. This means you can read these Markdown documents in any text editor or on GitHub without additional software. The markup should be intuitive and not distract you from reading, for example, if you want to *emphasize* a word, you just put an asterisk before and after the word like so: \**emphasize*\*. If you want to make it **bold**, put two asterisks: \*\***bold**\*\*. That is unintrusive and potentially even intuitive. 
 
-The advantage besides easily generating websites from it is that it reduces the software stack required to read and write documentation. What this means: If you spot an error, you can also directly edit (for example) [this file]({{ site.github. repository_url }}/edit/master/docs/Guidelines.md) on GitHub or use [many other ways](../Contact) to make us aware of your suggestion.
+The advantage besides easily generating websites from it is that it reduces the software stack required to read and write documentation. What this means: If you spot an error, you can also directly edit (for example) [this file]({{site.github.repository_url}}/edit/master/docs/Guidelines.md) on GitHub or use [many other ways]({{site.baseurl}}/Contact) to make us aware of your suggestion.
 
 ## Basic elements
 
@@ -41,7 +41,7 @@ Internal links can either refer to the source markdown file in the directory or 
 
 # Your repo on this page
 
-If you want your git repository included in the page, then please [get in contact](../Contact). We could then discuss which menu item would be best fitting your code, hardware, or documentation. Here are some hints on how to prepare your documentation for this page. In this documentation, we use the following terms:
+If you want your git repository included in the page, then please [get in contact]({{site.baseurl}}/Contact). We could then discuss which menu item would be best fitting your code, hardware, or documentation. Here are some hints on how to prepare your documentation for this page. In this documentation, we use the following terms:
 
 - **Repository**: This is where your code and documentation lives. The repository can be owned by anyone; we don't need special access to a repository to integrated the documentation into the *Display Site*.
 - **Display Site** or **this site** or **display website**: The website that lives at <https://reiserlab.github.io/Modular-LED-Display>. This is the generated output of the *Display Repository*.
