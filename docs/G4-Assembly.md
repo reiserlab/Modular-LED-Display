@@ -13,7 +13,7 @@ Before starting to assemble an arena, make sure you have [acquired the necessary
 ## Flash firmware
 {:.clear}
 
-The driver board has four and the comm board one additional micro controller. If you ordered 48 panels, then this step requires you to program 240 MCUs. Follow the the steps in the ["Firmware" document](../Generation 4/Firmware/docs), but be aware that this step can take some time. On the upside: you will only need to do this once.
+The driver board has four and the comm board one additional micro controller. If you ordered 48 panels, then this step requires you to program 240 MCUs. Follow the the steps in the ["Firmware" document]({{site.baseurl}}/Generation%204/Firmware/docs), but be aware that this step can take some time. On the upside: you will only need to do this once.
 
 ## Assemble columns
 
@@ -32,8 +32,8 @@ Once you connect the power supply, the arena should be up and running. But you w
 # Install software
 {:.clear}
 
-With the physical arena ready to go, you need to make sure that the software on you dedicated computer is correctly set up by following the [G4 Software Setup](../Generation 4/Display_Tools/docs/G4_Software_Setup.md). Once the software is up and running, you can connect the power.
+With the physical arena ready to go, you need to make sure that the software on you dedicated computer is correctly set up by following the [G4 Software Setup]({{site.baseurl}}/Generation%204/Display_Tools/docs/G4_Software_Setup.html). Once the software is up and running, you can connect the power.
 
-After the hardware and software setup is complete, try to start the application `Panel_Host`. At this point you should be able to send an *all on*{:.gui-txt} command through the application to check if the panels turn on. If that works, open MATLAB and run PControl_G4. Make sure that you "allow network access" to the g4host.exe.
+After the hardware and software setup is complete, try to start the application `Panel_Host` that you previous installed in `C:\Program Files(x86)\HHMI G4`. At this point you should be able to send an *all on*{:.gui-txt} command through the GUI to check if the panels turn on. If that works, open MATLAB and run `PControl_G4` in your MATLAB Command Window. When the Windows firewall asks to "allow network access" to the `g4host.exe`, make sure to allow it.
 
-Two windows will open: a LabVIEW window followed by a MATLAB GUI. Once the PControl_G4 MATLAB GUI has opened, click on the *arena*{:.gui-txt} tab and click *all on*{:.gui-btn}. If all LEDs on the arena turn on, then the system has been set up successfully. Otherwise and most likely you will need to trouble shoot system.
+Two windows will open: the `Panel_Host` LabVIEW window followed by a MATLAB GUI. Once the PControl_G4 MATLAB GUI has opened, click on the *arena*{:.gui-txt} tab and click *all on*{:.gui-btn}. If all LEDs on the arena turn on, then the system has been set up successfully. Otherwise and most likely you will need to trouble shoot your system.
