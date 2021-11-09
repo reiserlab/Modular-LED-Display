@@ -69,11 +69,11 @@ To get a system up and running, you will need to decide how many panels you will
 
 In 2018 a typical setup for behavioral rigs could contain the following items. Note that the assembled arena has 9 out of the 12 columns populated, each column with 4 panels.
 
-- 2 [12-12 arena boards](../Generation 4/Arena/docs/arena.md#12-12), one populated as bottom, one as top
-- 36 LED panels (36 [driver-v1.x](../Generation 4/Panel/docs/driver.md#driver-v1) and 36 [comm-v0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3) PCBs)
+- 2 [12-12 arena boards]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#12-12), one populated as bottom, one as top
+- 36 LED panels (36 [driver-v1.x]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v1) and 36 [comm-v0.3]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#comm-v0p3) PCBs)
 - [breakout box](G4-COTS.md#ni-breakout-box)
 - [VHDCI cables](G4-COTS.md#vhdci-cables)
-- arena [interconnect-v1.1](../Generation 4/Arena/docs/arena.md#interconnect) board
+- arena [interconnect-v1.1]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#interconnect) board
 - [power supply](G4-COTS.md#power-supply)
 - [PCIe card](G4-COTS.md#rio-card)
 - [computer](G4-COTS.md#computer) (not pictured)
@@ -84,8 +84,8 @@ In 2018 a typical setup for behavioral rigs could contain the following items. N
 
 This early G4 prototype from 2015 is interesting to remember because the parts are functionally the same but look different and use different hardware revisions:
 
-- Panels ([driver-v0.3](../Generation 4/Panel/docs/driver.md#driver-v0) with mounted 20mm² LED matrices and [comm-v0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3) PCBs)
-- [Test arena](../Generation 4/Arena/docs/arena.md#test)
+- Panels ([driver-v0.3]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v0) with mounted 20mm² LED matrices and [comm-v0.3]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#comm-v0p3) PCBs)
+- [Test arena]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#test)
 - demo controller
 - [power supply 5V 2A](G4-COTS.md#power-supply)
 

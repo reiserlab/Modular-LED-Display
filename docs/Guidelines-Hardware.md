@@ -242,7 +242,7 @@ Since drill files are ASCII files, one way is to add the header information. "Fu
 
 # Versioning
 
-The file versioning loosely follows [Semantic Versioning](https://semver.org/). Within a generation, the version number has two components, for example, [comm-v0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3). This is an abbreviation for [Modular LED Display communication board version 4.0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3).
+The file versioning loosely follows [Semantic Versioning](https://semver.org/). Within a generation, the version number has two components, for example, [comm-v0.3]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#comm-v0p3). This is an abbreviation for [Modular LED Display communication board version 4.0.3]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#comm-v0p3).
 
 Components are considered incompatible between generations; hence the generation acts as the "MAJOR" version.
 
@@ -265,7 +265,7 @@ Visualizations help in identifying a version of a PCB or by documenting how it i
 
 ![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr .pop}
 
-Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x](../Generation 4/Panel/docs/driver.md#driver-v2) and [driver-v1.2](../Generation 4/Panel/docs/driver.md#driver-v1)). Especially since renderings in Cadence and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully, the [example shown on the right for the comm board](../Generation 4/Hardware/docs/comm.md) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to useful documentation.
+Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v2) and [driver-v1.2]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v1)). Especially since renderings in Cadence and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully, the [example shown on the right for the comm board]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to useful documentation.
 
 # How to contribute
 {:.clear}

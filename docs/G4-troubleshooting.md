@@ -59,27 +59,27 @@ Regardless of the computer make/model, it may be worth updating the computer's B
 
 ## "You must select a trial" or "Only one trial may be selected."
 
-Some of the functionality in the [protocol designer](../Generation 4/Display_Tools/docs/protocol-designer.md) can only be performed on one condition at a time. If you get this error, scroll through all your trials and make sure one and only one condition is selected.
+Some of the functionality in the [protocol designer]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer.html) can only be performed on one condition at a time. If you get this error, scroll through all your trials and make sure one and only one condition is selected.
 
-This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
+This error was first described in the [Protocol Designer trouble shooting guide]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer.html#trouble-shooting)
 
 ## "You cannot edit that field in this mode."
 
 Most modes only allow certain parameters to be changed. You are trying to edit a parameter within the protocol designer that is not available for the mode. Check the mode value for that condition and make sure it is correct for what you're trying to do.
 
-This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
+This error was first described in the [Protocol Designer trouble shooting guide]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer.html#trouble-shooting)
 
 ## "The value you've entered is not a multiple of 1000. Please double check your entry."
 
 This is only a warning, not an error. The protocol designer ill not prevent you from continuing. However, best practices for the Analog Input sample rates suggest to use multiples of 1000, so this warning is there in case you miss a zero or otherwise typo a sample rate.
 
-This warning was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
+This warning was first described in the [Protocol Designer trouble shooting guide]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer.html#trouble-shooting)
 
 ## "None of the patterns imported match the screen size selected."
 
 Check the screen size at the center left of the protocol designer. The patterns you've tried to import were made for a different size screen than you have selected.
 
-This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
+This error was first described in the [Protocol Designer trouble shooting guide]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer.html#trouble-shooting)
 
 ## "If you have imported from multiple locations, you must save your experiment before you can test it on the screens."
 
@@ -87,7 +87,7 @@ This is also not an error, but a warning issued by the protocol designer. If you
 
 **Note**: There are plans in the works to remove this limitation and allow the software to track where each imported file comes from. Look for this in future releases.
 
-This warning was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
+This warning was first described in the [Protocol Designer trouble shooting guide]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer.html#trouble-shooting)
 
 ## "Error using fileread. Could not open file HHMI Panels Configuration.ini."
 
@@ -95,10 +95,10 @@ If you get this error message regarding the configuration file or any other impo
 
 If everything is in the correct location, this error could mean that you as a user do not have permission to edit the file in question. Sometimes, especially if the configuration file is located in a root or program files folder, a user may not be allowed to edit those files unless their user profile is set to administrator privileges. If the user cannot edit the file, then the Designer cannot edit the file on the user's behalf. Fixing the permissions will fix the error.
 
-This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
+This error was first described in the [Protocol Designer trouble shooting guide]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer.html#trouble-shooting)
 
 ## Results not saved
 
 When running the experiment, there is either an error message related to `TDMS`, or there will be no results recorded. In that case, please double check, that you don't have any old version of the TDMSReader installed on your machine, specifically not version 2.5. To check this, you can run the MATLAB command `contains(path, "TDMSReaderv2p5")` – a return value of `1` signifies that the old version is installed. Please remove it from your computer or at least from the MATLAB path.
 
-This error should have been caught during the [G4 software setup](../Generation 4/Display_Tools/docs/software_setup.md).
+This error should have been caught during the [G4 software setup]({{site.baseurl}}/Generation%204/Display_Tools/docs/software_setup.html).

@@ -18,9 +18,9 @@ As opposed to the strategic approach in the [acquisition text](G4-Acquisition.md
 
 The following parts take time to acquire as they will need to be custom built. This can take time (read: months).
 
-- [Panel Driver PCB](../Generation 4/Panel/docs/driver.md#driver-v1). Get a few spare ones in addition to the number you need in your setup.
-- The same number of [Panel Comm boards v0.3](../Generation 4/Hardware/docs/comm.md#comm-v0p3).
-- Two [arena boards](../Generation 4/Hardware/docs/comm.md) per setup, one assembled as a bottom board, one as a top board.
+- [Panel Driver PCB]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v1). Get a few spare ones in addition to the number you need in your setup.
+- The same number of [Panel Comm boards v0.3]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#comm-v0p3).
+- Two [arena boards]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html) per setup, one assembled as a bottom board, one as a top board.
 
 All the above require time to verify the design and production files we provide. Not all manufacturers can produce the driver and the arena board. The production itself takes additional time, in our experience around one month. If something goes wrong, repeat.
 
@@ -28,11 +28,11 @@ All the above require time to verify the design and production files we provide.
 
 Some of the PCBs are only required in smaller quantities, are less complicated designs, and are often quicker to get produced (read: weeks). In the best case order them in parallel to the other items, but since the quantity is much lower, you might want to choose a different manufacturer.
 
-- [Arduino shield](../Generation 4/Firmware/docs/programmer.md#arduino-shield) for the programmer
-- [Driver board shield](../Generation 4/Firmware/docs/programmer.md#driver-board-shield) for programmer
-- [Comm board shield](../Generation 4/Firmware/docs/programmer.md#comm-board-shield) for programmer
-- [Interconnect board](../Generation 4/Arena/docs/arena.md#interconnect) for the arena
-- [Placeholder](../Generation 4/Hardware/docs/comm.md#placeholder) in case you want to skip a single panel in a column
+- [Arduino shield]({{site.baseurl}}/Generation%204/Firmware/docs/programmer.html#arduino-shield) for the programmer
+- [Driver board shield]({{site.baseurl}}/Generation%204/Firmware/docs/programmer.html#driver-board-shield) for programmer
+- [Comm board shield]({{site.baseurl}}/Generation%204/Firmware/docs/programmer.html#comm-board-shield) for programmer
+- [Interconnect board]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#interconnect) for the arena
+- [Placeholder]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#placeholder) in case you want to skip a single panel in a column
 
 ## Off-the-shelf items
 
@@ -51,7 +51,7 @@ Once you have all the components needed for a setup, you need to assemble the ac
 
 ## Flash firmware
 
-Each panel has five micro controller units (MCU) that need to be programmed. Using the programmer, you will need to [flash the firmware](../Generation 4/Firmware/docs/) on each of the driver boards as well as each communication board. Panels that come from the manufacturer are not preprogrammed and are not operational without this. For panels that you had stored or inherited from a colleague, this is not always necessary: the software has been stable for a long time. Please check the date on the latest firmware version for your setup and decide based on this, if you need to update it.
+Each panel has five micro controller units (MCU) that need to be programmed. Using the programmer, you will need to [flash the firmware]({{site.baseurl}}/Generation%204/Firmware/docs/) on each of the driver boards as well as each communication board. Panels that come from the manufacturer are not preprogrammed and are not operational without this. For panels that you had stored or inherited from a colleague, this is not always necessary: the software has been stable for a long time. Please check the date on the latest firmware version for your setup and decide based on this, if you need to update it.
 
 ## Assemble columns and arena
 
@@ -65,4 +65,4 @@ To test and operate the G4 arena, you need to [install the "Panel_Host" software
 
 The G4 arena is a complex system where many things can go wrong. It is therefore very likely that you will need to [troubleshoot]({{site.baseurl}}/docs/G4-troubleshooting.html) your setup at several points in the process of setting it up and running it. The [troubleshooting guide]({{site.baseurl}}/docs/G4-troubleshooting.html) as well as some of the more detailed documents contain information on how to do this, but if you ever get stuck, don't hesitate to [get in contact]({{site.baseurl}}/Contact.html).
 
-Once you have a working setup, you can continue the getting started guides with the description on [how to set up an experiment](../Generation 4/Display_Tools/docs/G4DisplayOverview.md)
+Once you have a working setup, you can continue the getting started guides with the description on [how to set up an experiment]({{site.baseurl}}/Generation%204/Display_Tools/docs/G4DisplayOverview.html)
