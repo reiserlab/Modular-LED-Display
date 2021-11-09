@@ -32,7 +32,7 @@ Once you connect the power supply, the arena should be up and running. But you w
 # Install software
 {:.clear}
 
-With the physical arena ready to go, you need to make sure that the software on you dedicated computer is correctly set up by following the [G4 Software Setup]({{site.baseurl}}/Generation%204/Display_Tools/docs/G4_Software_Setup.html). Once the software is up and running, you can connect the power.
+With the physical arena ready to go, you need to make sure that the software on you dedicated computer is correctly set up by following the [G4 Software Setup]({{site.baseurl}}/Generation%204/Display_Tools/docs/software_setup.html). Once the software is up and running, you can connect the power.
 
 After the hardware and software setup is complete, try to start the application `Panel_Host` that you previous installed in `C:\Program Files(x86)\HHMI G4`. At this point you should be able to send an *all on*{:.gui-txt} command through the GUI to check if the panels turn on. If that works, open MATLAB and run `PControl_G4` in your MATLAB Command Window. When the Windows firewall asks to "allow network access" to the `g4host.exe`, make sure to allow it.
 

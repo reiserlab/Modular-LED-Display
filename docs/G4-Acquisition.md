@@ -45,7 +45,7 @@ More specifically, the size of the G4 panel is 40×40mm² instead of 32×32mm² 
 
 Technically, the displays now show synchronous controller driven updates, which means that patterns are only shown when the controller is sending data.
 
-This data transfer regime is possible since the communication between the controller and the panel changed to  Serial Peripheral Interface (SPI) from the previously used I²C in the previous generations.
+This data transfer regime is possible since the communication between the controller and the panel changed to Serial Peripheral Interface (SPI) from the previously used I²C in the previous generations.
 
 The location of panels within the arena is defined by its position in the setup. Previous generations required that individual panels would be pre-programmed for a place within the setup. In G4, each panel's address is defined by the column and the position within the column. Learn more details about this in the [subsection about placeholders](#placeholder).
 
