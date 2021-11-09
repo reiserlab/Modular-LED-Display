@@ -13,7 +13,7 @@ Here we describe what is needed to operate a Modular LED Display of the 4th gene
 
 # Knowledge
 
-You probably have a use case in mind when reading this. You can still learn about the initial motivation to develop modular LED Displays at ["Theory and Practice of Insect Flight Simulators."](../Generation 3/Software/docs/g2-user-guide.md)
+You probably have a use case in mind when reading this. You can still learn about the initial motivation to develop modular LED Displays at ["Theory and Practice of Insect Flight Simulators."]({{site.baseurl}}/Generation%203/Software/docs/g2-user-guide.html)
 
 ## Parts overview
 

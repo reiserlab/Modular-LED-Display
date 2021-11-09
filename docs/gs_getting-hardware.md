@@ -6,9 +6,9 @@ nav_order: 2
 
 # Acquiring the hardware
 
-This is a reminder and reading guide for how to get started setting up the most recent modular LED Display, currently [Generation 4](../docs/G4-index.md). It is basically a compact version of the text [Acquisition](G4-Acquisition.md), which would be a good place to get started on more details.
+This is a reminder and reading guide for how to get started setting up the most recent modular LED Display, currently [Generation 4](G4-index.md). It is basically a compact version of the text [Acquisition](G4-Acquisition.md), which would be a good place to get started on more details.
 
-Read more about earlier version in the sections [Generation 2](../Generation 3/Software/docs/g2-panels.md) and [Generation 3](../Generation 3/index.md).
+Read more about earlier version in the sections [Generation 2]({{site.baseurl}}/Generation%203/Software/docs/g2-panels.html) and [Generation 3]({{site.baseurl}}/Generation%203/index.html).
 
 Just a quick reminder if you have not looked at the chapter on [acquisition](G4-Acquisition.md): An assembled G4 arena consists of of up 48 panels connected to two arena boards. The whole setup is controlled from a dedicated computer and signals can be recorded via an additional breakout box.
 
