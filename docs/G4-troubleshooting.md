@@ -24,7 +24,7 @@ Using a voltmeter, check that the arena board is being supplied with 5V as expec
 Some issues in the past have been caused by mistakes in the arena board assembly. The connectors between the arena board and the LED panels have sometimes been placed on the wrong side of the arena board or have had the gendered 15-pin connectors switched between the top and bottom arena boards. To see if this is the case, remove all of the LED panels from the arena board and plug one column back in, but inserted backwards (where the LEDs are facing to the outside of the arena). If an "all on"{:.gui-txt} command turns on the LEDs in this case, then the connectors were placed incorrectly.
 
 ## Computer freezes at startup
- 
+
 If your system freezes when clicking on *Start Log*{:.gui-btn} try to move the PCI card to a different PCI slot. On two recent machines (Dell Precision 5820) 2 out of 5 slots worked.
 
 ## Flickering LEDs
@@ -38,7 +38,7 @@ If you see some or all the LEDs flicker similar to the image on the right, this 
 
 ## `Error: Create Folder…`
 
-If the `G4 Host.exe` reports *Error: Create Folder in FileIO […] HHMI – Generate File paths.vi…*{:.gui-txt}, make sure that the following directories exist within `C:\Program Files (x86)\HHMI G4\Support Files`: 
+If the `G4 Host.exe` reports *Error: Create Folder in FileIO […] HHMI – Generate File paths.vi…*{:.gui-txt}, make sure that the following directories exist within `C:\Program Files (x86)\HHMI G4\Support Files`:
 
 - `Analog Output Functions`,
 - `Functions`,
@@ -53,52 +53,52 @@ If *Start Log*{:.gui-btn} leads to an error in the status window, then your appl
 
 ## *Deque timeout* is activated in PControl
 
-After running `PControl_G4`, check the LabVIEW window to see if the green light labelled *dequeue timeout*{:.gui-txt} is lit. If it is, it may be that the transfer speeds between the PCIe card and the computer's memory is too slow. If the computer is relatively new/fast, one possible cause of this problem has been noted with newer Dell workstations, which can be fixed by updating the BIOS. 
+After running `PControl_G4`, check the LabVIEW window to see if the green light labelled *dequeue timeout*{:.gui-txt} is lit. If it is, it may be that the transfer speeds between the PCIe card and the computer's memory is too slow. If the computer is relatively new/fast, one possible cause of this problem has been noted with newer Dell workstations, which can be fixed by updating the BIOS.
 
 Regardless of the computer make/model, it may be worth updating the computer's BIOS and seeing if that helps, which can be done by finding your PC's manufacture support webpage and downloading the latest BIOS installer (e.g. for Dells: <https://www.dell.com/support/home/us/en/04>).
 
-## "You must select a trial" or "Only one trial may be selected." 
+## "You must select a trial" or "Only one trial may be selected."
 
-Some of the functionality in the [protocol designer](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md) can only be performed on one condition at a time. If you get this error, scroll through all your trials and make sure one and only one condition is selected.
+Some of the functionality in the [protocol designer](../Generation 4/Display_Tools/docs/protocol-designer.md) can only be performed on one condition at a time. If you get this error, scroll through all your trials and make sure one and only one condition is selected.
 
-This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md#trouble-shooting)
+This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
 
 ## "You cannot edit that field in this mode."
 
 Most modes only allow certain parameters to be changed. You are trying to edit a parameter within the protocol designer that is not available for the mode. Check the mode value for that condition and make sure it is correct for what you're trying to do.
 
-This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md#trouble-shooting)
+This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
 
-## "The value you've entered is not a multiple of 1000. Please double check your entry." 
+## "The value you've entered is not a multiple of 1000. Please double check your entry."
 
 This is only a warning, not an error. The protocol designer ill not prevent you from continuing. However, best practices for the Analog Input sample rates suggest to use multiples of 1000, so this warning is there in case you miss a zero or otherwise typo a sample rate.
 
-This warning was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md#trouble-shooting)
+This warning was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
 
 ## "None of the patterns imported match the screen size selected."
 
 Check the screen size at the center left of the protocol designer. The patterns you've tried to import were made for a different size screen than you have selected.
 
-This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md#trouble-shooting)
+This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
 
 ## "If you have imported from multiple locations, you must save your experiment before you can test it on the screens."
 
-This is also not an error, but a warning issued by the protocol designer. If you have not saved your experiment yet, then the folder this application thinks of as the "experiment folder" is the last folder you imported from. If you have imported from multiple locations and try to test a trial on the screens, it may not work if it cannot find the pattern or function it needs in the last location you imported from. You can avoid this issue by saving the experiment before you dry run a trial. 
+This is also not an error, but a warning issued by the protocol designer. If you have not saved your experiment yet, then the folder this application thinks of as the "experiment folder" is the last folder you imported from. If you have imported from multiple locations and try to test a trial on the screens, it may not work if it cannot find the pattern or function it needs in the last location you imported from. You can avoid this issue by saving the experiment before you dry run a trial.
 
 **Note**: There are plans in the works to remove this limitation and allow the software to track where each imported file comes from. Look for this in future releases.
 
-This warning was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md#trouble-shooting)
+This warning was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
 
-## "Error using fileread. Could not open file HHMI Panels Configuration.ini." 
+## "Error using fileread. Could not open file HHMI Panels Configuration.ini."
 
 If you get this error message regarding the configuration file or any other important file, check that the path to this file is correct in your settings and make sure the file is on your MATLAB path. If you get this error regarding the `G4_Protocol_Designer_Settings.m` file, make sure it is located in `G4_Display_Tools\G4_Protocol_Designer`. Do not move it from this location. If you get this error regarding the `recently_opened_g4p_files.m` file, please make sure it is located in `G4_Display_Tools\G4_Protocol_Designer\support_files`. DO NOT edit this file.
 
 If everything is in the correct location, this error could mean that you as a user do not have permission to edit the file in question. Sometimes, especially if the configuration file is located in a root or program files folder, a user may not be allowed to edit those files unless their user profile is set to administrator privileges. If the user cannot edit the file, then the Designer cannot edit the file on the user's behalf. Fixing the permissions will fix the error.
 
-This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/G4_Designer_Manual.md#trouble-shooting)
+This error was first described in the [Protocol Designer trouble shooting guide](../Generation 4/Display_Tools/docs/protocol-designer.md#trouble-shooting)
 
 ## Results not saved
 
 When running the experiment, there is either an error message related to `TDMS`, or there will be no results recorded. In that case, please double check, that you don't have any old version of the TDMSReader installed on your machine, specifically not version 2.5. To check this, you can run the MATLAB command `contains(path, "TDMSReaderv2p5")` – a return value of `1` signifies that the old version is installed. Please remove it from your computer or at least from the MATLAB path.
 
-This error should have been caught during the [G4 software setup](../Generation 4/Display_Tools/docs/G4_Software_Setup.md).
+This error should have been caught during the [G4 software setup](../Generation 4/Display_Tools/docs/software_setup.md).

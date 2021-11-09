@@ -13,3 +13,4 @@ docs/*pdf
 docs/*docx
 
 .ruby-version
+.markdownlint.json

@@ -10,7 +10,7 @@ has_toc: false
 
 Depending on your background and on your goal, we try to provide different "Getting Started" guides. Please let us know if you find the helpful and [get in contact](../Contact.md) if you have ideas how to improve them.
 
-## [Historic background](gs-historic-background.md)
+## [Historic background](gs_historic-background.md)
 
 - **Target audience**: Anyone
 - **Prerequisites**: None
@@ -19,7 +19,7 @@ Depending on your background and on your goal, we try to provide different "Gett
 
 Anyone interested in running experiments with modular LED displays will find some reading material here to learn about what these arenas have been used for and can be used for.
 
-## [Aquiring the hardware](gs-getting-hardware.md)
+## [Aquiring the hardware](gs_getting-hardware.md)
 
 - **Target audience**: Engineers supporting the setup process.
 - **Prerequisites**: None
@@ -28,7 +28,7 @@ Anyone interested in running experiments with modular LED displays will find som
 
 For new systems, we currently recommend using Generation 4 modular displays as they are reasonably stable and provide the highest spatial and temporal resolution of the available systems.
 
-## [Experiment Creation](../Generation 4/Display_Tools/docs/G4DisplayOverview.md)
+## [Experiment Creation]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer_getting-started.html)
 
 - **Target audience**: Experimenter
 - **Prerequisites**: Acquiring the hardware; Historic background (optional)
@@ -37,7 +37,7 @@ For new systems, we currently recommend using Generation 4 modular displays as t
 
 Researchers that want to use modular LED displays to answer questions using a model animal can follow this guide to set up a new experiment. While some steps can be taken before a physical arena is available, its completion requires access to a complete setup.
 
-## [Running an experiment](../Generation 4/Display_Tools/docs/G4Run_Overview.md)
+## [Running an experiment]({{site.baseurl}}/Generation%204/Display_Tools/docs/experiment-conductor_getting-started.html)
 
 - **Target audience**: Experimenter
 - **Prerequisites**: Setting up the experiment; Historic background (optional)
@@ -46,7 +46,7 @@ Researchers that want to use modular LED displays to answer questions using a mo
 
 During data collection, these guides act as reminders how to run the experiments and have been proven helpful in troubleshooting the system.
 
-## [Analyzing the data](../Generation 4/Display_Tools/docs/DAtools_overview.md)
+## [Analyzing the data]({{site.baseurl}}/Generation%204/Display_Tools/docs/data-handling_getting-started.html)
 
 - **Target audience**: Experimenter; PI
 - **Prerequisites**: Running an experiment
