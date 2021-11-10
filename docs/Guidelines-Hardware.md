@@ -49,7 +49,7 @@ Cadence and KiCad both divide the design process into a [schematic design](#sche
 
 The focus of the repositories is on the production of Modular LED Displays and, therefore, the PCB design. Yet, to understand the PCB design, it is necessary to track changes in the schematics. Therefore some visualization of the schematic drawing should be provided every time something has changed. In the past, these schematics were shown through documents such as `*.pdf` files. Other image formats like `*.png` files are not ideal, but better than nothing.
 
-Since schematic drawings are generated from schematic design files, it can help track the schematic designs in the repositories, too. Cadence, and more specific OrCAD uses `*.dsn` files. Recent versions of KiCad switched to `*.kicad_sch` file extensions while old versions use `*.sch` for the schematic design files. Some of the designs can consist of several schematic files or additional library files containing details for used electrical components. Please provide all files necessary for opening the schematic. As a user of your toolset, you probably know best which files are required. 
+Since schematic drawings are generated from schematic design files, it can help track the schematic designs in the repositories, too. Cadence, and more specific OrCAD uses `*.dsn` files. Recent versions of KiCad switched to `*.kicad_sch` file extensions while old versions use `*.sch` for the schematic design files. Some of the designs can consist of several schematic files or additional library files containing details for used electrical components. Please provide all files necessary for opening the schematic. As a user of your toolset, you probably know best which files are required.
 
 The handover between the schematic design and the PCB design is, among others, a netlist file. Since the netlist can be generated from a valid schematic design file, it is unnecessary to keep track of these files in the repositories.
 
@@ -80,18 +80,18 @@ There is no standard for how the files are named. Therefore the PCB manufacturer
 #### OrCAD
 
 ![OrCAD Gerber settings that work well](../assets/OrCAD_gerber-parameter.png){:.ifr .pop}
-You need to set a few parameters to get a good quality gerber file. The screenshot is taken from Cadence OrCAD, but options in Cadence Allegro will look fairly similar. When you choose *Export*{:.gui-txt} → *Gerber*{:.gui-txt}, make sure to set the *General Parameters*{:.gui-txt} as shown in the screenshot. Pay attention to the *Device type*{:.gui-txt} which should be *Gerber RS274X*{:.gui-txt}, to the *Output units*{:.gui-txt} which should be *Millimeters*{:.gui-txt}, and the *Format*{:.gui-txt}, which should have 4 integer places and 6 decimal places. 
+You need to set a few parameters to get a good quality gerber file. The screenshot is taken from Cadence OrCAD, but options in Cadence Allegro will look fairly similar. When you choose *Export*{:.gui-txt} → *Gerber*{:.gui-txt}, make sure to set the *General Parameters*{:.gui-txt} as shown in the screenshot. Pay attention to the *Device type*{:.gui-txt} which should be *Gerber RS274X*{:.gui-txt}, to the *Output units*{:.gui-txt} which should be *Millimeters*{:.gui-txt}, and the *Format*{:.gui-txt}, which should have 4 integer places and 6 decimal places.
 
 ![Example error](../assets/OrCAD_gerber-parameter_example-error.png){:.ifr .pop .clear}
 Especially not setting the precision in the format can lead to errors that are difficult to spot. The screenshot on the right shows vias that should be in the center of the plane cutouts, but due to a wrong format, some of them connect to the plane (while most don't).
 
-#### KiCad
+#### KiCAD
 {:.clear}
 
-![KiCad plot settings that work well](../assets/KiCad_plot-grb.png){:.ifr .pop}
+![KiCAD plot settings that work well](../assets/KiCad_plot-grb.png){:.ifr .pop}
 The screenshot shows which options have worked well in the past for KiCad. Note the coordinate format with units in mm and a precision of 4 before and 6 digits after the comma. Make sure to select the X2 format and generate a job file.
 
-#### Further Readings
+#### KiCAD Further Readings
 
 - [EuroCircuit: RS-274X](https://www.eurocircuits.com/RS274X-Extended-Gerber/)
 - [Ucamco: Gerber Format](https://www.ucamco.com/en/gerber)
@@ -139,7 +139,7 @@ Arguably the most crucial feature of a BOM is descriptive headers: the assembler
 - **Footprint** or **Package**: the components package
 - **Manufacturer** (optional): Component manufacturer name
 - **MPN** or **Manufacturer #**: Component manufacturer product number, e.g., `RMCF0603JT220R`.
-- [SUPPLIER]PN, e.g., **DigikeyPN** (optional): PN of a specific supplier, e.g., DigiKey, Mouser, LCSC, for example, `RMCF0603JT220RDKR-ND`
+- [SUPPLIER]PN, e.g., **DigikeyPN** (optional): PN of a specific supplier, e.g., Digi-Key, Mouser, LCSC, for example, `RMCF0603JT220RDKR-ND`
 - **Notes** or **Instructions**: Additional comments, for example, specify if it's OK to use a generic component from the **Description** or determine alternatives to the suggested part.
 
 The ID is optional but can help during the communication with the assembler. For example, you can say that "item 24 can be replaced by…" in an email. One way to provide alternatives for a part is to use additional letter indices; for example, ID `24a` could reference `C0603JR-07220RL`, and ID `24b` could specify `RMCF0603JT220R`. Use the **Notes** field to clarify this.
@@ -226,7 +226,7 @@ Some differences between the specified component and the description are minimal
 
 ![Example feedback on BOM](../assets/error_bom_2.png){:.ifr .pop}
 
-Different suppliers use other product numbers, and different assemblers might get their components from various suppliers. Suppose an assembler identifies a problem with the product number. In that case, it might be worth checking if the column **MPN** really contains the manufacturers' product number and not the id from a supplier. In the example on the right, the BOM accidentally had a Digikey product number in the **MPN** column in lines two, three, and eight. Besides, if an assembler suggests the product number from a different supplier, it might save you some time and confusion down the road if you add a new column, e.g., for **MouserPN**. You might not need it immediately, but if you have the files open anyway and work through it, why not reduce future work.
+Different suppliers use other product numbers, and different assemblers might get their components from various suppliers. Suppose an assembler identifies a problem with the product number. In that case, it might be worth checking if the column **MPN** really contains the manufacturers' product number and not the id from a supplier. In the example on the right, the BOM accidentally had a Digi-Key product number in the **MPN** column in lines two, three, and eight. Besides, if an assembler suggests the product number from a different supplier, it might save you some time and confusion down the road if you add a new column, e.g., for **MouserPN**. You might not need it immediately, but if you have the files open anyway and work through it, why not reduce future work.
 
 Always try to keep the description of the package in sync with the actual part number. In the above BOM, the items in lines six and seven were specified as 0603 packages, but the part number suggests that these are really 0402 packages. Wrong sized can lead to faulty orders and unexpected costs: if the smallest component is smaller than specified throughout the quotation process and can lead to unforeseen delays.
 
