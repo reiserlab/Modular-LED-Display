@@ -20,7 +20,7 @@
 	path = Generation 4/Hardware
 	url = https://github.com/floesche/panels_g4_hardware
 [submodule "Generation 2/Hardware"]
-	path = Generation 2/Hardware
+	path = Generation 2/Panels
 	url = https://github.com/floesche/panels_g3_hardware
 [submodule "Generation 2/Arenas"]
 	path = Generation 2/Arenas

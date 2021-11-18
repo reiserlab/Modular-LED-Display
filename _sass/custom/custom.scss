@@ -1,4 +1,4 @@
-kbd{
+kbd,.kbd{
 	display: inline-block;
 	color: #363636;
 	text-decoration: none;
@@ -51,3 +51,21 @@ kbd{
 	transition: transform .5s;
 }
 .pop:hover{transform: scale(1.05);}
+
+
+.error,.warning,.info{
+	padding:20px;
+	margin-bottom:15px;
+}
+.error{
+	background-color:#ffeeee;
+	border-left:15px solid #cc0000;
+}
+.warning{
+	background-color:#ffffee;
+	border-left:15px solid #cccc00;
+}
+.info{
+	background-color:#eeffee;
+	border-left:15px solid #00cc00;
+}
