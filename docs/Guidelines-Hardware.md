@@ -57,7 +57,7 @@ The handover between the schematic design and the PCB design is, among others, a
 
 The purpose of the repositories and documentation is to enable other labs to produce their own Modular LED Displays. Different PCB manufacturers and assemblers might require slightly different versions of the fabrication files. Therefore it is necessary to share the PCB design files so that these labs can generate fabrication files according to their assembly houses. At this time (2020), some PCB manufacturers also start accepting design files, for example, from KiCad to export the fabrication files in the exact format they need. So even if you decide not to share the schematic design files and only want to provide a schematic drawing instead, a shared PCB design file will make life easier for everyone.
 
-PCBs for the Modular LED Displays were designed either with Cadence or KiCad. The design files for Cadence uses `*.brd` as a file extension while KiCad uses `*.kicad_pcb` at this stage. For example, the G4 panel driver starting with version 1, has been developed in Cadence while the panel communication board is being developed in KiCAD. Consequently, the [driver board's repository](https://github.com/floesche/Panel-G4-Hardware) is used to track the latest design iteration in the Cadence file format as a `*.brd` file. Similarly, the [comm board's repository](https://github.com/floesche/panels_g4_hardware/tree/master/atmega328/four_panel/20mm_matrix/ver3/comm/) contains the latest design iteration in a KiCad file format that uses the extension `*.kicad_pcb`.
+PCBs for the Modular LED Displays were designed either with Cadence or KiCad. The design files for Cadence uses `*.brd` as a file extension while KiCad uses `*.kicad_pcb` at this stage. For example, the G4 panel driver starting with version 1, has been developed in Cadence while the panel communication board is being developed in KiCad. Consequently, the [driver board's repository]({{site.baseurl}}/Panel/docs/driver.html) is used to track the latest design iteration in the Cadence file format as a `*.brd` file as well as the latest design iteration in a KiCad file format that uses the extension `*.kicad_pcb`.
 
 Some designs might require additional files; please make sure to share all files that are necessary to open the PCB design file. For example, footprints of other components can be in a `*.kicad_mod` file.
 
@@ -85,13 +85,13 @@ You need to set a few parameters to get a good quality gerber file. The screensh
 ![Example error](../assets/OrCAD_gerber-parameter_example-error.png){:.ifr .pop .clear}
 Especially not setting the precision in the format can lead to errors that are difficult to spot. The screenshot on the right shows vias that should be in the center of the plane cutouts, but due to a wrong format, some of them connect to the plane (while most don't).
 
-#### KiCAD
+#### KiCad
 {:.clear}
 
-![KiCAD plot settings that work well](../assets/KiCad_plot-grb.png){:.ifr .pop}
+![KiCad plot settings that work well](../assets/KiCad_plot-grb.png){:.ifr .pop}
 The screenshot shows which options have worked well in the past for KiCad. Note the coordinate format with units in mm and a precision of 4 before and 6 digits after the comma. Make sure to select the X2 format and generate a job file.
 
-#### KiCAD Further Readings
+#### KiCad Further Readings
 
 - [EuroCircuit: RS-274X](https://www.eurocircuits.com/RS274X-Extended-Gerber/)
 - [Ucamco: Gerber Format](https://www.ucamco.com/en/gerber)
@@ -119,9 +119,9 @@ In addition to the above options, OrCAD works best with setting the following *P
 
 ![KiCad drill file options](../assets/KiCad_plot-drl.png){:.ifr .pop}
 
-In KiCAD, a similar result can be achieved by selecting the *Excellon*{:.gui-txt} file format with *PTH and NPTH in single file*{:.gui-txt}, an *Absolute Drill Origin*{:.gui-txt} and *Drill Units*{:.gui-txt} in *Millimeters*{:.gui-txt}. In this case, the screenshot shows how to keep all zeroes, which will be the only structural difference to the file generated in Cadence with the options shown above.
+In KiCad, a similar result can be achieved by selecting the *Excellon*{:.gui-txt} file format with *PTH and NPTH in single file*{:.gui-txt}, an *Absolute Drill Origin*{:.gui-txt} and *Drill Units*{:.gui-txt} in *Millimeters*{:.gui-txt}. In this case, the screenshot shows how to keep all zeroes, which will be the only structural difference to the file generated in Cadence with the options shown above.
 
-#### Further Readings
+#### KiCad Further Readings
 
 - [OSHPark: Common Errors with Drill Files](https://docs.oshpark.com/troubleshooting/drill-issues/)
 - [PCB Prime: Drilling and Drill File Tips](https://pcbprime.com/pcb-tips/drill-file/)

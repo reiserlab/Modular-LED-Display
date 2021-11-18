@@ -61,7 +61,7 @@ The Markdown files can be stored anywhere in your repository, wherever you prefe
 
 Any text file with the extension `.md` will generate some kind of output. To make it look pretty and to use images, links, and code blocks, refer to the Markdown documentation on the [kramdown website](https://kramdown.gettalong.org/syntax.html). The integration into the navigation of the *Display Website* is achieved through a prepended section called Frontmatter.
 
-**Frontmatter** is a part at the beginning of the Markdown file separated from the rest by `---`. The frontmatter itself follows a YAML syntax, which in this case, basically means a key-value pair separated by a <kbd>:</kbd>+<kbd>SPACE</kbd>. For the *Display Repository*, the frontmatter is used to describe how the page is represented in the navigation menu. Here an example:
+**Frontmatter** is a part at the beginning of the Markdown file separated from the rest by `---`. The frontmatter itself follows a YAML syntax, which in this case, basically means a key-value pair separated by a *:*{:.kbd}+*SPACE*{:.kbd}. For the *Display Repository*, the frontmatter is used to describe how the page is represented in the navigation menu. Here an example:
 
 ```markdown
 ---
@@ -112,6 +112,28 @@ Once you click *OK*{:.gui-btn}, you will see the *X: 25ms*{:.gui-txt} in the mai
 ```
 
 The above Markdown will look like this on the *Display Site*: Once you click *OK*{:.gui-btn}, you will see the *X: 25ms*{:.gui-txt} in the main window
+
+Warning and information boxes can be higlighted by adding the classes `.error`, `.warning`, and `.info` respectively. For example
+
+```markdown
+This is an error
+{:.error}
+
+This is a warning box.
+{:.warning}
+
+And information will be highlighted in a different color.
+{:.info}
+```
+
+This is an error
+{:.error}
+
+This is a warning box.
+{:.warning}
+
+And information will be highlighted in a different color.
+{:.info}
 
 # Hacks and tips
 
