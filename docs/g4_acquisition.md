@@ -57,7 +57,7 @@ Some parts of the G4 Modular LED Display needs to be produced; some can be bough
 
 ## Sources
 
-Some parts for the G4 arena [can be bought](G4-COTS.md), but all the PCBs need to be customized and produced to your requirements. And producing PCBs takes time.
+Some parts for the G4 arena [can be bought](g4_off-the-shelf.md), but all the PCBs need to be customized and produced to your requirements. And producing PCBs takes time.
 
 A typical turn-around time for assemblers from the moment they receive the files to the moment you receive the hardware is one month. Over time and between manufacturers, the production process differs. Manufacturers adjust the provided files, which sometimes means that the same set of files produce more or less reliable results between batches. If you are thinking about making larger volumes of either board, we strongly recommend running a smaller batch and thoroughly testing that hardware. Once you have verified the results, order a larger volume from the same manufacturer. At each step of the process, try to get the files from the manufacturer that they used to produce your batch. This is important for your own reference and for ordering replacements and new systems later. Often the manufacturer will introduce small changes to the design without necessarily notifying you about it. Sometimes this can lead to more difficult debugging.
 
@@ -73,12 +73,12 @@ In 2018 a typical setup for behavioral rigs could contain the following items. N
 
 - 2 [12-12 arena boards]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#12-12), one populated as bottom, one as top
 - 36 LED panels (36 [driver-v1.x]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v1) and 36 [comm-v0.3]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#comm-v0p3) PCBs)
-- [breakout box](G4-COTS.md#ni-breakout-box)
-- [VHDCI cables](G4-COTS.md#vhdci-cables)
+- [breakout box](g4_off-the-shelf.md#ni-breakout-box)
+- [VHDCI cables](g4_off-the-shelf.md#vhdci-cables)
 - arena [interconnect-v1.1]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#interconnect) board
-- [power supply](G4-COTS.md#power-supply)
-- [PCIe card](G4-COTS.md#rio-card)
-- [computer](G4-COTS.md#computer) (not pictured)
+- [power supply](g4_off-the-shelf.md#power-supply)
+- [PCIe card](g4_off-the-shelf.md#rio-card)
+- [computer](g4_off-the-shelf.md#computer) (not pictured)
 
 ## Example Arena from 2015
 {:.clear}
@@ -90,4 +90,4 @@ This early G4 prototype from 2015 is interesting to remember because the parts a
 - Panels ([driver-v0.3]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v0) with mounted 20mm² LED matrices and [comm-v0.3]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#comm-v0p3) PCBs)
 - [Test arena]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#test)
 - demo controller
-- [power supply 5V 2A](G4-COTS.md#power-supply)
+- [power supply 5V 2A](g4_off-the-shelf.md#power-supply)
