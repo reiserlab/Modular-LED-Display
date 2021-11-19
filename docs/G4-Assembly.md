@@ -6,7 +6,7 @@ has_children: true
 has_toc: false
 ---
 
-Before starting to assemble an arena, make sure you have [acquired the necessary parts](G4-Acquisition.md).
+Before starting to assemble an arena, make sure you have [acquired the necessary parts](g4_acquisition.md).
 
 # Build arena
 
