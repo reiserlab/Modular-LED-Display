@@ -16,7 +16,7 @@ To follow the history of the modular LED displays chronologically, you could div
 
 ## Repositories and file organization
 
-![Link to the github repository this particular page is generated from](../assets/getting-started/web_footer.png){:.ifr}
+![Link to the github repository this particular page is generated from](assets/weblink_repo.png){:standalone .ifr}
 
 The documentation for any of the generations is pulled from many different sources. Therefore, the most value for you could be the links to all the different repositories (see partial screenshot above). You will see a list of all repositories at the [home page]({{site.baseurl}}/#repositories). In addition and whenever you click on a menu, such as [Generation 4 → Assembly → Firmware]({{site.baseurl}}/Generation%204/Firmware/docs/) you will find a link on the bottom left of the page saying "This page is generated from …". A click on that link will get you directly to the linked github repository with all the potentially useful files. Beyond software, these repositories contain all the files you need to repair existing hardware, from schematics to gerber files ready to produce replacements for broken panels or arenas of different configurations.
 
