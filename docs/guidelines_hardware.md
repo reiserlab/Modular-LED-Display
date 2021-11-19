@@ -79,19 +79,22 @@ There is no standard for how the files are named. Therefore the PCB manufacturer
 
 #### OrCAD Gerber export
 
-![OrCAD Gerber settings that work well](../assets/OrCAD_gerber-parameter.png){:.ifr .pop}
+![OrCAD Gerber settings that work well](assets/g_h_orcad_gerber_parameter.png){:standalone .ifr data-img-class="pop"}
+
 You need to set a few parameters to get a good quality gerber file. The screenshot is taken from Cadence OrCAD, but options in Cadence Allegro will look fairly similar. When you choose *Export*{:.gui-txt} → *Gerber*{:.gui-txt}, make sure to set the *General Parameters*{:.gui-txt} as shown in the screenshot. Pay attention to the *Device type*{:.gui-txt} which should be *Gerber RS274X*{:.gui-txt}, to the *Output units*{:.gui-txt} which should be *Millimeters*{:.gui-txt}, and the *Format*{:.gui-txt}, which should have 4 integer places and 6 decimal places.
 
-![Example error](../assets/OrCAD_gerber-parameter_example-error.png){:.ifr .pop .clear}
+![Example error on the PCB through format precision](assets/g_h_orcad_gerber_parameter_example-error.png){:standalone .ifr .clear data-img-class="pop"}
+
 Especially not setting the precision in the format can lead to errors that are difficult to spot. The screenshot on the right shows vias that should be in the center of the plane cutouts, but due to a wrong format, some of them connect to the plane (while most don't).
 
 #### KiCad Gerber export
 {:.clear}
 
-![KiCad plot settings that work well](../assets/KiCad_plot-grb.png){:.ifr .pop}
+![KiCad plot settings that work well](assets/g_h_kicad_gerber_parameter.png){:standalone .ifr .clear data-img-class="pop"}
+
 The screenshot shows which options have worked well in the past for KiCad. Note the coordinate format with units in mm and a precision of 4 before and 6 digits after the comma. Make sure to select the X2 format and generate a job file.
 
-#### KiCad Further Readings
+#### Gerber: Further Readings
 
 - [EuroCircuit: RS-274X](https://www.eurocircuits.com/RS274X-Extended-Gerber/)
 - [Ucamco: Gerber Format](https://www.ucamco.com/en/gerber)
@@ -107,21 +110,22 @@ Emphasizing all file format features would be tedious, but a few settings seem t
 
 #### OrCAD Drill settings {#orcad}
 
-![OrCAD NC Drill settings](../assets/OrCAD_drill.png){:.ifr .pop}
+![OrCAD NC Drill settings](assets/g_h_orcad_drill.png){:standalone .ifr .clear data-img-class="pop"}
+
 The Cadence default configuration does not generate standard-compliant drill files, but the following settings have worked well. The screenshots are taken from OrCAD, but the menus in Allegro, the other Cadence tool, should be very similar. Note that *Auto tool select*{:.gui-txt} is chosen, and *Repeat codes*{:.gui-txt} is not – which is different from the default. The drilling should also be done by layer pair, which defines the starting and end layer for the drill, instead of generating a separate drill file for each layer.
 
-![OrCAD NC Drill settings](../assets/OrCAD_drill-parameters.png){:.ifr .pop}
+![OrCAD NC Drill settings](assets/g_h_orcad_drill_parameter.png){:standalone .ifr .clear data-img-class="pop"}
+
 In addition to the above options, OrCAD works best with setting the following *Parameters…*{:.gui-btn}. The format should have a precision of *3*{:.gui-txt} before and *3*{:.gui-txt} after the comma. The coordinates should be *Absolute*{:.gui-txt} and *Metric*{:.gui-txt}, and the *Enhanced Excellon format*{:.gui-txt} should be selected. No zero suppression or one of the trailing or leading suppression should all work well.
-{:.clear}
 
 #### KiCad Drill settings {#kicad}
 {:.clear}
 
-![KiCad drill file options](../assets/KiCad_plot-drl.png){:.ifr .pop}
+![KiCad drill file options](assets/g_h_kicad_drill.png){:standalone .ifr .clear data-img-class="pop"}
 
 In KiCad, a similar result can be achieved by selecting the *Excellon*{:.gui-txt} file format with *PTH and NPTH in single file*{:.gui-txt}, an *Absolute Drill Origin*{:.gui-txt} and *Drill Units*{:.gui-txt} in *Millimeters*{:.gui-txt}. In this case, the screenshot shows how to keep all zeroes, which will be the only structural difference to the file generated in Cadence with the options shown above.
 
-#### KiCad Further Readings {#kicad-further-readings}
+#### Drill File: Further Readings {#drill-further-readings}
 
 - [OSHPark: Common Errors with Drill Files](https://docs.oshpark.com/troubleshooting/drill-issues/)
 - [PCB Prime: Drilling and Drill File Tips](https://pcbprime.com/pcb-tips/drill-file/)
@@ -208,7 +212,7 @@ Not all PCB manufacturers provide feedback; sometimes, you have to explicitly as
 
 ### Traces and routing {#routing}
 
-![Trace to close to the edge](../assets/error_trace.jpg){:.ifr .pop}
+![Trace to close to the edge](assets/g_h_error_trace.jpg){:standalone .ifr .clear data-img-class="pop"}
 
 Depending on the machines the PCB manufacturer has at the shop, their process might be more sensitive to trace location, trace width, or distance between traces than the design software's constraints. In this example, the two yellow arrows on the right point out that the traces come close to the edge. Since the margin of slack can be similar across different machines for different PCB manufacturers, and if there is no other downside, it might be worth considering to reroute these parts. This could require updating the [design files](#eda-design) and then regenerating the next batch's [fabrication files](#fabrication).
 
@@ -218,13 +222,13 @@ Other examples are the distance between traces: the design rule check (DRC) duri
 
 ### BOM corrections {#bom-corrections}
 
-![Example feedback on BOM](../assets/error_bom_1.png){:.ifr .pop}
+![Example feedback on BOM](assets/g_h_error_bom_1.png){:standalone .ifr .clear data-img-class="pop"}
 
 The automatic generation of BOM files through the design tools can lead to unexpected results.  Suppose there is a small difference in a component's specification, such as an additional space in the component description like `220Ohm` vs. `220 Ohm`. In that case, it can lead to duplicate BOM lines. Assembly houses bill per unique part, so reducing the number of lines in the BOM avoids potential problems and save money. In the example feedback on the right, an assembler has highlighted this particular problem for several lines, including the first, second, seventh, and eighth.
 
 Some differences between the specified component and the description are minimal, or the context in which they are used makes it easy to find a replacement. Correcting the original design files can reduce the communication cycles for future orders. This will also prevent problems for cases where these differences actually matter, and a prospective assembler might miss that problem. Examples of this particular issue are shown in the above example for lines four and the last line.
 
-![Example feedback on BOM](../assets/error_bom_2.png){:.ifr .pop}
+![Example feedback on BOM](assets/g_h_error_bom_1.png){:standalone .ifr .clear data-img-class="pop"}
 
 Different suppliers use other product numbers, and different assemblers might get their components from various suppliers. Suppose an assembler identifies a problem with the product number. In that case, it might be worth checking if the column **MPN** really contains the manufacturers' product number and not the id from a supplier. In the example on the right, the BOM accidentally had a Digi-Key product number in the **MPN** column in lines two, three, and eight. Besides, if an assembler suggests the product number from a different supplier, it might save you some time and confusion down the road if you add a new column, e.g., for **MouserPN**. You might not need it immediately, but if you have the files open anyway and work through it, why not reduce future work.
 
@@ -234,7 +238,7 @@ By adding an additional column for a supplier in the BOM, this potential problem
 
 ### Drill files {#correcting-drill}
 
-![Drill file errors](../assets/error_drill.png){:.ifr .pop}
+![Drill file errors](assets/g_h_error_drill.png){:standalone .ifr .clear data-img-class="pop"}
 
 In the past, [drill files](#drill) were especially error-prone. This is possibly caused by OrCAD's default settings that produce a non-standard file unless parameters are set correctly. In some instances, this is caused by missing configuration for the drill bit size in the header, as in the example screenshot of an error message that an assembler sent to us. Not all PCB manufacturers and assemblers will complain about all errors; they will assume a default tool size or copy drill bit size from an assembly file. This copy&paste process on the PCB manufacturer side adds a potential mistake to the PCB, which can easily be avoided by providing a valid drill file.
 
@@ -263,25 +267,26 @@ Different applications and knowledge require various emphasis within the documen
 
 Visualizations help in identifying a version of a PCB or by documenting how it is used. When working on the design files, either Cadence software, as well as KiCad, supports the 3D rendering of the PCB. This image can be used to see the silkscreen that might otherwise be hidden after assembling a PCB. Once the PCB was produced and arrives, a photo can be used to document how it actually looks. This step is often not considered necessary during the design phase, and it's certainly more exciting to try a new arrival than to take a picture.
 
-![example with rendering and photo of a PCB](../assets/docu_render_photo.png){:.ifr .pop}
+![example with rendering and photo of a PCB](assets/g_h_doc_render_photo.png){:standalone .ifr .clear data-img-class="pop"}
 
 Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v2) and [driver-v1.2]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v1)). Especially since renderings in Cadence and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully, the [example shown on the right for the comm board]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to useful documentation.
 
 # How to contribute
 {:.clear}
 
-![Screenshot of GitHub website for this file with the "pen button" visible](../assets/contribute_open-url.png){:.ifr .pop}
+![Screenshot of GitHub website for this file with the "pen button" visible](assets/g_h_contribute_open-url.png){:standalone .ifr .clear data-img-class="pop"}
 
 This guideline is part of a living set of documents published on the website <https://reiserlab.github.io/Modular-LED-Display/>. Each repository that contains files for the Modular LED Display also includes the documentation for those files and makes it very easy to update the information whenever something changes. There is no need to download any specific software to edit the documentation. Just edit the text files in your favorite editor (= double click the file) and [send us the change]({{site.baseurl}}/Contact) or suggest a change through GitHub directly.
 
 With the following steps, you can make a suggestion directly through GitHub:
 
-Choose the file you want to edit on GitHub, for example, this [guidelines-hardware.md](https://github.com/reiserlab/Modular-LED-Display/blob/master/docs/guidelines-hardware.md)
+Choose the file you want to edit on GitHub, for example, this [guidelines_hardware.md](https://github.com/reiserlab/Modular-LED-Display/blob/master/docs/guidelines_hardware.md)
 
-![Screenshot of the online editor at GitHub with "propose change" button](../assets/contribute_propose-change.png){:.ifr .pop}
+![Screenshot of the online editor at GitHub with "propose change" button](assets/g_h_contribute_propose-change.png){:standalone .ifr .clear data-img-class="pop"}
+
 Click on the edit button with the pen icon, at which point you will be asked to log into GitHub (if you haven't done that yet).
 {:.clear}
 
 You can now change the file directly. Ignore the first few lines between `---` and the second `---` or learn more about it in the [Documentation Guidelines](Guidelines.md). While editing the file, you can *preview changes*{:.gui-txt} and then switch back to *Edit file*{:.gui-txt} until you are happy with your changes. To save the changed version, write a short summary in one line and, if necessary, a longer description of what you did, and then click on *Propose changes*{:.gui-btn}. This creates a copy of the file in your GitHub account, called a "fork" in git lingo. Let us know about your proposition and click on *Create pull request*{:.gui-btn}.
 
-![GitHub notification for how to "create pull request"](../assets/contribute_pull-request.png)
+![GitHub notification for how to "create pull request"](assets/g_h_contribute_pull-request.png)

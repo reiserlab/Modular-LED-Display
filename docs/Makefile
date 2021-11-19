@@ -22,13 +22,13 @@ $(ABOUT):
 	@echo "" >> $@
 
 # Special rules for generating the Guidelines
-Guidelines-Hardware.docx: guidelines-hardware.md $(ABOUT)
+Guidelines-Hardware.docx: guidelines_hardware.md $(ABOUT)
 	@echo "Generating DOCX"
-	@cat guidelines-hardware.md $(ABOUT) | pandoc -o Guidelines-Hardware.docx -F ../assets/kramdownfilter.py --toc
+	@cat guidelines_hardware.md $(ABOUT) | pandoc -o Guidelines-Hardware.docx -F ../_data/kramdownfilter.py --toc
 
-Guidelines-Hardware.pdf: guidelines-hardware.md $(ABOUT)
+Guidelines-Hardware.pdf: guidelines_hardware.md $(ABOUT)
 	@echo "Generating PDF"
-	@cat guidelines-hardware.md $(ABOUT) | pandoc -o Guidelines-Hardware.pdf -F ../assets/kramdownfilter.py --pdf-engine=lualatex --toc 
+	@cat guidelines_hardware.md $(ABOUT) | pandoc -o Guidelines-Hardware.pdf -F ../_data/kramdownfilter.py --pdf-engine=lualatex --toc 
 
 clean:
 	rm -f Guidelines-Hardware.docx Guidelines-Hardware.pdf
