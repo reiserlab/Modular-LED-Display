@@ -55,11 +55,11 @@ Each panel has five micro controller units (MCU) that need to be programmed. Usi
 
 ## Assemble columns and arena
 
-Once the individual parts of the arena are ready to be used, assemble the panels from the driver and comm board. Then [assemble those panels into column]({{site.baseurl}}/docs/G4-Assembly.html#assemble-columns). Finally connect the assembled columns to the arena boards.
+Once the individual parts of the arena are ready to be used, assemble the panels from the driver and comm board. Then [assemble those panels into column](g4_assembly.md#assemble-columns). Finally connect the assembled columns to the arena boards.
 
 ## Install software and initial operation
 
-To test and operate the G4 arena, you need to [install the "Panel_Host" software]({{site.baseurl}}/docs/G4-Assembly.html#install-software). This pre-compiled application is responsible for the communication between the computer and the arena. For an initial test you can use this software to turn on all LEDs. In addition, you should install the Display Tools that provide a user friendly interface to the arena on top of the "Panel_Host" software.
+To test and operate the G4 arena, you need to [install the "Panel_Host" software](g4_assembly.md#install-software). This pre-compiled application is responsible for the communication between the computer and the arena. For an initial test you can use this software to turn on all LEDs. In addition, you should install the Display Tools that provide a user friendly interface to the arena on top of the "Panel_Host" software.
 
 # Troubleshooting
 

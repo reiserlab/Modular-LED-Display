@@ -15,7 +15,7 @@ Before starting to assemble an arena, make sure you have [acquired the necessary
 
 The driver board has four and the comm board one additional micro controller. If you ordered 48 panels, then this step requires you to program 240 MCUs. Follow the the steps in the ["Firmware" document]({{site.baseurl}}/Generation%204/Firmware/docs), but be aware that this step can take some time. On the upside: you will only need to do this once.
 
-## Assemble columns
+## Assemble columns {#assemble-columns}
 
 Once you programmed the MCUs, you can connect the driver and the comm board at their four 4×4 pin connectors. They should fit tightly and have a very sturdy connection. The edges of driver and comm board should overlap exactly, if one of the edges sticks out, then you connected it upside down.
 
@@ -29,7 +29,7 @@ Connect the arena to the interconnect board using the ribbon cable, and connect 
 
 Once you connect the power supply, the arena should be up and running. But you won't notice, since it doesn't receive any commands yet. So before powering it up, make sure to install the software.
 
-# Install software
+# Install software {#install-software}
 {:.clear}
 
 With the physical arena ready to go, you need to make sure that the software on you dedicated computer is correctly set up by following the [G4 Software Setup]({{site.baseurl}}/Generation%204/Display_Tools/docs/software_setup.html). Once the software is up and running, you can connect the power.

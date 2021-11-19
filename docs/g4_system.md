@@ -25,7 +25,7 @@ Once you know what you want and you have the components in your lab, the assembl
 # Overview of G4 Display Tools
 {:#Display-Tools}
 
-This document briefly describes the various software tools developed for this system. They require the [Hardware and Software](G4-Assembly.md) to be [working correctly](G4-troubleshooting.md).
+This document briefly describes the various software tools developed for this system. They require the [Hardware and Software](g4_assembly.md) to be [working correctly](G4-troubleshooting.md).
 
 The "Display Tools" can be used to generate visual stimuli, run experiments, and analyze the acquired results. Some of the software tools described later in this document do not require a physical LED arena set up and attached to the computer in order to be used; for example, the [Pattern Generator](#pattern-generator) can be used to generate and visualize patterns without any G4 hardware attached, and the Data Analysis scripts only require the TDMS log files generated during an experiment in order to analyze and plot data. Other tools, such as PControl and the Protocol Designer scripts, will only be fully functional when connected to a G4 Display system.
 
