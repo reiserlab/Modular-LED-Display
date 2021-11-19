@@ -15,13 +15,13 @@ Here we describe what is needed to operate a Modular LED Display of the 4th gene
 
 You probably have a use case in mind when reading this. You can still learn about the initial motivation to develop modular LED Displays at ["Theory and Practice of Insect Flight Simulators."]({{site.baseurl}}/Generation%202/Arenas/docs/g2_user-guide.html)
 
-## Parts overview
+## Parts overview {#parts}
 
-![example parts](../assets/G4/hardware_bundle-2018.jpg){:.ifr .pop}
+![G4 Hardware components as of 2018](assets/g4_2018-hardware-bundle.jpg){:standalone .ifr data-img-class="pop"}
 
-A modular LED display can present a visual stimulus at a well-defined time at a specific location. This requires turning a light source off and on at different brightnesses. The light source for modular LED displays is Light-Emitting Diodes (LED), which typically issue a well-defined spectrum of light. The G4 system combines 256 LEDs into a 16×16 matrix, which we call "Panel." Each panel is a flat square measuring 40×40mm² (about 1.6×1.6 inches). Panels form columns which define the shape of the arenas. A column comprises up to four connected panels, forming a maximum area of 160×40mm² with up to 1024 LEDs. You can combine up to 12 columns into an "Arena." Through an interconnect board the arena connects to a specialized PCIe IO card in a Windows computer. If required, this IO card can also connect to a breakout box, which exposes some signals for recording. The "G4 Host" software on the computer interacts with the hardware and provides an API for the arena. User-friendly applications like the ["Display Tools"](G4-index.md) can then turn any of these 12,288 light sources on or off, up to 1500 times per second. The following paragraph gives more detail about what is necessary to address these over 10,000 LEDs.
+A modular LED display can present a visual stimulus at a well-defined time at a specific location. This requires turning a light source off and on at different brightnesses. The light source for modular LED displays is Light-Emitting Diodes (LED), which typically issue a well-defined spectrum of light. The G4 system combines 256 LEDs into a 16×16 matrix, which we call "Panel." Each panel is a flat square measuring 40×40mm² (about 1.6×1.6 inches). Panels form columns which define the shape of the arenas. A column comprises up to four connected panels, forming a maximum area of 160×40mm² with up to 1024 LEDs. You can combine up to 12 columns into an "Arena." Through an interconnect board the arena connects to a specialized PCIe IO card in a Windows computer. If required, this IO card can also connect to a breakout box, which exposes some signals for recording. The "G4 Host" software on the computer interacts with the hardware and provides an API for the arena. User-friendly applications like the ["Display Tools"](g4_system.md) can then turn any of these 12,288 light sources on or off, up to 1500 times per second. The following paragraph gives more detail about what is necessary to address these over 10,000 LEDs.
 
-![block diagram of the components](../assets/G4/components-block-diagram.png){:.ifr .pop}
+![block diagram of a G4 system](assets/g4_block-diagram.png){:standalone .ifr data-img-class="pop"}
 
 To understand the working principle in more detail, here a step through from the users' side: Using convenient tools like the Display Tools, you can define stimuli you want to show. This description of the stimuli is sent to the "G4 Host", another application running in the computer background. When starting the G4 Host, this software automatically programs the specialized I/O card for high throughput and low latency communication with the arena. This PCIe card is a Field-Programmable Gate Array (FPGA) and is used by the G4 system to generate four different SPI communication channels. Once the G4 Host receives a command containing a stimuli description, the PCIe card sends these signals to the arena. The arena then splits the four SPI channels top the different columns. The columns consist of panels consisting of two separate boards: The communication board connected to the arena board and the adjacent panels, and the driver board with all the LEDs. The communication board has a micro controller unit (MCU) that receives the incoming SPI signal, filtering for signals meant for this specific panel, and then forwards this signal to one of four connectors to the driver board. On the driver board, each of the connectors has its own MCU, which then translates the signal into corresponding on/off signals for the LEDs. The five MCUs per panel need to be pre-programmed before assembly to operate correctly. But we will come back to each of those points during the assembly.
 
@@ -33,7 +33,7 @@ While the complexity and capability of the G4 displays have increased over previ
 
 ## The difference from Generation 3
 
-The main differences from [Generation 3](../Generation 3) are:
+The main differences from [Generation 3]({{site.baseurl}}/Generation%203/) are:
 
 - size
 - refresh regime
@@ -69,6 +69,8 @@ To get a system up and running, you will need to decide how many panels you will
 
 In 2018 a typical setup for behavioral rigs could contain the following items. Note that the assembled arena has 9 out of the 12 columns populated, each column with 4 panels.
 
+![Components of a G4 arena as of 2018](assets/g4_2018-hardware-bundle.jpg){:standalone .ifr data-img-class="pop"}
+
 - 2 [12-12 arena boards]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#12-12), one populated as bottom, one as top
 - 36 LED panels (36 [driver-v1.x]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v1) and 36 [comm-v0.3]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#comm-v0p3) PCBs)
 - [breakout box](G4-COTS.md#ni-breakout-box)
@@ -78,9 +80,10 @@ In 2018 a typical setup for behavioral rigs could contain the following items. N
 - [PCIe card](G4-COTS.md#rio-card)
 - [computer](G4-COTS.md#computer) (not pictured)
 
-![example parts](../assets/G4/hardware_bundle-2018.jpg)
-
 ## Example Arena from 2015
+{:.clear}
+
+![Components of a G4 arena during development around 2015](assets/g4_2015-hardware-bundle.jpg){:standalone .ifr data-img-class="pop"}
 
 This early G4 prototype from 2015 is interesting to remember because the parts are functionally the same but look different and use different hardware revisions:
 
@@ -88,5 +91,3 @@ This early G4 prototype from 2015 is interesting to remember because the parts a
 - [Test arena]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#test)
 - demo controller
 - [power supply 5V 2A](G4-COTS.md#power-supply)
-
-![example parts](../assets/G4/hardware_bundle-2015.jpg)

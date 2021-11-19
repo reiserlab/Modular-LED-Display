@@ -8,7 +8,7 @@ has_toc: false
 
 # How to get started
 
-Depending on your background and on your goal, we try to provide different "Getting Started" guides. Please let us know if you find the helpful and [get in contact](../Contact.md) if you have ideas how to improve them.
+Depending on your background and on your goal, we try to provide different "Getting Started" guides. Please let us know if you find the helpful and [get in contact]({{site.baseurl}}/Contact) if you have ideas how to improve them.
 
 ## [Historic background](gs_historic-background.md)
 

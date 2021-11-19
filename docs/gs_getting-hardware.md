@@ -6,7 +6,7 @@ nav_order: 2
 
 # Acquiring the hardware
 
-This is a reminder and reading guide for how to get started setting up the most recent modular LED Display, currently [Generation 4](G4-index.md). It is basically a compact version of the text [Acquisition](G4-Acquisition.md), which would be a good place to get started on more details.
+This is a reminder and reading guide for how to get started setting up the most recent modular LED Display, currently [Generation 4](g4_system.md). It is basically a compact version of the text [Acquisition](G4-Acquisition.md), which would be a good place to get started on more details.
 
 Read more about earlier version in the sections [Generation 2]({{site.baseurl}}/Generation%203/Software/docs/g2-panels.html) and [Generation 3]({{site.baseurl}}/Generation%203/index.html).
 

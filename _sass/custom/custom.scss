@@ -69,3 +69,19 @@ kbd,.kbd{
 	background-color:#eeffee;
 	border-left:15px solid #00cc00;
 }
+.ifr figcaption{
+	text-align:left;
+	text-indent:-25px;
+	padding-left:25px;
+	font-style:italic;
+	color:#666666;
+}
+.ifr figcaption::before{
+	content:"Fig: ";
+	font-weight:bold;
+	font-style:normal;
+	color:#666666;
+}
+figure.ifr{	
+	border-bottom:2px solid #eee;
+}

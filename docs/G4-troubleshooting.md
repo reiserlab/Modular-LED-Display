@@ -17,11 +17,11 @@ The classification of errors is not always possible and sometimes counterintuiti
 
 If the arena does not turn on, check that the connection between the interconnect board and the VHDCI cable is good. The VHDCI cables can sometimes need a very tight fit to make all the connections.
 
-![Measuring power supply](../assets/G4/troubleshoot_voltage.jpg){:.ifr .pop}
+![Measuring power supply on an arena](assets/g4_voltage-pins.jpg){:standalone .ifr data-img-class="pop"}
 
 Using a voltmeter, check that the arena board is being supplied with 5V as expected. Assuming your panels are mounted with the pins down and the receptacles pointing upwards and you look at it from outside the arena, the most right pin is the power supply and the second is ground.
 
-Some issues in the past have been caused by mistakes in the arena board assembly. The connectors between the arena board and the LED panels have sometimes been placed on the wrong side of the arena board or have had the gendered 15-pin connectors switched between the top and bottom arena boards. To see if this is the case, remove all of the LED panels from the arena board and plug one column back in, but inserted backwards (where the LEDs are facing to the outside of the arena). If an "all on"{:.gui-txt} command turns on the LEDs in this case, then the connectors were placed incorrectly.
+Some issues in the past have been caused by mistakes in the arena board assembly. The connectors between the arena board and the LED panels have sometimes been placed on the wrong side of the arena board or have had the gendered 15-pin connectors switched between the top and bottom arena boards. To see if this is the case, remove all of the LED panels from the arena board and plug one column back in, but inserted backwards (where the LEDs are facing to the outside of the arena). If an *all on*{:.gui-txt} command turns on the LEDs in this case, then the connectors were placed incorrectly.
 
 ## Computer freezes at startup
 
@@ -29,9 +29,9 @@ If your system freezes when clicking on *Start Log*{:.gui-btn} try to move the P
 
 ## Flickering LEDs
 
-![Flickering LEDs](../assets/G4/arena_flicker_cable.gif){:.ifr .pop}
+![Flickering LEDs in a G4 arena caused by a long ribbon cable to the interconnect board](assets/g4_flickering_cable.gif){:standalone .ifr data-img-class="pop"}
 
-If you see some or all the LEDs flicker similar to the image on the right, this could be caused by noise from a long ribbon cable. It can also be caused by insufficient power supply. To identify this, have a look at the error description for [Arena does not turn on](#arena-does-not-turn-on)
+If you see some or all the LEDs flicker similar to the image on the right (or [this video](assets/g4_flickering_cable.mp4)), this could be caused by noise from a long ribbon cable. It can also be caused by insufficient power supply. To identify this, have a look at the error description for [Arena does not turn on](#arena-does-not-turn-on)
 
 # Software
 {:.clear}
