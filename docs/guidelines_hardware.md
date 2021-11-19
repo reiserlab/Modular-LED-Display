@@ -35,7 +35,7 @@ While the above files should be available for each hardware revision, some of th
 
 ## EDA Design {#eda-design}
 
-Two different toolsets are being used to develop PCBs for the Modular LED Display, namely a software offered by the company "Cadence Design Systems" and [KiCad](https://kicad-pcb.org/). While most of the [generated output files](#fabrication-files) follow industry standards and are reasonably similar to each other, the design files (or "sources") are not interchangeable between the two types specified above. Each set of a component's design files are only available for one of the two toolsets, depending on who designed this particular module.
+Two different tool sets are being used to develop PCBs for the Modular LED Display, namely a software offered by the company "Cadence Design Systems" and [KiCad](https://kicad-pcb.org/). While most of the [generated output files](#fabrication-files) follow industry standards and are reasonably similar to each other, the design files (or "sources") are not interchangeable between the two types specified above. Each set of a component's design files are only available for one of the two tool sets, depending on who designed this particular module.
 
 The company "Cadence Design Systems" offer different solutions for Electronic Design Automation (EDA) such as ["Cadence Allegro"](https://www.cadence.com/en_US/home/tools/pcb-design-and-analysis/pcb-layout/allegro-pcb-designer.html) (Allegro for short) and ["Cadence OrCAD"](https://www.orcad.com/) (OrCAD for short). To our understanding and according to our tests, either one of these commercial solutions can be used to modify design files such as `*.brd`. Therefore we use the term "Cadence" if either Allegro or OrCAD can be used. Before buying the software for this project, consult with the customer support what best suits your needs.
 
@@ -49,7 +49,7 @@ Cadence and KiCad both divide the design process into a [schematic design](#sche
 
 The focus of the repositories is on the production of Modular LED Displays and, therefore, the PCB design. Yet, to understand the PCB design, it is necessary to track changes in the schematics. Therefore some visualization of the schematic drawing should be provided every time something has changed. In the past, these schematics were shown through documents such as `*.pdf` files. Other image formats like `*.png` files are not ideal, but better than nothing.
 
-Since schematic drawings are generated from schematic design files, it can help track the schematic designs in the repositories, too. Cadence, and more specific OrCAD uses `*.dsn` files. Recent versions of KiCad switched to `*.kicad_sch` file extensions while old versions use `*.sch` for the schematic design files. Some of the designs can consist of several schematic files or additional library files containing details for used electrical components. Please provide all files necessary for opening the schematic. As a user of your toolset, you probably know best which files are required.
+Since schematic drawings are generated from schematic design files, it can help track the schematic designs in the repositories, too. Cadence, and more specific OrCAD uses `*.dsn` files. Recent versions of KiCad switched to `*.kicad_sch` file extensions while old versions use `*.sch` for the schematic design files. Some of the designs can consist of several schematic files or additional library files containing details for used electrical components. Please provide all files necessary for opening the schematic. As a user of your tool set, you probably know best which files are required.
 
 The handover between the schematic design and the PCB design is, among others, a netlist file. Since the netlist can be generated from a valid schematic design file, it is unnecessary to keep track of these files in the repositories.
 
@@ -63,9 +63,9 @@ Some designs might require additional files; please make sure to share all files
 
 ### Further Readings {#design-further-readings}
 
-- [CirctuiHub: Taking the hard out of hardware](https://circuithub.com/how-it-works): Explains how to upload native design files to the manufacturer and use their revision history system
+- [CircuitHub: Taking the hard out of hardware](https://circuithub.com/how-it-works): Explains how to upload native design files to the manufacturer and use their revision history system
 
-## Fabrication files {#fabricaton}
+## Fabrication files {#fabrication}
 
 "Fabrication files" is a set of files sufficient to produce the PCBs. The EDA tools generate the files from the PCB design files. Although file types are, in general, defined by industry standards, there are small differences between PCB manufacturers and tools. Either Cadence tool as well as KiCad support different settings for each of the generated files. It would be tedious to explain the various options. Instead, we list some best practices that create something similar to the lowest common denominator and have proven to work so far. We hope to improve these descriptions over time.
 
@@ -148,11 +148,11 @@ Arguably the most crucial feature of a BOM is descriptive headers: the assembler
 
 The ID is optional but can help during the communication with the assembler. For example, you can say that "item 24 can be replaced by…" in an email. One way to provide alternatives for a part is to use additional letter indices; for example, ID `24a` could reference `C0603JR-07220RL`, and ID `24b` could specify `RMCF0603JT220R`. Use the **Notes** field to clarify this.
 
-The **RefDes** should be a unique value for your design, often a letter followed by a number such as `R1`, `C15`, or `U132`. 
+The **RefDes** should be a unique value for your design, often a letter followed by a number such as `R1`, `C15`, or `U132`.
 
 The **Description** field can be used to describe the component. For example, a 220Ω resistor with ±5% tolerance, 100mW power, and a 0603 (1608 metric) package can be represented as `220 OHM, 5% 3/10W 0603`. You should also generate a separate **Footprint** column, which can help identify the smallest package or the number of contacts if the assembly house requires that information.
 
-It is generally helpful to name a particular component even for rather generic components like capacitors, connectors, or resistors. For that, specify the **Manufacturer product number** and since that might not be unique, give a **manufacturer** name of the company that produced this particular part. For example, you could stipulate the **manufacturer** `Yageo` and the **MPN** `RC0603JR-07220RL`. 
+It is generally helpful to name a particular component even for rather generic components like capacitors, connectors, or resistors. For that, specify the **Manufacturer product number** and since that might not be unique, give a **manufacturer** name of the company that produced this particular part. For example, you could stipulate the **manufacturer** `Yageo` and the **MPN** `RC0603JR-07220RL`.
 
 If you know the supplier product number, you can specify it in additional columns. For example, the **DigikeyPN** could be `311-220GRDKR-ND`, the **MouserPN** `603-RC0603JR-07220RL`, and the **LCSCPN** `C114683`. Different assembly houses will use other suppliers and might prefer different component manufacturers for passive parts like resistors or capacitors. Columns for different suppliers can be added whenever needed or known. A good search engine to find electronic components and distributors is [Octopart](https://octopart.com/).
 
@@ -285,8 +285,7 @@ Choose the file you want to edit on GitHub, for example, this [guidelines_hardwa
 ![Screenshot of the online editor at GitHub with "propose change" button](assets/g_h_contribute_propose-change.png){:standalone .ifr .clear data-img-class="pop"}
 
 Click on the edit button with the pen icon, at which point you will be asked to log into GitHub (if you haven't done that yet).
-{:.clear}
+
+![GitHub notification for how to "create pull request"](assets/g_h_contribute_pull-request.png){:standalone .ifr .clear data-img-class="pop"}
 
 You can now change the file directly. Ignore the first few lines between `---` and the second `---` or learn more about it in the [Documentation Guidelines](Guidelines.md). While editing the file, you can *preview changes*{:.gui-txt} and then switch back to *Edit file*{:.gui-txt} until you are happy with your changes. To save the changed version, write a short summary in one line and, if necessary, a longer description of what you did, and then click on *Propose changes*{:.gui-btn}. This creates a copy of the file in your GitHub account, called a "fork" in git lingo. Let us know about your proposition and click on *Create pull request*{:.gui-btn}.
-
-![GitHub notification for how to "create pull request"](assets/g_h_contribute_pull-request.png)
