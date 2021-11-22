@@ -57,7 +57,7 @@ The handover between the schematic design and the PCB design is, among others, a
 
 The purpose of the repositories and documentation is to enable other labs to produce their own Modular LED Displays. Different PCB manufacturers and assemblers might require slightly different versions of the fabrication files. Therefore it is necessary to share the PCB design files so that these labs can generate fabrication files according to their assembly houses. At this time (2020), some PCB manufacturers also start accepting design files, for example, from KiCad to export the fabrication files in the exact format they need. So even if you decide not to share the schematic design files and only want to provide a schematic drawing instead, a shared PCB design file will make life easier for everyone.
 
-PCBs for the Modular LED Displays were designed either with Cadence or KiCad. The design files for Cadence uses `*.brd` as a file extension while KiCad uses `*.kicad_pcb` at this stage. For example, the G4 panel driver starting with version 1, has been developed in Cadence while the panel communication board is being developed in KiCad. Consequently, the [driver board's repository]({{site.baseurl}}/Panel/docs/driver.html) is used to track the latest design iteration in the Cadence file format as a `*.brd` file as well as the latest design iteration in a KiCad file format that uses the extension `*.kicad_pcb`.
+PCBs for the Modular LED Displays were designed either with Cadence or KiCad. The design files for Cadence uses `*.brd` as a file extension while KiCad uses `*.kicad_pcb` at this stage. For example, the G4 panel driver starting with version 1, has been developed in Cadence while the panel communication board is being developed in KiCad. Consequently, the [driver board's repository]({{site.baseurl}}/Generation%204/Panel/docs/driver.html) is used to track the latest design iteration in the Cadence file format as a `*.brd` file as well as the latest design iteration in a KiCad file format that uses the extension `*.kicad_pcb`.
 
 Some designs might require additional files; please make sure to share all files that are necessary to open the PCB design file. For example, footprints of other components can be in a `*.kicad_mod` file.
 
@@ -280,7 +280,7 @@ This guideline is part of a living set of documents published on the website <ht
 
 With the following steps, you can make a suggestion directly through GitHub:
 
-Choose the file you want to edit on GitHub, for example, this [guidelines_hardware.md](https://github.com/reiserlab/Modular-LED-Display/blob/master/docs/guidelines_hardware.md)
+Choose the file you want to edit on GitHub, for example, this [guidelines_hardware.md](https://github.com/reiserlab/Modular-LED-Display/blob/main/docs/guidelines_hardware.md)
 
 ![Screenshot of the online editor at GitHub with "propose change" button](assets/g_h_contribute_propose-change.png){:standalone .ifr .clear data-img-class="pop"}
 
