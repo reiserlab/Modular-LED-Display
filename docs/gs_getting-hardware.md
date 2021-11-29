@@ -8,7 +8,7 @@ nav_order: 2
 
 This is a reminder and reading guide for how to get started setting up the most recent modular LED Display, currently [Generation 4](g4_system.md). It is basically a compact version of the text [Acquisition](g4_acquisition.md), which would be a good place to get started on more details.
 
-Read more about earlier version in the sections [Generation 2]({{site.baseurl}}/Generation%203/Software/docs/g2-panels.html) and [Generation 3]({{site.baseurl}}/Generation%203/index.html).
+Read more about earlier version in the sections [Generation 2]({{site.baseurl}}/Generation%202/Arenas/docs/g2_system.html) and [Generation 3]({{site.baseurl}}/Generation%203/).
 
 Just a quick reminder if you have not looked at the chapter on [acquisition](g4_acquisition.md): An assembled G4 arena consists of of up 48 panels connected to two arena boards. The whole setup is controlled from a dedicated computer and signals can be recorded via an additional breakout box.
 
@@ -28,9 +28,9 @@ All the above require time to verify the design and production files we provide.
 
 Some of the PCBs are only required in smaller quantities, are less complicated designs, and are often quicker to get produced (read: weeks). In the best case order them in parallel to the other items, but since the quantity is much lower, you might want to choose a different manufacturer.
 
-- [Arduino shield]({{site.baseurl}}/Generation%204/Firmware/docs/programmer.html#arduino-shield) for the programmer
-- [Driver board shield]({{site.baseurl}}/Generation%204/Firmware/docs/programmer.html#driver-board-shield) for programmer
-- [Comm board shield]({{site.baseurl}}/Generation%204/Firmware/docs/programmer.html#comm-board-shield) for programmer
+- [Arduino shield]({{site.baseurl}}/Generation%204/Hardware/docs/programmer.html#arduino-shield) for the programmer
+- [Driver board shield]({{site.baseurl}}/Generation%204/Hardware/docs/programmer.html#driver-shield) for programmer
+- [Comm board shield]({{site.baseurl}}/Generation%204/Hardware/docs/programmer.html#comm-shield) for programmer
 - [Interconnect board]({{site.baseurl}}/Generation%204/Arena/docs/arena.html#interconnect) for the arena
 - [Placeholder]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html#placeholder) in case you want to skip a single panel in a column
 
