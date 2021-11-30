@@ -1,6 +1,9 @@
 .main-content a{
 	white-space:normal;
 }
+a {
+	word-break: break-word;
+}
 kbd,.kbd{
 	display: inline-block;
 	color: #363636;
