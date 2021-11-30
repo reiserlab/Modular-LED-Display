@@ -3,8 +3,6 @@ title: Home
 nav_order: 1
 ---
 
-**Disclaimer:** This page is currently work in progress. If you want to get notified once we release this page or want to contribute, then please get in [contact](Contact).
-
 # Modular LED Displays
 
 [![A modular display system for insect behavioral neuroscience](docs/assets/Reiser2008.png){: width="40%" .float-right}](https://doi.org/10.1016/j.jneumeth.2007.07.019)

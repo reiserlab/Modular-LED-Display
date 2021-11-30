@@ -136,27 +136,27 @@ The Bill of Materials (BOM) is a spreadsheet that matches the component names fr
 
 Arguably the most crucial feature of a BOM is descriptive headers: the assembler will open the file and then try to match columns to the expected fields with as little manual intervention and margin for error as possible.
 
-- **ID**, **Item**, or **Line #** (optional): unique row number
-- **Qty**: number of components of this type
-- **RefDes**: A single reference designator or a list of designators as used in the schematics
-- **Description**: Generic description of part
-- **Footprint** or **Package**: the components package
-- **Manufacturer** (optional): Component manufacturer name
-- **MPN** or **Manufacturer #**: Component manufacturer product number, e.g., `RMCF0603JT220R`.
-- [SUPPLIER]PN, e.g., **DigikeyPN** (optional): PN of a specific supplier, e.g., Digi-Key, Mouser, LCSC, for example, `RMCF0603JT220RDKR-ND`
-- **Notes** or **Instructions**: Additional comments, for example, specify if it's OK to use a generic component from the **Description** or determine alternatives to the suggested part.
+- __ID__, __Item__, or __Line #__ (optional): unique row number
+- __Qty__: number of components of this type
+- __RefDes__: A single reference designator or a list of designators as used in the schematics
+- __Description__: Generic description of part
+- __Footprint__ or __Package__: the components package
+- __Manufacturer__ (optional): Component manufacturer name
+- __MPN__ or __Manufacturer #__: Component manufacturer product number, e.g., `RMCF0603JT220R`.
+- [SUPPLIER]PN, e.g., __DigikeyPN__ (optional): PN of a specific supplier, e.g., Digi-Key, Mouser, LCSC, for example, `RMCF0603JT220RDKR-ND`
+- __Notes__ or __Instructions__: Additional comments, for example, specify if it's OK to use a generic component from the __Description__ or determine alternatives to the suggested part.
 
-The ID is optional but can help during the communication with the assembler. For example, you can say that "item 24 can be replaced by…" in an email. One way to provide alternatives for a part is to use additional letter indices; for example, ID `24a` could reference `C0603JR-07220RL`, and ID `24b` could specify `RMCF0603JT220R`. Use the **Notes** field to clarify this.
+The ID is optional but can help during the communication with the assembler. For example, you can say that "item 24 can be replaced by…" in an email. One way to provide alternatives for a part is to use additional letter indices; for example, ID `24a` could reference `C0603JR-07220RL`, and ID `24b` could specify `RMCF0603JT220R`. Use the __Notes__ field to clarify this.
 
-The **RefDes** should be a unique value for your design, often a letter followed by a number such as `R1`, `C15`, or `U132`.
+The __RefDes__ should be a unique value for your design, often a letter followed by a number such as `R1`, `C15`, or `U132`.
 
-The **Description** field can be used to describe the component. For example, a 220Ω resistor with ±5% tolerance, 100mW power, and a 0603 (1608 metric) package can be represented as `220 OHM, 5% 3/10W 0603`. You should also generate a separate **Footprint** column, which can help identify the smallest package or the number of contacts if the assembly house requires that information.
+The __Description__ field can be used to describe the component. For example, a 220Ω resistor with ±5% tolerance, 100mW power, and a 0603 (1608 metric) package can be represented as `220 OHM, 5% 3/10W 0603`. You should also generate a separate __Footprint__ column, which can help identify the smallest package or the number of contacts if the assembly house requires that information.
 
-It is generally helpful to name a particular component even for rather generic components like capacitors, connectors, or resistors. For that, specify the **Manufacturer product number** and since that might not be unique, give a **manufacturer** name of the company that produced this particular part. For example, you could stipulate the **manufacturer** `Yageo` and the **MPN** `RC0603JR-07220RL`.
+It is generally helpful to name a particular component even for rather generic components like capacitors, connectors, or resistors. For that, specify the __Manufacturer product number__ and since that might not be unique, give a __manufacturer__ name of the company that produced this particular part. For example, you could stipulate the __manufacturer__ `Yageo` and the __MPN__ `RC0603JR-07220RL`.
 
-If you know the supplier product number, you can specify it in additional columns. For example, the **DigikeyPN** could be `311-220GRDKR-ND`, the **MouserPN** `603-RC0603JR-07220RL`, and the **LCSCPN** `C114683`. Different assembly houses will use other suppliers and might prefer different component manufacturers for passive parts like resistors or capacitors. Columns for different suppliers can be added whenever needed or known. A good search engine to find electronic components and distributors is [Octopart](https://octopart.com/).
+If you know the supplier product number, you can specify it in additional columns. For example, the __DigikeyPN__ could be `311-220GRDKR-ND`, the __MouserPN__ `603-RC0603JR-07220RL`, and the __LCSCPN__ `C114683`. Different assembly houses will use other suppliers and might prefer different component manufacturers for passive parts like resistors or capacitors. Columns for different suppliers can be added whenever needed or known. A good search engine to find electronic components and distributors is [Octopart](https://octopart.com/).
 
-Finally, in the **Notes**, you can specify if it is `OK to use the generic part from the description`, which might be OK for resistors, but not for LEDs on the driver board. You can also use this column to specify alternatives; for example, `alternative for 24a` or `if unavailable, use Stackpole RMCF0603JT220R or resistor matching description`. You could even request `if unavailable, get in contact` if you have specific constraints for that part and want to be involved in finding an alternative. This is also the place to specify if components are consigned or if you are going to assemble them yourself.
+Finally, in the __Notes__, you can specify if it is `OK to use the generic part from the description`, which might be OK for resistors, but not for LEDs on the driver board. You can also use this column to specify alternatives; for example, `alternative for 24a` or `if unavailable, use Stackpole RMCF0603JT220R or resistor matching description`. You could even request `if unavailable, get in contact` if you have specific constraints for that part and want to be involved in finding an alternative. This is also the place to specify if components are consigned or if you are going to assemble them yourself.
 
 #### Further Readings {#bom-further-readings}
 
@@ -171,22 +171,22 @@ For board assembly, especially using SMT technology, a placement file is require
 
 The centroid format is a text-based file format, either as a fixed-width spreadsheet or column separation similar to a CSV. The file extension is often `*.txt` (Cadence), `*.csv`, or `*.pos` (KiCad) and recommendations are given in the [IPC](https://en.wikipedia.org/wiki/IPC_(electronics))-7351B design document. A pick'n'place file contains the following columns:
 
-- **RefDes**: unique designator
-- **Footprint** (optional): Description of the package, e.g., `0603R`
-- **Mid X** or **Location X**: component's X location
-- **Mid Y** or **Location Y**: component's Y location
-- **Rotation**: component's rotation
-- **Layer**: Top or Bottom (or `T` / `B`)
+- __RefDes__: unique designator
+- __Footprint__ (optional): Description of the package, e.g., `0603R`
+- __Mid X__ or __Location X__: component's X location
+- __Mid Y__ or __Location Y__: component's Y location
+- __Rotation__: component's rotation
+- __Layer__: Top or Bottom (or `T` / `B`)
 
-The **RefDes** is the same designator used in the design files and the BOM. Unlike the BOM file, there is only a single component per line in the centroid file.
+The __RefDes__ is the same designator used in the design files and the BOM. Unlike the BOM file, there is only a single component per line in the centroid file.
 
-The **Footprint** or **Package** column helps the assembler identify the best machine but is not considered essential as the information should be in the BOM.
+The __Footprint__ or __Package__ column helps the assembler identify the best machine but is not considered essential as the information should be in the BOM.
 
-The **Location** columns describe the components offset from the board origin. The board origin is the bottom left, as seen from the top side of the board. The units are given in inches. Usually, the center of the component is the reference for the placement, but for some parts like connectors or other off-centered elements, the reference is at a different location. Besides, some assemblers prefer the location of pin 1 as a reference. Some tools like Cadence will ask you which location you want to write to your centroid file. If in question, choose to provide the file with mid reference. There are instances where all three types are provided in the same file, then using **Mid X/Y**, **Ref X/Y**, and **Pad X/Y** as columns names. For some of the Modular LED Display fabrication files, we have provided all three types of pick'n'place files. Cadence calls these files `body center.txt`, `origin.txt`, and `Pin1.txt`.
+The __Location__ columns describe the components offset from the board origin. The board origin is the bottom left, as seen from the top side of the board. The units are given in inches. Usually, the center of the component is the reference for the placement, but for some parts like connectors or other off-centered elements, the reference is at a different location. Besides, some assemblers prefer the location of pin 1 as a reference. Some tools like Cadence will ask you which location you want to write to your centroid file. If in question, choose to provide the file with mid reference. There are instances where all three types are provided in the same file, then using __Mid X/Y__, __Ref X/Y__, and __Pad X/Y__ as columns names. For some of the Modular LED Display fabrication files, we have provided all three types of pick'n'place files. Cadence calls these files `body center.txt`, `origin.txt`, and `Pin1.txt`.
 
-The **Rotation** is a value in degree clockwise for parts on the bottom and counter-clockwise for parts on top.
+The __Rotation__ is a value in degree clockwise for parts on the bottom and counter-clockwise for parts on top.
 
-The **Layer** specifies where the component is placed. Consequently, it also defines how the location and rotation are interpreted. An LED on the top with a rotation of 90 should have the cathode pointing down; the same LED with a rotation of 90 on the bottom side will have the cathode point upwards.
+The __Layer__ specifies where the component is placed. Consequently, it also defines how the location and rotation are interpreted. An LED on the top with a rotation of 90 should have the cathode pointing down; the same LED with a rotation of 90 on the bottom side will have the cathode point upwards.
 
 #### Further Readings {#placement-further-readings}
 
@@ -198,7 +198,7 @@ The **Layer** specifies where the component is placed. Consequently, it also def
 
 One topic that regularly comes up in conversations is the question about costs for a Modular LED Display. If you provide an estimate for the quote or invoice, we can add an anonymized version for outside labs. As there are huge differences between PCB manufacturers and over time, other labs can follow up on the most relevant information.
 
-Please provide this basic information: The **order date**, a **quantity**, **type of order** (e.g., PCB manufacturer, assembly, parts order, or a combination of those), the **price you paid**, and if there is a difference, the initial **quote** you received. Some PCB manufacturers allow sharing projects publicly with a **project ID**, which will allow others to order the same item. If you have such an ID for the project, it can simplify future orders by sharing this identifier.
+Please provide this basic information: The __order date__, a __quantity__, __type of order__ (e.g., PCB manufacturer, assembly, parts order, or a combination of those), the __price you paid__, and if there is a difference, the initial __quote__ you received. Some PCB manufacturers allow sharing projects publicly with a __project ID__, which will allow others to order the same item. If you have such an ID for the project, it can simplify future orders by sharing this identifier.
 
 #### Further Readings {#invoice-further-readings}
 
@@ -230,7 +230,7 @@ Some differences between the specified component and the description are minimal
 
 ![Example feedback on BOM](assets/g_h_error_bom_1.png){:standalone .ifr .clear data-img-class="pop"}
 
-Different suppliers use other product numbers, and different assemblers might get their components from various suppliers. Suppose an assembler identifies a problem with the product number. In that case, it might be worth checking if the column **MPN** really contains the manufacturers' product number and not the id from a supplier. In the example on the right, the BOM accidentally had a Digi-Key product number in the **MPN** column in lines two, three, and eight. Besides, if an assembler suggests the product number from a different supplier, it might save you some time and confusion down the road if you add a new column, e.g., for **MouserPN**. You might not need it immediately, but if you have the files open anyway and work through it, why not reduce future work.
+Different suppliers use other product numbers, and different assemblers might get their components from various suppliers. Suppose an assembler identifies a problem with the product number. In that case, it might be worth checking if the column __MPN__ really contains the manufacturers' product number and not the id from a supplier. In the example on the right, the BOM accidentally had a Digi-Key product number in the __MPN__ column in lines two, three, and eight. Besides, if an assembler suggests the product number from a different supplier, it might save you some time and confusion down the road if you add a new column, e.g., for __MouserPN__. You might not need it immediately, but if you have the files open anyway and work through it, why not reduce future work.
 
 Always try to keep the description of the package in sync with the actual part number. In the above BOM, the items in lines six and seven were specified as 0603 packages, but the part number suggests that these are really 0402 packages. Wrong sized can lead to faulty orders and unexpected costs: if the smallest component is smaller than specified throughout the quotation process and can lead to unforeseen delays.
 
@@ -255,7 +255,6 @@ Each component of the Modular LED Display follows its own "MINOR" versioning. Fo
 Small changes, such as incremental improvements to design files or altered fabrication files based on the same design files, are acknowledged through the "PATCH" number. In the example above, version 4.0.3 is the 3rd patch of version 0 within generation 4 of the Modular LED Displays.
 
 # License {#license}
-{:#license}
 
 Files on the repositories are published under the [CERN Open Hardware License weakly reciprocal version 2.0 (CERN-OHL-W)](http://cern.ch/cern-ohl) and/or the [Creative Commons Attribution ShareAlike 4.0 International (CC BY-SA 4.0)](http://creativecommons.org/licenses/by-sa/4.0/) licenses. If you require another license, send a request along with your submission.
 
@@ -272,7 +271,6 @@ Visualizations help in identifying a version of a PCB or by documenting how it i
 Having spent a lot of time trying to match actual hardware with descriptions and design files of different revisions, we assure you that creating these visualizations is well invested time (one example where this would have helped is the distinction between [driver-v2.x]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v2) and [driver-v1.2]({{site.baseurl}}/Generation%204/Panel/docs/driver.html#driver-v1)). Especially since renderings in Cadence and KiCad are done quickly and once stored in the repository, they are always at hand when needed. Hopefully, the [example shown on the right for the comm board]({{site.baseurl}}/Generation%204/Hardware/docs/comm.html) can convince you to submit a rendering along with the files you sent to the assembly house. And the additional picture of the assembled boards will contribute to useful documentation.
 
 # How to contribute
-{:.clear}
 
 ![Screenshot of GitHub website for this file with the "pen button" visible](assets/g_h_contribute_open-url.png){:standalone .ifr .clear data-img-class="pop"}
 

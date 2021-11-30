@@ -44,7 +44,9 @@ kbd,.kbd{
 	padding: 2px 7px;
 	z-index:-100000;
 }
-
+h1,h2,hr{
+	clear:both;
+}
 .clear{
 	clear:both;
 }

@@ -81,7 +81,6 @@ In 2018 a typical setup for behavioral rigs could contain the following items. N
 - [computer](g4_off-the-shelf.md#computer) (not pictured)
 
 ## Example Arena from 2015
-{:.clear}
 
 ![Components of a G4 arena during development around 2015](assets/g4_2015-hardware-bundle.jpg){:standalone .ifr data-img-class="pop"}
 

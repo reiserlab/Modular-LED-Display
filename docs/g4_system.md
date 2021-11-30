@@ -22,8 +22,7 @@ The section addressing acquisition allows you to gain the knowledge of which com
 
 Once you know what you want and you have the components in your lab, the assembly section explains in much detail how to build a working setup from these modules. At the end of this section you should have a G4 arena where you can turn LEDs on and off. We hope this section to be useful for people who just worked through the acquisition section. Hopefully it is also interesting for experienced users who have the components in their drawers and want to set up or verify an experimental rig.
 
-# Overview of G4 Display Tools
-{:#Display-Tools}
+# Overview of G4 Display Tools {#Display-Tools}
 
 This document briefly describes the various software tools developed for this system. They require the [Hardware and Software](g4_assembly.md) to be [working correctly](g4_troubleshooting.md).
 

@@ -34,7 +34,6 @@ If your system freezes when clicking on *Start Log*{:.gui-btn} try to move the P
 If you see some or all the LEDs flicker similar to the image on the right (or [this video](assets/g4_flickering_cable.mp4)), this could be caused by noise from a long ribbon cable. It can also be caused by insufficient power supply. To identify this, have a look at the error description for [Arena does not turn on](#arena-does-not-turn-on)
 
 # Software
-{:.clear}
 
 ## `Error: Create Folder…`
 
@@ -51,7 +50,7 @@ Create empty directories if they don't exist.
 
 If *Start Log*{:.gui-btn} leads to an error in the status window, then your application has insufficient access rights. In the Windows explorer, give *Full Access*{:.gui-txt} rights to `C:\Program Files (x86)\HHMI G4\Support Files\Log Files` for the *USER*{:.gui-txt} accounts.
 
-## *Deque timeout* is activated in PControl
+## _Deque timeout_ is activated in PControl
 
 After running `PControl_G4`, check the LabVIEW window to see if the green light labelled *dequeue timeout*{:.gui-txt} is lit. If it is, it may be that the transfer speeds between the PCIe card and the computer's memory is too slow. If the computer is relatively new/fast, one possible cause of this problem has been noted with newer Dell workstations, which can be fixed by updating the BIOS.
 
@@ -85,7 +84,8 @@ This error was first described in the [Protocol Designer trouble shooting guide]
 
 This is also not an error, but a warning issued by the protocol designer. If you have not saved your experiment yet, then the folder this application thinks of as the "experiment folder" is the last folder you imported from. If you have imported from multiple locations and try to test a trial on the screens, it may not work if it cannot find the pattern or function it needs in the last location you imported from. You can avoid this issue by saving the experiment before you dry run a trial.
 
-**Note**: There are plans in the works to remove this limitation and allow the software to track where each imported file comes from. Look for this in future releases.
+__Note__: There are plans in the works to remove this limitation and allow the software to track where each imported file comes from. Look for this in future releases.
+{:.info}
 
 This warning was first described in the [Protocol Designer trouble shooting guide]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer.html#trouble-shooting)
 
