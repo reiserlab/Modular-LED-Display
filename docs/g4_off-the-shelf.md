@@ -26,9 +26,39 @@ For the connection between PCIe card and interconnect board, you will need one [
 
 # NI Breakout box {#ni-breakout-box}
 
+![Front panel of the breakout box with BNC connectors](assets/g_ots_breakout-box_front.jpg){:standalone .ifr data-img-class="pop"}
+
 The breakout box takes a 68 pin VHDCI connection form the Multi I/O card as input and exposes some of those channels as BNC or D-sub connections.
 
-We are currently using connector blocks like the NI [CB-68LPR](https://www.ni.com/en-us/shop/accessories/products/terminal-block.html?modelId=119553) inside a CA-1000 enclosure. We are using "BNC I/O Panelettes" (NI number 184737-01).
+We are currently using connector blocks like the NI [CB-68LPR](https://www.ni.com/en-us/shop/accessories/products/terminal-block.html?modelId=119553) inside a CA-1000 enclosure. We are using up to nine "BNC I/O Panelettes" (NI number 184737-01), each containing two BNC connectors.
+
+![The inside of a CA-1000 enclosure with all 18 BNCs connected to an CB-68LPR](assets/g_ots_breakout-box_inside.jpg){:standalone .clear .ifr data-img-class="pop"}
+
+The CB-68LPR receives a number of signals from the NI-7842R card via the SHC68M-68F-RMIO cable and exposes them via labelled screw terminal blocks. In our behavioral setups we typically use four analogue input channels and one analogue output channel – which means three Panelettes could be enough. Nevertheless, find below the wiring suggestion for all 18 connections. The wiring is taken from the "NI R Series Multifunction RIO Specifications" document "372492C-01" page 10, which is available from the National Instruments website (see link [I/O Card section](#rio-card)). The first column contains the NI labels for "Connector 0 (RMIO)", the "Signal pin" column is the CB-68LPR label that is used for the BNC signal pin, the "Ground pin" column specifies the label for the BNC ring, and the "Suggested Label" is how we suggest to name label the BNC on the CA-1000 enclosure.
+
+| RMIO labels        | Signal pin | Ground pin | Suggested Label |
+|:------------------:|:----------:|:----------:|:---------------:|
+| AI0+ / AI0-        | J68        | J34        | AI0             |
+| AI1+ / AI1-        | J66        | J32        | AI1             |
+| AI2+ / AI2-        | J65        | J31        | AI2             |
+| AI3+ / AI3-        | J63        | J29        | AI3             |
+| AI4+ / AI4-        | J62        | J28        | AI4             |
+| AI5+ / AI5-        | J60        | J26        | AI5             |
+| AI6+ / AI6-        | J59        | J25        | AI6             |
+| AI7+ / AI7-        | J57        | J23        | AI7             |
+| AO0 / AOGND0       | J55        | J21        | AO0             |
+| AO1 / AOGND1       | J54        | J20        | AO1             |
+| AO2 / AOGND2       | J53        | J19        | AO2             |
+| AO3 / AOGND3       | J52        | J18        | AO3             |
+| AO4 / AOGND4       | J51        | J17        | AO4             |
+| AO5 / AOGND5       | J50        | J16        | AO5             |
+| AO6 / AOGND6       | J49        | J15        | AO6             |
+| AO7 / AOGND7       | J48        | J14        | AO7             |
+| DIO11 / DGND       | J45        | J9         | D8              |
+| DIO8 / DGND        | J10        | J8         | D11             |
+
+
+
 
 # Arduino Uno {#arduino-uno}
 
