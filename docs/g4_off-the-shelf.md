@@ -57,9 +57,6 @@ The CB-68LPR receives a number of signals from the NI-7842R card via the SHC68M-
 | DIO11 / DGND       | J45        | J9         | D8              |
 | DIO8 / DGND        | J10        | J8         | D11             |
 
-
-
-
 # Arduino Uno {#arduino-uno}
 
 The programmer is currently built around an Arduino Uno. The are widely available, for example at [1](https://store.arduino.cc/usa/arduino-uno-rev3) and [2](https://www.digikey.com/short/zr4nd5). The Arduino will be used to program the panel MCUs.

@@ -19,7 +19,7 @@ Depending on your background and on your goal, we try to provide different "Gett
 
 Anyone interested in running experiments with modular LED displays will find some reading material here to learn about what these arenas have been used for and can be used for.
 
-## [Aquiring the hardware](gs_getting-hardware.md)
+## [Acquiring the hardware](gs_getting-hardware.md)
 
 - __Target audience__: Engineers supporting the setup process.
 - __Prerequisites__: None

@@ -8,7 +8,7 @@ nav_order: 98
 
 Layout and form are secondary aspects of this page whose primary goal is to bundle existing documentation in one place. Still, we are grateful for [any hints on how to improve any aspect of it]({{site.baseurl}}/Contact.html). The headers, text, and images follow standard layout conventions. Important parts like __notes__ or __warnings__ are highlighted by __bold__ text. Monospaced font with a gray background is used for code snippets and file paths. For example, `clear; disp("Hello World");` would be code and `/home/reiserlab/Documents` or `C:\Users\Reiserlab\Documents\` would describe directories.
 
-When we describe the interaction with graphical user interfaces (GUI), we use a gray background with colored text for any element shown on the screen. For example, *Refresh Rate: 1000Hz*{:.gui-txt} means that we refer to the text "Refresh Rate: 1000Hz" displayed on a GUI. If we write about clickable buttons, then *OK*{:.gui-btn} would be an example for a confirmation button.
+When we describe the interaction with graphical user interfaces (GUI), we use a gray background with colored text for any element shown on the screen. For example, _Refresh Rate: 1000Hz_{:.gui-txt} means that we refer to the text "Refresh Rate: 1000Hz" displayed on a GUI. If we write about clickable buttons, then _OK_{:.gui-btn} would be an example for a confirmation button.
 
 ## How is the page created?
 
@@ -61,7 +61,7 @@ The Markdown files can be stored anywhere in your repository, wherever you prefe
 
 Any text file with the extension `.md` will generate some kind of output. To make it look pretty and to use images, links, and code blocks, refer to the Markdown documentation on the [kramdown website](https://kramdown.gettalong.org/syntax.html). The integration into the navigation of the _Display Website_ is achieved through a prepended section called Frontmatter.
 
-__Frontmatter__ is a part at the beginning of the Markdown file separated from the rest by `---`. The frontmatter itself follows a YAML syntax, which in this case, basically means a key-value pair separated by a *:*{:.kbd}+*SPACE*{:.kbd}. For the _Display Repository_, the frontmatter is used to describe how the page is represented in the navigation menu. Here an example:
+__Frontmatter__ is a part at the beginning of the Markdown file separated from the rest by `---`. The frontmatter itself follows a YAML syntax, which in this case, basically means a key-value pair separated by a _:_{:.kbd}+_SPACE_{:.kbd}. For the _Display Repository_, the frontmatter is used to describe how the page is represented in the navigation menu. Here an example:
 
 ```markdown
 ---
@@ -94,7 +94,7 @@ This is some text that will be shown on the left side of the image.
 
 # Next header
 
-![alternate text](assetss/my-image.png){:.ifr .pop}
+![alternate text](assets/my-image.png){:.ifr .pop}
 
 The above header will not float anymore. Consequently the second image
 is never shown floating besides the first one.
@@ -108,12 +108,12 @@ In the example above, a `width="30%"` argument will be added to the HTML `<img>`
 Two additional classes `gui-txt` and `gui-btn` are currently used to highlight text as something printed on a (MATLAB) GUI, or as something clickable like a button or menu. For example:
 
 ```markdown
-Once you click *OK*{:.gui-btn}, you will see the *X: 25ms*{:.gui-txt} in the main window
+Once you click _OK_{:.gui-btn}, you will see the _X: 25ms_{:.gui-txt} in the main window
 ```
 
-The above Markdown will look like this on the _Display Site_: Once you click *OK*{:.gui-btn}, you will see the *X: 25ms*{:.gui-txt} in the main window
+The above Markdown will look like this on the _Display Site_: Once you click _OK_{:.gui-btn}, you will see the _X: 25ms_{:.gui-txt} in the main window
 
-Warning and information boxes can be higlighted by adding the classes `.error`, `.warning`, and `.info` respectively. For example
+Warning and information boxes can be highlighted by adding the classes `.error`, `.warning`, and `.info` respectively. For example
 
 ```markdown
 This is an error
