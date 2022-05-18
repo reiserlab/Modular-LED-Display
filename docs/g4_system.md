@@ -3,6 +3,7 @@ title: Generation 4
 has_children: true
 has_toc: false
 nav_order: 22
+permalink: /g4/
 ---
 
 1. TOC
