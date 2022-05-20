@@ -3,6 +3,7 @@ title: Generation 3
 has_children: true
 has_toc: false
 nav_order: 21
+permalink: /G3/
 ---
 
 # Generation 3

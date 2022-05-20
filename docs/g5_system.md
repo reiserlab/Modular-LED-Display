@@ -1,6 +1,7 @@
 ---
 title: Generation 5
 nav_order: 23
+permalink: /G5/
 ---
 
 # Arena Generation 5
