@@ -10,6 +10,6 @@ localhost:
 	@( sleep 10 && xdg-open http://127.0.0.1:4000 &)
 	@bundle exec jekyll serve 
 
-update:
+update-dependencies:
 	@gem update
 	@bundle update
