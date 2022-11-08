@@ -33,7 +33,7 @@ While the complexity and capability of the G4 displays have increased over previ
 
 ## The difference from Generation 3
 
-The main differences from [Generation 3]({{site.baseurl}}/Generation%203/) are:
+The main differences from [Generation 3]({{site.baseurl}}/G3/) are:
 
 - size
 - refresh regime
