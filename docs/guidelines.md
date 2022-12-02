@@ -6,7 +6,7 @@ nav_order: 98
 
 # Documentation guidelines
 
-Layout and form are secondary aspects of this page whose primary goal is to bundle existing documentation in one place. Still, we are grateful for [any hints on how to improve any aspect of it]({{site.baseurl}}/Contact.html). The headers, text, and images follow standard layout conventions. Important parts like __notes__ or __warnings__ are highlighted by __bold__ text. Monospaced font with a gray background is used for code snippets and file paths. For example, `clear; disp("Hello World");` would be code and `/home/reiserlab/Documents` or `C:\Users\Reiserlab\Documents\` would describe directories.
+Layout and form are secondary aspects of this page whose primary goal is to bundle existing documentation in one place. Still, we are grateful for [any hints on how to improve any aspect of it]({{site.baseurl}}/Contact). The headers, text, and images follow standard layout conventions. Important parts like __notes__ or __warnings__ are highlighted by __bold__ text. Monospaced font with a gray background is used for code snippets and file paths. For example, `clear; disp("Hello World");` would be code and `/home/reiserlab/Documents` or `C:\Users\Reiserlab\Documents\` would describe directories.
 
 When we describe the interaction with graphical user interfaces (GUI), we use a gray background with colored text for any element shown on the screen. For example, _Refresh Rate: 1000Hz_{:.gui-txt} means that we refer to the text "Refresh Rate: 1000Hz" displayed on a GUI. If we write about clickable buttons, then _OK_{:.gui-btn} would be an example for a confirmation button.
 

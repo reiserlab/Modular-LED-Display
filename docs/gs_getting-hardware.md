@@ -63,6 +63,6 @@ To test and operate the G4 arena, you need to [install the "Panel_Host" software
 
 # Troubleshooting
 
-The G4 arena is a complex system where many things can go wrong. It is therefore very likely that you will need to [troubleshoot](g4_troubleshooting.md) your setup at several points in the process of setting it up and running it. The [troubleshooting guide](g4_troubleshooting.md) as well as some of the more detailed documents contain information on how to do this, but if you ever get stuck, don't hesitate to [get in contact]({{site.baseurl}}/Contact.html).
+The G4 arena is a complex system where many things can go wrong. It is therefore very likely that you will need to [troubleshoot](g4_troubleshooting.md) your setup at several points in the process of setting it up and running it. The [troubleshooting guide](g4_troubleshooting.md) as well as some of the more detailed documents contain information on how to do this, but if you ever get stuck, don't hesitate to [get in contact]({{site.baseurl}}/Contact).
 
 Once you have a working setup, you can continue the getting started guides with the description on [how to set up an experiment]({{site.baseurl}}/Generation%204/Display_Tools/docs/protocol-designer_getting-started.html)
