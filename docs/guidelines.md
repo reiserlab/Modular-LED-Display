@@ -29,7 +29,7 @@ This is some text with a [link to the Reiser Lab website](https://www.janelia.or
 
 1. Markdown is easy to read, even if not parsed
 2. for example, this is an ordered list
-3. followed by an image: 
+3. followed by an image:
 
 ![A modular display system for insect behavioral neuroscience](assets/Reiser2008.png)
 
