@@ -51,4 +51,4 @@ exclude: [
 ]
 
 relative_links:
-  enabled:     true
+  enabled: true
