@@ -14,3 +14,6 @@ docs/*docx
 
 .ruby-version
 .markdownlint.json
+
+# Ruby lock file
+Gemfile.lock
