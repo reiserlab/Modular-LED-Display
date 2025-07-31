@@ -15,6 +15,8 @@ The Modular LED Display Generation 4 (G4 for short) is capable of refresh rates 
 
 G4 Modular LED Displays are more user friendly than earlier generations. An [extensive set of software tools](#Display-Tools) supports the user in generating stimuli, running experiments, and analyzing results. They can run the arenas from a host computer either through convenient tools or for more direct manipulation, through an API. No need to transfer protocols and stimuli via SD card, as it used to be in previous generations. This improves usability, development speed, and debugging.
 
+The generation 4.1 (G4.1) system is an iteration on the G4 system we are currently working on. The most obvious addition is the new [Teensy4.1](https://www.pjrc.com/store/teensy41.html) based arena which is fully compatible with existing panels. Most changes are internal, for example we switched from proprietary electronic design automaton (EDA) to [KiCAD](https://www.kicad.org/) to enable more people go give feedback (in the lab, Janelia, and outside). 
+
 # Acquisition and Assembly
 
 The "modularity" aspect of the LED displays allows flexibility in setting up experiments. This gives you fine-grained control over setting up your experiments, but true to the Peter Parker principle [^1], this requires a more detailed understanding than an out-of-the-box system. Consequently, you need to choose which parts to use since not every hardware and software components are necessary for all setups – they might not be compatible with each other.
