@@ -5,6 +5,8 @@ remote_theme: pmarsceill/just-the-docs
 search_enabled: true
 color_scheme: "panel"
 
+plugins_dir: scripts
+
 kramdown:
   toc_levels: "1,2"
 

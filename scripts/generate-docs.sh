@@ -35,7 +35,7 @@ case "$TYPE" in
         echo "Generating DOCX documentation..."
         cat guidelines_hardware.md "$ABOUT" | \
             pandoc -o Guidelines-Hardware.docx \
-            -F "$REPO_ROOT/_data/kramdownfilter.py" \
+            -F "$REPO_ROOT/scripts/kramdownfilter.py" \
             --toc
         echo "✓ Created Guidelines-Hardware.docx"
         ;;
@@ -43,7 +43,7 @@ case "$TYPE" in
         echo "Generating PDF documentation..."
         cat guidelines_hardware.md "$ABOUT" | \
             pandoc -o Guidelines-Hardware.pdf \
-            -F "$REPO_ROOT/_data/kramdownfilter.py" \
+            -F "$REPO_ROOT/scripts/kramdownfilter.py" \
             --pdf-engine=lualatex \
             --toc
         echo "✓ Created Guidelines-Hardware.pdf"
@@ -52,14 +52,14 @@ case "$TYPE" in
         echo "Generating DOCX documentation..."
         cat guidelines_hardware.md "$ABOUT" | \
             pandoc -o Guidelines-Hardware.docx \
-            -F "$REPO_ROOT/_data/kramdownfilter.py" \
+            -F "$REPO_ROOT/scripts/kramdownfilter.py" \
             --toc
         echo "✓ Created Guidelines-Hardware.docx"
 
         echo "Generating PDF documentation..."
         cat guidelines_hardware.md "$ABOUT" | \
             pandoc -o Guidelines-Hardware.pdf \
-            -F "$REPO_ROOT/_data/kramdownfilter.py" \
+            -F "$REPO_ROOT/scripts/kramdownfilter.py" \
             --pdf-engine=lualatex \
             --toc
         echo "✓ Created Guidelines-Hardware.pdf"
