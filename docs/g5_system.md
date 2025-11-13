@@ -8,4 +8,4 @@ permalink: /G5/
 
 ![A preview of what the Generation 5 panel could look like](assets/g5_panel_back.jpg){:standalone .ifr data-img-class="pop"}
 
-We are currently in an early conceptual stage and will share information as it becomes clearer.
+We don't talk about G5. Let's focus on G6.
