@@ -1,29 +1,29 @@
-# LED Arena documentation
+# LED Arena Documentation
 
-This repository is to generate the website about [Modular LED Displays](https://reiserlab.github.io/Modular-LED-Display).
+This repository generates the website for [Modular LED Displays](https://reiserlab.github.io/Modular-LED-Display).
 
 ## Development Setup
 
 ### Prerequisites
 
-Before you begin, make sure you have the following installed:
+Before you begin, ensure you have the following tools installed:
 
-1. **pixi** - A package manager for managing development environments
-   - Follow the installation instructions at [pixi installation guide](https://pixi.sh/latest/#installation)
+1. **pixi** - Package manager for development environments
+   - Follow the [pixi installation guide](https://pixi.sh/latest/#installation)
 
 2. **rbenv** - Ruby version manager
-   - Check if rbenv is installed by running `rbenv --version`
-   - If not installed, follow the instructions for your platform at [rbenv installation guide](https://github.com/rbenv/rbenv#installation)
+   - Verify installation by running `rbenv --version`
+   - If not installed, follow the platform-specific instructions at the [rbenv installation guide](https://github.com/rbenv/rbenv#installation)
 
 ### Cloning the Repository
 
-This repository uses git submodules. To clone the entire website with all submodules, use:
+This repository uses Git submodules. Clone the complete website with all submodules using:
 
 ```bash
 git clone --recurse-submodules https://github.com/reiserlab/Modular-LED-Display.git
 ```
 
-If you've already cloned the repository without submodules, you can initialize them with:
+If you have already cloned the repository without submodules, initialize them using:
 
 ```bash
 git submodule update --init --recursive
@@ -31,10 +31,10 @@ git submodule update --init --recursive
 
 ### Running a Local Server
 
-Once you have the prerequisites installed and the repository cloned, you can start a local development server:
+Once the prerequisites are installed and the repository is cloned, start a local development server:
 
 ```bash
 pixi run localhost
 ```
 
-This will start a local server where you can preview the website and your changes.
+This starts a local server where you can preview the website and test your changes.
