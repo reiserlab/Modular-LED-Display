@@ -4,17 +4,6 @@ This repository generates the website for [Modular LED Displays](https://reiserl
 
 ## Development Setup
 
-### Prerequisites
-
-Before you begin, ensure you have the following tools installed:
-
-1. **pixi** - Package manager for development environments
-   - Follow the [pixi installation guide](https://pixi.sh/latest/#installation)
-
-2. **rbenv** - Ruby version manager
-   - Verify installation by running `rbenv --version`
-   - If not installed, follow the platform-specific instructions at the [rbenv installation guide](https://github.com/rbenv/rbenv#installation)
-
 ### Cloning the Repository
 
 This repository uses Git submodules. Clone the complete website with all submodules using:
@@ -29,9 +18,22 @@ If you have already cloned the repository without submodules, initialize them us
 git submodule update --init --recursive
 ```
 
+### Documentation
+
+Before you begin contributing to the documentation, ensure you have the following tools installed:
+
+1. **pixi** - Package manager for development environments
+   - Follow the [pixi installation guide](https://pixi.sh/latest/#installation)
+
+2. **rbenv** - Ruby version manager
+   - Verify installation by running `rbenv --version`
+   - If not installed, follow the platform-specific instructions at the [rbenv installation guide](https://github.com/rbenv/rbenv#installation)
+
+These are required to look at the documentation locally (see next section on how to run a local server). This was only tested on Linux and is assumed to work under macOS. If you find a way to run this under Windows, please let us know.
+
 ### Running a Local Server
 
-Once the prerequisites are installed and the repository is cloned, start a local development server:
+Once the repository is cloned and the prerequisites are installed, start a local development server:
 
 ```bash
 pixi run localhost
