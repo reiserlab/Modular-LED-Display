@@ -1,7 +1,6 @@
 title: [LED Displays]
 description: [Some information about panels]
 
-
 remote_theme: pmarsceill/just-the-docs
 search_enabled: true
 color_scheme: "panel"
@@ -10,45 +9,92 @@ kramdown:
   toc_levels: "1,2"
 
 exclude: [
-  # Generation 2
-  ## Arena
-  "Generation 2/Arenas/arena_12_20", "Generation 2/Arenas/arena_12_20_top", "Generation 2/Arenas/arena_mini", 
-  "Generation 2/Arenas/full", "Generation 2/Arenas/mod", "Generation 2/Arenas/pdfs", 
-  "Generation 2/Arenas/planar_arena_8x", "Generation 2/Arenas/planar_arena_8x_base",
-  ## Hardware
-  "Generation 2/Hardware/fab_v1p3", "Generation 2/Hardware/pcb",
-  ## LED-Arrays
-  "Generation 2/LED-Arrays/led_array_3mm", "Generation 2/LED-Arrays/led_array_3mm_spacer", "Generation 2/LED-Arrays/led_array_5mm", "Generation 2/LED-Arrays/led_array_5mm_adaptor", "Generation 2/LED-Arrays/led_array_5mm_mask", "Generation 2/LED-Arrays/led_array_8x8_template", "Generation 2/LED-Arrays/led_array_mixed", "Generation 2/LED-Arrays/led_array_sm0805", "Generation 2/LED-Arrays/led_array_panel", "Generation 2/LED-Arrays/pass_thru_panel",
-  # Generation 3
-  "Generation 3/AVRDude/controller", "Generation 3/AVRDude/panels", "Generation 3/AVRDude/udev", 
-  "Generation 3/Breakout-BNC/gerber_v1.0", "Generation 3/Breakout-BNC/gerber_v1.1", "Generation 3/Breakout-BNC/lib", "Generation 3/Breakout-BNC/mod", 
-  "Generation 3/Breakout-ISP/gerber_v1.0", "Generation 3/Breakout-ISP/gerber_v1.1", "Generation 3/Breakout-ISP/mod", 
-  "Generation 3/Controller/eagle", "Generation 3/Controller/gerber",
-  "Generation 3/Hardware/arena",
-  "Generation 3/Panelcom/examples", "Generation 3/Panelcom/panel_com",
-  ## Software
-  "Generation 3/Software/C code for Controller", "Generation 3/Software/C code for Panel", "Generation 3/Software/MATLAB Code",
-  ## Panelcom
+    # Build and dependency directories
+    ".pixi",
+    # Generation 2
+    ## Arena
+    "Generation 2/Arenas/arena_12_20",
+    "Generation 2/Arenas/arena_12_20_top",
+    "Generation 2/Arenas/arena_mini",
+    "Generation 2/Arenas/full",
+    "Generation 2/Arenas/mod",
+    "Generation 2/Arenas/pdfs",
+    "Generation 2/Arenas/planar_arena_8x",
+    "Generation 2/Arenas/planar_arena_8x_base",
+    ## Hardware
+    "Generation 2/Hardware/fab_v1p3",
+    "Generation 2/Hardware/pcb",
+    ## LED-Arrays
+    "Generation 2/LED-Arrays/led_array_3mm",
+    "Generation 2/LED-Arrays/led_array_3mm_spacer",
+    "Generation 2/LED-Arrays/led_array_5mm",
+    "Generation 2/LED-Arrays/led_array_5mm_adaptor",
+    "Generation 2/LED-Arrays/led_array_5mm_mask",
+    "Generation 2/LED-Arrays/led_array_8x8_template",
+    "Generation 2/LED-Arrays/led_array_mixed",
+    "Generation 2/LED-Arrays/led_array_sm0805",
+    "Generation 2/LED-Arrays/led_array_panel",
+    "Generation 2/LED-Arrays/pass_thru_panel",
+    # Generation 3
+    "Generation 3/AVRDude/controller",
+    "Generation 3/AVRDude/panels",
+    "Generation 3/AVRDude/udev",
+    "Generation 3/Breakout-BNC/gerber_v1.0",
+    "Generation 3/Breakout-BNC/gerber_v1.1",
+    "Generation 3/Breakout-BNC/lib",
+    "Generation 3/Breakout-BNC/mod",
+    "Generation 3/Breakout-ISP/gerber_v1.0",
+    "Generation 3/Breakout-ISP/gerber_v1.1",
+    "Generation 3/Breakout-ISP/mod",
+    "Generation 3/Controller/eagle",
+    "Generation 3/Controller/gerber",
+    "Generation 3/Hardware/arena",
+    "Generation 3/Panelcom/examples",
+    "Generation 3/Panelcom/panel_com",
+    ## Software
+    "Generation 3/Software/C code for Controller",
+    "Generation 3/Software/C code for Panel",
+    "Generation 3/Software/MATLAB Code",
+    ## Panelcom
 
-  # Generation 4
-  ## Arena
-  "Generation 4/Arena/Schematic",
-  ## Display Tools
-  "Generation 4/Display_Tools/G4_Function_Generator/support", 
-  "Generation 4/Display_Tools/G4 Panel Programming/panels_g4_firmware", "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
-  "Generation 4/Display_Tools/G4_Data_Analysis/data plotting", "Generation 4/Display_Tools/G4_Data_Analysis/data processing",  
-  "Generation 4/Display_Tools/G4_Data_Analysis/new_data_processing", 
-  "Generation 4/Display_Tools/G4_Protocol_Designer/plotting_files", "Generation 4/Display_Tools/G4_Protocol_Designer/run_protocols", "Generation 4/Display_Tools/G4_Protocol_Designer/support_files", "Generation 4/Display_Tools/G4_Protocol_Designer/test_protocols", 
-  "Generation 4/Display_Tools/PControl_Matlab/ao_functions", "Generation 4/Display_Tools/PControl_Matlab/controller", "Generation 4/Display_Tools/PControl_Matlab/Experiment", "Generation 4/Display_Tools/PControl_Matlab/functions", "Generation 4/Display_Tools/PControl_Matlab/IO_tools", "Generation 4/Display_Tools/PControl_Matlab/Mex_functions", "Generation 4/Display_Tools/PControl_Matlab/Pattern_tools", "Generation 4/Display_Tools/PControl_Matlab/Patterns", "Generation 4/Display_Tools/PControl_Matlab/tcp_udp_ip", "Generation 4/Display_Tools/PControl_Matlab/test_scripts",
-  "Generation 4/Display_Tools/G4_Data_Analysis/support/", 
-  "Generation 4/Display_Tools/Pitching_Zaber_Stage/zaber functions/", 
-  "Generation 4/Firmware/hardware_v0p1", "Generation 4/Firmware/hardware_v0p2", "Generation 4/Firmware/library", "Generation 4/Firmware/test_controllers", 
-  ## Hardware
-  "Generation 4/Hardware/atmega328", "Generation 4/Hardware/max6960",  "Generation 4/Hardware/stm32", 
-  ## Panel Programming
-  "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
-  "Generation 4/Panel/Schematic",
-]
+    # Generation 4
+    ## Arena
+    "Generation 4/Arena/Schematic",
+    ## Display Tools
+    "Generation 4/Display_Tools/G4_Function_Generator/support",
+    "Generation 4/Display_Tools/G4 Panel Programming/panels_g4_firmware",
+    "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
+    "Generation 4/Display_Tools/G4_Data_Analysis/data plotting",
+    "Generation 4/Display_Tools/G4_Data_Analysis/data processing",
+    "Generation 4/Display_Tools/G4_Data_Analysis/new_data_processing",
+    "Generation 4/Display_Tools/G4_Protocol_Designer/plotting_files",
+    "Generation 4/Display_Tools/G4_Protocol_Designer/run_protocols",
+    "Generation 4/Display_Tools/G4_Protocol_Designer/support_files",
+    "Generation 4/Display_Tools/G4_Protocol_Designer/test_protocols",
+    "Generation 4/Display_Tools/PControl_Matlab/ao_functions",
+    "Generation 4/Display_Tools/PControl_Matlab/controller",
+    "Generation 4/Display_Tools/PControl_Matlab/Experiment",
+    "Generation 4/Display_Tools/PControl_Matlab/functions",
+    "Generation 4/Display_Tools/PControl_Matlab/IO_tools",
+    "Generation 4/Display_Tools/PControl_Matlab/Mex_functions",
+    "Generation 4/Display_Tools/PControl_Matlab/Pattern_tools",
+    "Generation 4/Display_Tools/PControl_Matlab/Patterns",
+    "Generation 4/Display_Tools/PControl_Matlab/tcp_udp_ip",
+    "Generation 4/Display_Tools/PControl_Matlab/test_scripts",
+    "Generation 4/Display_Tools/G4_Data_Analysis/support/",
+    "Generation 4/Display_Tools/Pitching_Zaber_Stage/zaber functions/",
+    "Generation 4/Firmware/hardware_v0p1",
+    "Generation 4/Firmware/hardware_v0p2",
+    "Generation 4/Firmware/library",
+    "Generation 4/Firmware/test_controllers",
+    ## Hardware
+    "Generation 4/Hardware/atmega328",
+    "Generation 4/Hardware/max6960",
+    "Generation 4/Hardware/stm32",
+    ## Panel Programming
+    "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
+    "Generation 4/Panel/Schematic",
+  ]
 
 relative_links:
   enabled: true

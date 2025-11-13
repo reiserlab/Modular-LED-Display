@@ -1,0 +1,28 @@
+[workspace]
+name = "modular-led-display"
+version = "0.1.0"
+description = "Modular LED Display Documentation"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[dependencies]
+python = ">=3.8"
+pandocfilters = ">=1.5.0"
+pandoc = ">=2.0"
+
+[tasks]
+# Documentation generation tasks
+docs = { cmd = "bash scripts/generate-docs.sh all", description = "Generate documentation (DOCX and PDF)" }
+docs-clean = { cmd = "rm -f docs/Guidelines-Hardware.docx docs/Guidelines-Hardware.pdf", description = "Remove generated documentation files" }
+
+# Jekyll server for local development
+localhost = { cmd = "rbenv exec bundle exec ruby scripts/jekyll-serve-wrapper.rb", description = "Start Jekyll development server with live reload" }
+
+# Update Ruby dependencies
+update-dependencies = { cmd = "rbenv exec gem update && rbenv exec bundle update", description = "Update all Ruby gems and bundler dependencies" }
+
+# Setup and verification tasks
+setup = { cmd = "rbenv exec bundle install", description = "Initial setup: install all Ruby dependencies" }
+
+[environments]
+default = { solve-group = "default" }

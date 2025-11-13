@@ -2,3 +2,39 @@
 
 This repository is to generate the website about [Modular LED Displays](https://reiserlab.github.io/Modular-LED-Display).
 
+## Development Setup
+
+### Prerequisites
+
+Before you begin, make sure you have the following installed:
+
+1. **pixi** - A package manager for managing development environments
+   - Follow the installation instructions at [pixi installation guide](https://pixi.sh/latest/#installation)
+
+2. **rbenv** - Ruby version manager
+   - Check if rbenv is installed by running `rbenv --version`
+   - If not installed, follow the instructions for your platform at [rbenv installation guide](https://github.com/rbenv/rbenv#installation)
+
+### Cloning the Repository
+
+This repository uses git submodules. To clone the entire website with all submodules, use:
+
+```bash
+git clone --recurse-submodules https://github.com/reiserlab/Modular-LED-Display.git
+```
+
+If you've already cloned the repository without submodules, you can initialize them with:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Running a Local Server
+
+Once you have the prerequisites installed and the repository cloned, you can start a local development server:
+
+```bash
+pixi run localhost
+```
+
+This will start a local server where you can preview the website and your changes.
