@@ -96,6 +96,22 @@ exclude: [
     ## Panel Programming
     "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
     "Generation 4/Panel/Schematic",
+
+    ## G6 Arena
+    "Generation 6/Arena/README.md",
+    ## G6 Test Arena
+    "Generation 6/Hardware/README.md",
+    ## G6 Panels
+    "Generation 6/Panels/README.md",
+    ## G6 maDisplayTools
+    "Generation 6/maDisplayTools/README.md",
+    "Generation 6/maDisplayTools/patterns/README.md",
+    "Generation 6/maDisplayTools/tests",
+    "Generation 6/maDisplayTools/docs/development",
+    ## G6 webDisplayTools
+    "Generation 6/webDisplayTools/TESTING.md",
+    "Generation 6/webDisplayTools/CLAUDE.md",
+    "Generation 6/webDisplayTools/CHANGELOG.md",
   ]
 
 relative_links:
