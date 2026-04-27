@@ -44,3 +44,16 @@
   upstream: https://github.com/iorodeo/panels_g4_hardware
 - path: Generation 4/Panel
   url: https://github.com/floesche/LED-Display_G4_Hardware_Driver
+- path: Generation 6/Arena
+  url: https://github.com/floesche/LED-Display_G6_Hardware_Arena
+  upstream: https://github.com/iorodeo/LED-Display_G6_Hardware_Arena
+- path: Generation 6/Hardware
+  url: https://github.com/floesche/LED-Display_G6_Hardware_Test_Arena
+  upstream: https://github.com/iorodeo/LED-Display_G6_Hardware_Test_Arena
+- path: Generation 6/maDisplayTools
+  url: https://github.com/reiserlab/maDisplayTools
+- path: Generation 6/Panels
+  url: https://github.com/floesche/LED-Display_G6_Hardware_Panel
+  upstream: https://github.com/iorodeo/LED-Display_G6_Hardware_Panel
+- path: Generation 6/webDisplayTools
+  url: https://github.com/reiserlab/webDisplayTools

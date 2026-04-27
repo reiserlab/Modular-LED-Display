@@ -49,3 +49,18 @@
 [submodule "Generation 4/Display_Tools"]
 	path = Generation 4/Display_Tools
 	url = https://github.com/JaneliaSciComp/G4_Display_Tools.git
+[submodule "Generation 6/Panels"]
+	path = Generation 6/Panels
+	url = git@github.com:iorodeo/LED-Display_G6_Hardware_Panel.git
+[submodule "Generation 6/Hardware"]
+	path = Generation 6/Hardware
+	url = git@github.com:iorodeo/LED-Display_G6_Hardware_Test_Arena.git
+[submodule "Generation 6/Arena"]
+	path = Generation 6/Arena
+	url = git@github.com:iorodeo/LED-Display_G6_Hardware_Arena.git
+[submodule "Generation 6/maDisplayTools"]
+	path = Generation 6/maDisplayTools
+	url = https://github.com/reiserlab/maDisplayTools
+[submodule "Generation 6/webDisplayTools"]
+	path = Generation 6/webDisplayTools
+	url = https://github.com/reiserlab/webDisplayTools
