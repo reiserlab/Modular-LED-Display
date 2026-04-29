@@ -1,15 +1,15 @@
 [submodule "Generation 3/Hardware"]
 	path = Generation 3/Hardware
-	url = https://github.com/reiserlab/Panel-G3-Hardware
+	url = git@github.com:reiserlab/LED-Display_G3_Hardware.git
 [submodule "Generation 3/Software"]
 	path = Generation 3/Software
-	url = https://github.com/reiserlab/Panel-G3-Software
+	url = git@github.com:reiserlab/LED-Display_G3_Software.git
 [submodule "Generation 3/Firmware"]
 	path = Generation 3/Firmware
-	url = https://github.com/floesche/panels_g3_firmware
+	url = git@github.com:reiserlab/LED-Display_G3_Firmware.git
 [submodule "Generation 3/AVRDude"]
 	path = Generation 3/AVRDude
-	url = https://github.com/floesche/panels_prog_avrdude
+	url = git@github.com:reiserlab/LED-Display_G3_Firmware_avrdude.git
 [submodule "Generation 4/Documentation"]
 	path = Generation 4/Documentation
 	url = https://github.com/floesche/panels_g4_docs
