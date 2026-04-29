@@ -112,6 +112,7 @@ exclude: [
     "Generation 6/webDisplayTools/TESTING.md",
     "Generation 6/webDisplayTools/CLAUDE.md",
     "Generation 6/webDisplayTools/CHANGELOG.md",
+    "Generation 6/webDisplayTools/docs/development",
   ]
 
 relative_links:
