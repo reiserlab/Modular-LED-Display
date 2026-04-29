@@ -10,9 +10,6 @@
 [submodule "Generation 3/AVRDude"]
 	path = Generation 3/AVRDude
 	url = git@github.com:reiserlab/LED-Display_G3_Firmware_avrdude.git
-[submodule "Generation 4/Documentation"]
-	path = Generation 4/Documentation
-	url = https://github.com/floesche/panels_g4_docs
 [submodule "Generation 4/Firmware"]
 	path = Generation 4/Firmware
 	url = https://github.com/floesche/panels_g4_firmware
