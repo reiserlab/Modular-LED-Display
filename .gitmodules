@@ -45,7 +45,7 @@
 	url = git@github.com:reiserlab/LED-Display_G4_Hardware_Driver.git
 [submodule "Generation 4/Display_Tools"]
 	path = Generation 4/Display_Tools
-	url = git@github.com:reiserlab/LED-DIsplay_G4_Display_Tools.git
+	url = git@github.com:reiserlab/LED-Display_G4_Display_Tools.git
 [submodule "Generation 6/Panels"]
 	path = Generation 6/Panels
 	url = git@github.com:reiserlab/LED-Display_G6_Hardware_Panel.git
