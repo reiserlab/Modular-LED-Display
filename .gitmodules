@@ -12,49 +12,49 @@
 	url = git@github.com:reiserlab/LED-Display_G3_Firmware_avrdude.git
 [submodule "Generation 4/Firmware"]
 	path = Generation 4/Firmware
-	url = https://github.com/floesche/panels_g4_firmware
+	url = git@github.com:reiserlab/LED-Display_G4_Firmware.git
 [submodule "Generation 4/Hardware"]
 	path = Generation 4/Hardware
-	url = https://github.com/floesche/panels_g4_hardware
+	url = git@github.com:reiserlab/LED-Display_G4_Hardware.git
 [submodule "Generation 2/Hardware"]
 	path = Generation 2/Panels
-	url = https://github.com/floesche/panels_g3_hardware
+	url = git@github.com:reiserlab/LED-Display_G2-G3_Hardware_Panel.git
 [submodule "Generation 2/Arenas"]
 	path = Generation 2/Arenas
-	url = https://github.com/floesche/panels_arenas
+	url = git@github.com:reiserlab/LED-Display_G2_Hardware_Arena.git
 [submodule "Generation 2/LED-Arrays"]
 	path = Generation 2/LED-Arrays
-	url = https://github.com/floesche/panels_led_arrays
+	url = git@github.com:reiserlab/LED-Display_G2_Hardware_Driver.git
 [submodule "Generation 3/Panelcom"]
 	path = Generation 3/Panelcom
-	url = https://github.com/floesche/panel_comm
+	url = git@github.com:reiserlab/LED-Display_G3_Software_Panelcom.git
 [submodule "Generation 3/Controller"]
 	path = Generation 3/Controller
-	url = https://github.com/floesche/panels_controller
+	url = git@github.com:reiserlab/LED-Display_G3_Hardware_Controller.git
 [submodule "Generation 3/Breakout-BNC"]
 	path = Generation 3/Breakout-BNC
-	url = https://github.com/floesche/panels_bnc_breakout
+	url = git@github.com:reiserlab/LED-Display_G3_Hardware_Controller_BNC.git
 [submodule "Generation 3/Breakout-ISP"]
 	path = Generation 3/Breakout-ISP
-	url = https://github.com/floesche/panels_isp_breakout
+	url = git@github.com:reiserlab/LED-Display_G3_Hardware_Controller_ISP.git
 [submodule "Generation 4/Arena"]
 	path = Generation 4/Arena
-	url = https://github.com/floesche/Arena-G4-Hardware
+	url = git@github.com:reiserlab/LED-Display_G4_Hardware_Arena.git
 [submodule "Generation 4/Panel"]
 	path = Generation 4/Panel
-	url = https://github.com/floesche/Panel-G4-Hardware
+	url = git@github.com:reiserlab/LED-Display_G4_Hardware_Driver.git
 [submodule "Generation 4/Display_Tools"]
 	path = Generation 4/Display_Tools
-	url = https://github.com/JaneliaSciComp/G4_Display_Tools.git
+	url = git@github.com:reiserlab/LED-DIsplay_G4_Display_Tools.git
 [submodule "Generation 6/Panels"]
 	path = Generation 6/Panels
-	url = git@github.com:iorodeo/LED-Display_G6_Hardware_Panel.git
+	url = git@github.com:reiserlab/LED-Display_G6_Hardware_Panel.git
 [submodule "Generation 6/Hardware"]
 	path = Generation 6/Hardware
-	url = git@github.com:iorodeo/LED-Display_G6_Hardware_Test_Arena.git
+	url = git@github.com:reiserlab/LED-Display_G6_Hardware_Test_Arena.git
 [submodule "Generation 6/Arena"]
 	path = Generation 6/Arena
-	url = git@github.com:iorodeo/LED-Display_G6_Hardware_Arena.git
+	url = git@github.com:reiserlab/LED-Display_G6_Hardware_Arena.git
 [submodule "Generation 6/maDisplayTools"]
 	path = Generation 6/maDisplayTools
 	url = https://github.com/reiserlab/maDisplayTools
