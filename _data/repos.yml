@@ -1,59 +1,57 @@
 - path: Generation 2/Arenas
-  url: https://github.com/floesche/LED-Display_G2_Hardware_Arena
+  url: https://github.com/reiserlab/LED-Display_G2_Hardware_Arena
   upstream: https://github.com/iorodeo/panels_arenas
 - path: Generation 2/Hardware
-  url: https://github.com/floesche/LED-Display_G2-G3_Hardware_Panel
+  url: https://github.com/reiserlab/LED-Display_G2-G3_Hardware_Panel
   upstream: https://github.com/iorodeo/panels_g3_hardware
 - path: Generation 2/LED-Arrays
-  url: https://github.com/floesche/LED-Display_G2_Hardware_Driver
+  url: https://github.com/reiserlab/LED-Display_G2_Hardware_Driver
   upstream: https://github.com/iorodeo/panels_led_arrays
 - path: Generation 3/AVRDude
-  url: https://github.com/floesche/LED-Display_G3_Firmware_avrdude
+  url: https://github.com/reiserlab/LED-Display_G3_Firmware_avrdude
   upstream: https://github.com/iorodeo/panels_prog_avrdude
 - path: Generation 3/Breakout-BNC
-  url: https://github.com/floesche/LED-Display_G3_Hardware_Controller_BNC
+  url: https://github.com/reiserlab/LED-Display_G3_Hardware_Controller_BNC
   upstream: https://github.com/iorodeo/panels_bnc_breakout
 - path: Generation 3/Breakout-ISP
-  url: https://github.com/floesche/LED-Display_G3_Hardware_Controller_ISP
+  url: https://github.com/reiserlab/LED-Display_G3_Hardware_Controller_ISP
   upstream: https://github.com/iorodeo/panels_isp_breakout
 - path: Generation 3/Controller
-  url: https://github.com/floesche/LED-Display_G3_Hardware_Controller
+  url: https://github.com/reiserlab/LED-Display_G3_Hardware_Controller
   upstream: https://github.com/willdickson/panels_controller
 - path: Generation 3/Firmware
-  url: https://github.com/floesche/LED-Display_G3_Firmware
+  url: https://github.com/reiserlab/LED-Display_G3_Firmware
   upstream: https://github.com/iorodeo/panels_g3_firmware
 - path: Generation 3/Hardware
-  url: https://github.com/floesche/LED-Display_G3_Hardware
+  url: https://github.com/reiserlab/LED-Display_G3_Hardware
 - path: Generation 3/Panelcom
-  url: https://github.com/floesche/LED-Display_G3_Software_Panelcom
+  url: https://github.com/reiserlab/LED-Display_G3_Software_Panelcom
   upstream: https://github.com/iorodeo/panel_comm
 - path: Generation 3/Software
-  url: https://github.com/floesche/LED-Display_G3_Software
+  url: https://github.com/reiserlab/LED-Display_G3_Software
 - path: Generation 4/Arena
-  url: https://github.com/floesche/LED-Display_G4_Hardware_Arena
+  url: https://github.com/reiserlab/LED-Display_G4_Hardware_Arena
 - path: Generation 4/Display_Tools
-  url: https://github.com/JaneliaSciComp/G4_Display_Tools
-- path: Generation 4/Documentation
-  url: https://github.com/floesche/LED-Display_G4_Documentation
-  upstream: https://github.com/iorodeo/panels_g4_docs
+  url: https://github.com/reiserlab/LED-Display_G4_Display_Tools
+  upstream: https://github.com/JaneliaSciComp/G4_Display_Tools
 - path: Generation 4/Firmware
-  url: https://github.com/floesche/LED-Display_G4_Firmware
+  url: https://github.com/reiserlab/LED-Display_G4_Firmware
   upstream: https://github.com/iorodeo/panels_g4_firmware
 - path: Generation 4/Hardware
-  url: https://github.com/floesche/LED-Display_G4_Hardware
+  url: https://github.com/reiserlab/LED-Display_G4_Hardware
   upstream: https://github.com/iorodeo/panels_g4_hardware
 - path: Generation 4/Panel
-  url: https://github.com/floesche/LED-Display_G4_Hardware_Driver
+  url: https://github.com/reiserlab/LED-Display_G4_Hardware_Driver
 - path: Generation 6/Arena
-  url: https://github.com/floesche/LED-Display_G6_Hardware_Arena
+  url: https://github.com/reiserlab/LED-Display_G6_Hardware_Arena
   upstream: https://github.com/iorodeo/LED-Display_G6_Hardware_Arena
 - path: Generation 6/Hardware
-  url: https://github.com/floesche/LED-Display_G6_Hardware_Test_Arena
+  url: https://github.com/reiserlab/LED-Display_G6_Hardware_Test_Arena
   upstream: https://github.com/iorodeo/LED-Display_G6_Hardware_Test_Arena
 - path: Generation 6/maDisplayTools
   url: https://github.com/reiserlab/maDisplayTools
 - path: Generation 6/Panels
-  url: https://github.com/floesche/LED-Display_G6_Hardware_Panel
+  url: https://github.com/reiserlab/LED-Display_G6_Hardware_Panel
   upstream: https://github.com/iorodeo/LED-Display_G6_Hardware_Panel
 - path: Generation 6/webDisplayTools
   url: https://github.com/reiserlab/webDisplayTools
