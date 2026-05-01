@@ -84,7 +84,7 @@ v2 is at **opcodes-declared, behavior-not-implemented** in `iorodeo/g6_firmware_
 
 ---
 
-# v1 — G6 Panel Protocol
+## v1 — G6 Panel Protocol
 
 Based on `<will@iorodeo.com>`'s [G6 message format proposal](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit), here is an updated request for comments for version 1 of the protocol between controller and panels.
 
@@ -92,7 +92,7 @@ Thinking ahead, future versions could look similar to what is specified in [Vers
 
 Just to map out the space for commands, there is a preliminary list of commands in [Version Summary](#master-command-summary-v1v4), but all of this is subject to change.
 
-## Message Format
+### Message Format
 
 All messages consist of:
 
@@ -100,7 +100,7 @@ All messages consist of:
 - **Byte 1**: Command
 - **Bytes 2–n**: Payload (command-dependent)
 
-### Header Byte (Byte 0)
+#### Header Byte (Byte 0)
 
 The header byte structure:
 
@@ -112,7 +112,7 @@ For Protocol v1, the version bits are `0b0000001`, giving possible header values
 - `0x01` (`0b00000001`) — when parity bit = 0
 - `0x81` (`0b10000001`) — when parity bit = 1
 
-### Parity Calculation
+#### Parity Calculation
 
 The parity bit (MSB of byte 0) is set such that the total count of '1' bits in the entire message (excluding the parity bit itself) modulo 2 equals the parity bit value. Specifically, it counts all '1' bits in:
 
@@ -128,7 +128,7 @@ The parity bit is set such that this count modulo 2 equals the parity bit value,
 - 2-level oneshot (command `0x10`), all pixels=0, stretch=1 → header should be `0x81` (1 from version + 1 from command + 1 from stretch = 3 ones → parity 1)
 - 16-level oneshot (command `0x30`), all pixels=0, stretch=0 → header should be `0x81` (1 from version + 2 from command = 3 ones → parity 1)
 
-### Stretch Value
+#### Stretch Value
 
 The stretch value is a single byte (0-255) that scales the brightness of all pixels in a pattern. This provides:
 
@@ -141,13 +141,13 @@ The stretch value is a single byte (0-255) that scales the brightness of all pix
 >
 > **🔴 Divergence (2026-05-01) vs `g6_firmware_devel @ 6944894`:** stretch is parsed from the wire and stored on the `Pattern` object, but `Display::show()` ([display.cpp:43–88](../../../g6_firmware_devel/panel/src/display.cpp)) **never reads `pat_.stretch()`**. So in v1 firmware, stretch has zero effect on what gets displayed. See [Current state § D3](#reconciliation-against-g6_firmware_devel--6944894-run-2026-05-01). Action: spec stays as-is for the wire format; firmware needs a ticket to wire stretch into the display loop.
 
-### Endianness and Bit Packing
+#### Endianness and Bit Packing
 
 little-endian for all multi-byte integers. Pack pixels MSB-first within each byte.
 
 > **⚠ Flag — redundancy:** this rule is already stated in [`g6_00-architecture.md`](g6_00-architecture.md). Consider removing the duplicate in Phase 2 consolidation, or keep as a per-section reminder if helpful.
 
-### SPI framing
+#### SPI framing
 
 Each message SHALL be transmitted as exactly one SPI transaction, bounded by chip-select (CS). The message begins on CS falling edge and ends on CS rising edge. The controller and panel SHALL reset their message parsers on CS rising edge.
 
@@ -161,7 +161,7 @@ If any validation fails (unsupported protocol version, unsupported command, inco
 
 > **⚠ Flag — v2 forward note:** the "at least 3 bytes" floor is encoded in firmware as `MESSAGE_MINIMUM_SIZE = HEADER_SIZE (2) + PAYLOAD_MINIMUM_SIZE (1) = 3`. v2 commands `0x02`, `0x03`, `0x0F` have zero-byte payloads in the source spec — under the firmware's current rule those would need at least 1 dummy payload byte (since `PAYLOAD_MINIMUM_SIZE = 1`), or `PAYLOAD_MINIMUM_SIZE` needs to drop to 0. Decide during v2 migration.
 
-## Implemented Commands
+### Implemented Commands
 
 Version 1 of the protocol supports only three commands (controller → panel):
 
@@ -177,7 +177,7 @@ Version 1 of the protocol supports only three commands (controller → panel):
 
 > **⚠ Flag — table column structure flattened from source:** the source table had a 2-row merged header (`Header` over `parity / version`) and a stray empty 6th column. Flattened to clean Markdown above. Verify equivalence: parity column is `0|1` (parity bit can be either), version column is `1` (v1 version bits = `0b0000001` = 1).
 
-### `0x01` — Communication check
+#### `0x01` — Communication check
 
 Send a known message, display response. For example, upon reception of the command a specific part of the panel could light up. If it is interpreted correctly, a second part of the panel could light up for some time.
 
@@ -189,7 +189,7 @@ Send a known message, display response. For example, upon reception of the comma
 
 > **⚠ Flag — open: panel-side validation behavior:** with the canonical sequence pinned, the remaining open question is whether the panel should also *verify* the bytes match the expected sequence (rejecting mismatches), or whether it just echoes back the checksum and lets the host compare. Firmware currently does no payload-content validation beyond length/parity. Spec the verification policy explicitly.
 
-### `0x10` — Display 2-Level Grayscale (Oneshot)
+#### `0x10` — Display 2-Level Grayscale (Oneshot)
 
 Displays a 2-level (1-bit per pixel) pattern once.
 
@@ -203,7 +203,7 @@ Displays a 2-level (1-bit per pixel) pattern once.
 
 `[0x01] [0x10] [pixel data: 50 bytes] [stretch]`
 
-### `0x30` — Display 16-Level Grayscale (Oneshot)
+#### `0x30` — Display 16-Level Grayscale (Oneshot)
 
 Displays a 16-level (4-bit per pixel) pattern once.
 
@@ -217,7 +217,7 @@ Displays a 16-level (4-bit per pixel) pattern once.
 
 `[0x01] [0x30] [pixel data: 200 bytes] [stretch]`
 
-## Confirmation message
+### Confirmation message
 
 On CS falling edge, a panel returns the version, command, and a checksum from the previously received command.
 
@@ -250,7 +250,7 @@ CIPO: [0x_1] [0x30] [checksum pixel data 2 + stretch]
 
 `[0x_1]` is shorthand for "either `0x01` or `0x81`" depending on the parity bit recomputed for the confirmation message.
 
-## Pixel Data Format
+### Pixel Data Format
 
 Pixels are transmitted in row-major order. For 2-level, bits are packed MSB-first, 8 pixels per byte. For 16-level, there are two pixels per byte (upper nibble first).
 
@@ -276,7 +276,7 @@ if k odd  → pixel =  payload[byte_index]       & 0x0F
 
 No per-row padding; the bitstream is continuous across row boundaries.
 
-### Example pixel ↔ LED mapping for panel v0.1
+#### Example pixel ↔ LED mapping for panel v0.1
 
 The arrangement of pixels (row, column) looks like this:
 
@@ -320,7 +320,7 @@ This means:
 
 > **⚠ Flag — example pinned to v0.1 hardware:** current production is `panel_rp2354_20x20_v0p2` and `v0.3.0` is in draft; the v0.1 LED designator layout used in this example is not the production layout. The full LED mapping (`g6_02-led-mapping.md`) needs to either (a) carry per-revision tables and have this example annotate which revision the worked numbers refer to, or (b) supersede this v0.1 example with a v0.2 / v0.3 walkthrough. Decide once `g6_02-led-mapping.md` lands.
 
-## Optional: Panel Error Display
+### Optional: Panel Error Display
 
 While not essential for implementing the v1 commands described here, we expect it will be useful for G6 Panels to implement simple visual error indicators, similar to G3 implementation, to aid troubleshooting during development (and usage). When an error is detected, the panel displays a small predefined pattern representing an error index. A future-proof implementation could already use the command `0x70`. If Flash pattern storage and display are working well, then this should be the most convenient implementation.
 
@@ -383,7 +383,7 @@ Version 2 of the protocol extends v1 by adding PSRAM (Pseudo-Static RAM) support
 - `0x3F` — Write 16-Level Grayscale to PSRAM
 - `0x50` — Display PSRAM Index (Oneshot)
 
-### `0x02` — Query diagnostics
+#### `0x02` — Query diagnostics
 
 Get the diagnostics from the panel. We should circle back to this once v1 is implemented; current ideas from `<will@iorodeo.com>` include counting the number of bad bytes, short messages, or other error rates. Statistics could either be collected from `0x01` messages or from all messages sent since the last reset.
 
@@ -395,7 +395,7 @@ Get the diagnostics from the panel. We should circle back to this once v1 is imp
 
 > **⚠ Flag — diagnostic data shape unspecified:** the spec says "get the diagnostics from the panel" without defining what the panel returns. Decide once v1 confirmation-message logic lands: is the response carried in the confirmation-message slot, or does the panel switch to a different return format? What fields (counters, error codes, last-error-byte index)? Action: spec the diagnostic record format before this command becomes implementable.
 
-### `0x03` — Reset diagnostic stats
+#### `0x03` — Reset diagnostic stats
 
 Reset the diagnostic counter.
 
@@ -405,7 +405,7 @@ Reset the diagnostic counter.
 
 `[0x82] [0x03]`
 
-### `0x0F` — Reset PSRAM
+#### `0x0F` — Reset PSRAM
 
 Clears all user-stored patterns from PSRAM, keeping only factory predefined patterns.
 
@@ -426,7 +426,7 @@ Clears all user-stored patterns from PSRAM, keeping only factory predefined patt
 
 > **⚠ Flag — "factory predefined patterns" not yet specified:** "keeping only factory predefined patterns" implies a category of patterns that survives Reset PSRAM. v4 introduces predefined patterns explicitly (commands `0x70+`); but v2 itself does not specify them. Decide whether to drop the parenthetical here or carry it forward as a forward-reference to v4.
 
-### `0x1F` — Write 2-Level Grayscale to PSRAM
+#### `0x1F` — Write 2-Level Grayscale to PSRAM
 
 Writes a 2-level (1-bit per pixel) pattern to PSRAM for later retrieval.
 
@@ -447,7 +447,7 @@ Writes a 2-level (1-bit per pixel) pattern to PSRAM for later retrieval.
 
 > **⚠ Flag — index endianness unspecified:** "3 bytes, 24-bit integer" — is this little-endian (consistent with [`g6_00-architecture.md`](g6_00-architecture.md) "little-endian for all multi-byte integers")? Spec it explicitly per the architecture rule. Same flag applies to commands `0x3F` and `0x50`.
 
-### `0x3F` — Write 16-Level Grayscale to PSRAM
+#### `0x3F` — Write 16-Level Grayscale to PSRAM
 
 Writes a 16-level (4-bit per pixel) pattern to PSRAM for later retrieval.
 
@@ -466,7 +466,7 @@ Writes a 16-level (4-bit per pixel) pattern to PSRAM for later retrieval.
 
 **Purpose**: Same as `0x1F` but for higher grayscale resolution patterns. Allows storage of more complex visual stimuli with 16 distinct brightness levels.
 
-### `0x50` — Display PSRAM Index (Oneshot)
+#### `0x50` — Display PSRAM Index (Oneshot)
 
 Displays a pattern that was previously stored in PSRAM using command `0x1F` or `0x3F`.
 
