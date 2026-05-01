@@ -344,7 +344,143 @@ This feature is not required for protocol v1 compliance but provides a quick, ha
 
 ## v2 — G6 Panel Protocol v2 (teaser)
 
-_Not yet migrated. Source: Google Doc tab "Panel Version 2 [teaser]", lines 436–621. Adds PSRAM (Pseudo-Static RAM) support for indexed pattern storage, plus diagnostic and reset commands. Will be added in the next sub-pass._
+Version 2 of the protocol extends v1 by adding PSRAM (Pseudo-Static RAM) support, enabling panels to store multiple patterns in memory and display them on demand. While protocol version 1 is already able to emulate all the commands G4 can support, protocol version 2 should be capable of handling higher framerates and might be a first useful version to release to the community.
+
+> **⚠ Flag — version-bit value not stated in source:** v2 implies version bits `0b0000010` (giving headers `0x02` / `0x82`) — this is consistent with the example bytes used throughout v2's command examples but is never written down explicitly. Lift to normative spec text when the master command summary lands.
+
+### Additional Commands (v2)
+
+- `0x02` — Query diagnostics
+- `0x03` — Reset diagnostic stats
+- `0x0F` — Reset PSRAM
+- `0x1F` — Write 2-Level Grayscale to PSRAM
+- `0x3F` — Write 16-Level Grayscale to PSRAM
+- `0x50` — Display PSRAM Index (Oneshot)
+
+### `0x02` — Query diagnostics
+
+Get the diagnostics from the panel. We should circle back to this once v1 is implemented; current ideas from `<will@iorodeo.com>` include counting the number of bad bytes, short messages, or other error rates. Statistics could either be collected from `0x01` messages or from all messages sent since the last reset.
+
+**Payload**: None (0 bytes)
+
+**Example**:
+
+`[0x02] [0x02]`
+
+> **⚠ Flag — diagnostic data shape unspecified:** the spec says "get the diagnostics from the panel" without defining what the panel returns. Decide once v1 confirmation-message logic lands: is the response carried in the confirmation-message slot, or does the panel switch to a different return format? What fields (counters, error codes, last-error-byte index)? Action: spec the diagnostic record format before this command becomes implementable.
+
+### `0x03` — Reset diagnostic stats
+
+Reset the diagnostic counter.
+
+**Payload**: None (0 bytes)
+
+**Example**:
+
+`[0x82] [0x03]`
+
+### `0x0F` — Reset PSRAM
+
+Clears all user-stored patterns from PSRAM, keeping only factory predefined patterns.
+
+**Payload**: None (0 bytes)
+
+**Example**:
+
+`[0x02] [0x0F]`
+
+> **⚠ Flag — example header `0x02` is wrong:** with v2 version bits `0b0000010` and command `0x0F = 0b00001111`, the popcount is 1 + 4 = 5 → parity = 1 → header should be `0x82`. Source says `0x02`. Fix during the next pass (same kind of transcription error as the v1 examples).
+
+> **⚠ Flag — section heading vs body inconsistency:** source section heading reads "Reset RAM"; body and command-list say "Reset PSRAM". Migrated heading uses "Reset PSRAM" for consistency with the rest of the v2 section. Confirm intent.
+
+**Purpose**: Reset the panel's PSRAM to a clean state, removing all patterns stored via commands `0x1F` and `0x3F`.
+
+- Starting a new experimental session with fresh memory
+- Ensuring a known initial state before loading new patterns
+
+> **⚠ Flag — "factory predefined patterns" not yet specified:** "keeping only factory predefined patterns" implies a category of patterns that survives Reset PSRAM. v4 introduces predefined patterns explicitly (commands `0x70+`); but v2 itself does not specify them. Decide whether to drop the parenthetical here or carry it forward as a forward-reference to v4.
+
+### `0x1F` — Write 2-Level Grayscale to PSRAM
+
+Writes a 2-level (1-bit per pixel) pattern to PSRAM for later retrieval.
+
+**Payload**: 53 bytes
+
+- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
+- **Bytes 5–54**: Pattern data (50 bytes)
+  - 20×20 pixels in row-major order
+  - 1 bit per pixel (0=off, 1=on)
+  - Total: 400 pixels / 8 = 50 bytes
+- **Byte 55**: stretch value
+
+**Example**:
+
+`[0x02] [0x1F] [index: 3 bytes] [pixel data: 50 bytes] [stretch]`
+
+**Purpose**: Store patterns in the panel's PSRAM instead of transmitting them every time. This reduces transmission overhead during high-speed pattern sequences and enables efficient pattern libraries.
+
+> **⚠ Flag — index endianness unspecified:** "3 bytes, 24-bit integer" — is this little-endian (consistent with [`g6_00-architecture.md`](g6_00-architecture.md) "little-endian for all multi-byte integers")? Spec it explicitly per the architecture rule. Same flag applies to commands `0x3F` and `0x50`.
+
+### `0x3F` — Write 16-Level Grayscale to PSRAM
+
+Writes a 16-level (4-bit per pixel) pattern to PSRAM for later retrieval.
+
+**Payload**: 203 bytes
+
+- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
+- **Bytes 5–204**: Pattern data (200 bytes)
+  - 20×20 pixels in row-major order
+  - 4 bits per pixel (0–15 intensity levels)
+  - Total: 400 pixels × 4 bits / 8 = 200 bytes
+- **Byte 205**: stretch value
+
+**Example**:
+
+`[0x02] [0x3F] [index: 3 bytes] [pixel data: 200 bytes] [stretch]`
+
+**Purpose**: Same as `0x1F` but for higher grayscale resolution patterns. Allows storage of more complex visual stimuli with 16 distinct brightness levels.
+
+### `0x50` — Display PSRAM Index (Oneshot)
+
+Displays a pattern that was previously stored in PSRAM using command `0x1F` or `0x3F`.
+
+**Payload**: 4 bytes
+
+- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
+
+**Example**:
+
+`[0x02] [0x50] [index: 3 bytes]`
+
+> **⚠ Flag — payload size mismatch:** "Payload: 4 bytes" but only "Bytes 2–4" (3 bytes of index) are listed. Either the payload is 3 bytes (matching the listed fields) and the "4 bytes" claim is wrong, or there's an unspecified 4th byte. The Master Command Summary in the source ([Panel Version Summary tab, lines 1042–1110]) lists this command's payload as "3 (idx)" — so the "4 bytes" here is most likely a transcription error and the payload is actually 3 bytes.
+
+**Purpose**: Display a pre-stored pattern immediately (oneshot = display once). This provides:
+
+- **Fast pattern switching**: Only 5 bytes need to be transmitted instead of 52–202 bytes
+- **Efficient memory usage**: Store patterns once, reference them by index
+- **Reduced bandwidth**: Critical for high-frequency pattern sequences
+
+> **⚠ Flag — "5 bytes" inconsistent with "Payload: 4 bytes":** the Purpose says total transmission is 5 bytes (header + command + 3-byte index = 5), which matches a 3-byte payload, contradicting the "Payload: 4 bytes" claim above. Resolves the same ambiguity: payload is 3 bytes, total message is 5 bytes.
+
+### Typical v2 Workflow
+
+1. **Pre-load patterns into PSRAM**:
+
+   ```
+   [0x02] [0x1F] [0x00 0x00 0x00] [pattern 0 data…] [0xC0]   // stretch 192
+   [0x02] [0x1F] [0x00 0x00 0x01] [pattern 1 data…] [0x05]   // stretch 5
+   [0x02] [0x3F] [0x00 0x00 0x02] [pattern 2 data…] [0x20]   // stretch 32
+   ```
+
+2. **Display patterns by index during experiment**:
+
+   ```
+   [0x02] [0x50] [0x00 0x00 0x00]
+   [0x02] [0x50] [0x00 0x00 0x01]
+   [0x02] [0x50] [0x00 0x00 0x02]
+   ```
+
+> **⚠ Flag — workflow example headers can't be parity-verified:** the example bytes use `[0x02]` for every header, but parity correctness depends on the elided `pattern N data…` payloads. The headers are illustrative, not normatively-correct for arbitrary payloads. When concrete patterns are chosen for a worked example, recompute the parity bits.
 
 ## v3 — G6 Panel Protocol v3 (teaser)
 
