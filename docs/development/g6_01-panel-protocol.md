@@ -1,14 +1,58 @@
 # G6 — Panel Protocol
 
 Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tabs "Panel Version 1" → "Panel Version 4 and beyond" + "Panel Version Summary"; lines 61–1110) · Last reviewed: 2026-05-01 by mreiser
-Status: **§ v1 = Specified (with multiple flagged inconsistencies — reconcile vs `iorodeo/g6_firmware_devel` next)** · § v2/v3/v4/v5 + master summary = _not yet migrated, in subsequent passes_
+Status: **§ v1 = Specified, partially implemented** (wire format on the COPI side matches firmware; confirmation message + stretch + error display NOT yet implemented; 5 spec ↔ firmware divergences flagged below) · § v2/v3/v4/v5 + master summary = _not yet migrated, in subsequent passes_
 
 This file holds the SPI-level protocol between the controller and the panels — message scaffolding, header byte, parity rule, the per-version command set, payload formats, panel confirmations, and pixel data layout. Versions are staged in chronological order (v1 first because it sets all the conventions and is the only version with deployable firmware in flight).
 
 ## Current state
 
-- **v1 protocol implementation:** [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) — Will Dickson's panel firmware development repo, last push 2026-02-12. Reconciliation of every byte / opcode / parity rule / confirmation message in this v1 section against that code is the next step in the doc-by-doc loop, before this file is signed off.
+- **v1 protocol implementation (authoritative):** [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) at `6944894` (2026-02-12). Local read-only clone at `/Users/reiserm/Documents/GitHub/g6_firmware_devel/`. Layout: `panel/{platformio.ini, src/{main, messenger, message, protocol, panel_spi_custom, display, pattern, constants}.{cpp,h}}` and `test_arena/{platformio.ini, src/main.cpp}`.
 - **v3 prototype evidence:** [`mbreiser/G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) — debug/test code that proved BCM-via-PIO, gating, all-off, and the experimental `PIXEL` command on G6 panels v0.2.1 / v0.3.1. Cited in the v3 section (when it lands) as "prototyped", **not** as a v1 reference and **not** as a deployable implementation.
+
+### Reconciliation against `g6_firmware_devel` @ `6944894` (run 2026-05-01)
+
+**Confirmations (spec matches firmware):**
+
+| Spec claim | Firmware evidence | Verdict |
+|---|---|---|
+| Parity rule = `popcount(version_bits ‖ command ‖ payload) mod 2` | `Message::calculate_parity_bit()` ([message.cpp:157–168](../../../g6_firmware_devel/panel/src/message.cpp)) masks bit 7 of byte 0, sums popcounts across all bytes, returns `sum % 2` | ✓ |
+| 1-byte header + 1-byte command + payload | `HEADER_SIZE = 2` ([protocol.cpp:8](../../../g6_firmware_devel/panel/src/protocol.cpp)); byte 0 = header, byte 1 = command (`Message::header_byte()`, `Message::command_byte()`) | ✓ |
+| `0x01` / `0x10` / `0x30` opcodes | `CMD_ID_COMMS_CHECK = 0x01`, `CMD_ID_DISPLAY_GRAY_2 = 0x10`, `CMD_ID_DISPLAY_GRAY_16 = 0x30` ([protocol.h:12–14](../../../g6_firmware_devel/panel/src/protocol.h)) | ✓ |
+| Payload sizes 200 / 51 / 201 bytes | `PAYLOAD_COMMS_CHECK = 200`, `PAYLOAD_DISPLAY_GRAY_2 = 51`, `PAYLOAD_DISPLAY_GRAY_16 = 201` ([protocol.cpp:10–12](../../../g6_firmware_devel/panel/src/protocol.cpp)) | ✓ |
+| Pixel data row-major, MSB-first, `byte_index = k//8`, `bit_in_byte = 7 - (k%8)` (2bpp) | `Message::from_pattern_gray_2()` ([message.cpp:195–224](../../../g6_firmware_devel/panel/src/message.cpp)): outer loop `i = row 0..19`, inner `j = col 0..19`, `byte_num = pixel_num/8`, `bit_pos = 7 - (pixel_num - 8*byte_num)` | ✓ |
+| 16-level: `byte_index = k//2`; even pixel → upper nibble, odd → lower | `Message::from_pattern_gray_16()` ([message.cpp:226–264](../../../g6_firmware_devel/panel/src/message.cpp)): `byte_num = pixel_num/2`, even → `upper = pixel_value << 4`, odd → `lower = pixel_value` | ✓ |
+| `PANEL_SIZE = 20` (×20 = 400 pixels) | `constexpr uint8_t PANEL_SIZE = 20` ([protocol.h:26](../../../g6_firmware_devel/panel/src/protocol.h)) | ✓ |
+| Stretch is the last byte of the payload | `Message::from_pattern_gray_*()` writes `data_.at(total_size-1) = pat.stretch();` ([message.cpp:222, 262](../../../g6_firmware_devel/panel/src/message.cpp)) | ✓ |
+| Invalid messages silently discarded (parity / length) | `Messenger::update()` ([messenger.cpp:45–60](../../../g6_firmware_devel/panel/src/messenger.cpp)) only invokes the command callback when `check_parity()` AND `check_length()` both pass | ✓ |
+| SPI message ends on CS rising edge; parser reset | `custom_spi_read_blocking` ([panel_spi_custom.cpp:16–49](../../../g6_firmware_devel/panel/src/panel_spi_custom.cpp)) breaks the read loop the moment `gpio_get(cs_pin)` goes high; the next `panel_spi_read()` reuses the same Message buffer (effectively a parser reset) | ✓ |
+| Checksum is "8-bit (simple additive)" | `Message::calculate_8bit_checksum()` ([message.cpp:171–177](../../../g6_firmware_devel/panel/src/message.cpp)) returns `uint8_t(sum_of_all_bytes)` | ✓ on algorithm |
+| `MESSAGE_MINIMUM_SIZE = 3` ("at least 3 bytes" rule) | `MESSAGE_MINIMUM_SIZE = HEADER_SIZE + PAYLOAD_MINIMUM_SIZE = 2 + 1 = 3` ([protocol.cpp:13](../../../g6_firmware_devel/panel/src/protocol.cpp)) | ✓ |
+
+**Resolutions (firmware answers spec open questions):**
+
+| Spec open question | Firmware answer |
+|---|---|
+| What is the COMM_CHECK "known sequence"? | `Message::to_comms_check()` ([message.cpp:121–136](../../../g6_firmware_devel/panel/src/message.cpp)) sets `payload[i] = uint8_t(i)` for `i ∈ [0, 200)` — i.e., bytes `0x00, 0x01, … 0xC7` |
+| What is the parity rule, definitively? | `parity = popcount(byte0_with_bit7_masked ‖ byte1 ‖ payload) mod 2`, exactly as the spec describes |
+| Examples 1, 2, 3 — which are right? | Working through firmware: Ex1 should be `0x01` (spec says `0x81` — **wrong**); Ex2 should be `0x81` (spec says `0x01` — **wrong**, headers swapped); Ex3 header `0x81` is correct but the parenthetical "1 + 1 from command → 0 parity" is doubly wrong (`0x30` has 2 ones, not 1; correct popcount = 1+2 = 3 → parity 1) |
+
+**Spec ↔ firmware divergences (need a decision):**
+
+| # | Topic | Spec | Firmware | Action |
+|---|---|---|---|---|
+| D1 | **Checksum scope** | "calculates a 8-bit checksum **of the payload**" (§ Confirmation message) | `calculate_8bit_checksum()` sums **all bytes** including header byte and command byte ([message.cpp:171–177](../../../g6_firmware_devel/panel/src/message.cpp)) | Decide whether checksum covers payload only or whole message. The firmware impl is simpler (one loop over `data_`), but the spec example (`checksum pixel data 1 + stretch`) reads as payload-only. |
+| D2 | **Confirmation message** | Panel returns header + command + 8-bit checksum from previous command on next CS transaction; empty buffer → `0x81 0x00` | **Not implemented in v1 firmware.** No MISO write logic in `messenger.cpp` or `panel_spi_custom.cpp`; SPI is configured slave-receive-only | Spec is ahead of firmware. Not blocking spec sign-off, but the spec text should note this is "specified, firmware implementation pending". |
+| D3 | **Stretch behavior** | "scales the brightness of all pixels in a pattern" — provides dynamic brightness, HDR, modulation, adaptive stimuli | **Stretch is parsed from the wire and stored on the Pattern, but `Display::show()` ([display.cpp:43–88](../../../g6_firmware_devel/panel/src/display.cpp)) never reads `pat_.stretch()`.** Stretch has zero effect on the rendered display. | Major divergence. v1 firmware does not yet implement stretch. Spec sign-off OK; firmware ticket needed. |
+| D4 | **`COMM_CHECK` visual response** | "upon reception of the command a specific part of the panel could light up" (aspirational) | `Messenger::on_cmd_comms_check()` is empty ([messenger.cpp:82–84](../../../g6_firmware_devel/panel/src/messenger.cpp)) — wire-level reception is validated but no display response | Spec was already aspirational ("could light up"). Either (a) make it normative and require a visual response, or (b) drop the aspirational sentence. Firmware would need updating either way to make it visible. |
+| D5 | **Schematic-to-position LED mapping in panel firmware** | "Host owns LED mapping (pixel → physical LED), including corrections for rotated / flipped panels" — i.e., panel firmware should NOT remap | `display.cpp::sch_to_pos_index()` ([display.cpp:91–114](../../../g6_firmware_devel/panel/src/display.cpp)) **does** apply a non-trivial mapping from "schematic" pixel coordinates to physical row/column pin indices, with a 4-color quadrant scheme based on `NUM_COLOR = 4` | Layering decision needed. Likely correct framing: host owns *logical → schematic* mapping (rotation, flip, panel-position-in-arena); firmware owns *schematic → physical-pin* mapping (driven by the panel PCB layout). Update spec to reflect this 2-stage mapping rather than the absolute "host owns mapping" wording. Cross-references the same architecture flag in [`g6_00-architecture.md`](g6_00-architecture.md). |
+
+**Items the firmware exposes but the spec does not yet specify:**
+
+- **SPI mode / polarity / clock**: `spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST)`, `SPI_SPEED = 30 MHz` ([messenger.cpp:42](../../../g6_firmware_devel/panel/src/messenger.cpp), [constants.cpp:15](../../../g6_firmware_devel/panel/src/constants.cpp)). Spec should specify SPI mode (CPOL=1, CPHA=1 = Mode 3), bit order (MSB first), and a max clock for cross-platform interop. Pin assignments are firmware-side: `SPI_SCK_PIN = 34`, `SPI_MOSI_PIN = 32`, `SPI_MISO_PIN = 35`, `SPI_CS_PIN = 33` ([constants.cpp:7–10](../../../g6_firmware_devel/panel/src/constants.cpp)).
+- **v2 command codes already declared:** `protocol.h` already declares `CMD_ID_QUERY_DIAGNOSTIC = 0x02`, `CMD_ID_RESET_DIAGNOSTICS = 0x03`, `CMD_ID_RESET_PSRAM = 0x0F`, `CMD_ID_SET_PSRAM_GRAY_2 = 0x1F`, `CMD_ID_SET_PSRAM_GRAY_16 = 0x3F`, `CMD_ID_DISPLAY_PSRAM = 0x50` — the v2 PSRAM command set. They are scaffolded but not implemented (no entries in `PAYLOAD_SIZE_UMAP`, no callbacks in `Messenger::cmd_umap_`). Useful starting point for v2 reconciliation.
+- **`check_protocol(uint8_t protocol)`** ([message.cpp:69–71](../../../g6_firmware_devel/panel/src/message.cpp)) compares the *full header byte* (including parity bit) against `CMD_PROTOCOL_V1 = 0x01`. For a parity=1 message (header `0x81`) this returns false — it would reject a valid v1 message with parity=1. **However, `Messenger::update()` does not call `check_protocol()`** ([messenger.cpp:45–60](../../../g6_firmware_devel/panel/src/messenger.cpp)), so this latent bug is dormant in v1. It would surface at v2 (when multiple protocol versions co-exist) unless `check_protocol` is changed to mask the parity bit before comparing.
+- **Optional Panel Error Display:** not implemented. Confirmed the spec's "not required for protocol v1 compliance" — firmware doesn't include it.
 
 > **⚠ Flag — file-scope status mixing:** the file is being built up version-by-version (v1 first, then v2, then v3, then v4/v5/summary), each with sign-off. While that's in progress, the status line above will mix Specified (for landed versions) with `_not yet migrated_` for the rest. This is expected during Phase-1 development.
 
@@ -53,6 +97,8 @@ The parity bit (MSB of byte 0) is set to make the total count of '1' bits in the
 The parity bit is set such that this count modulo 2 equals the parity bit value, providing basic parity-based error detection.
 
 > **⚠ Flag — parity rule ambiguity:** "either even or odd" in the prose is ambiguous on its own; the next sentence anchors it to "count modulo 2 equals the parity bit value" (i.e., `parity = count_of_ones(version || command || payload) mod 2`). Under that rule, parity examples 1 and 2 below are wrong (see next flag). Either the rule needs rewording or the examples need to be regenerated. Decide once we read what `g6_firmware_devel` actually computes.
+>
+> **🟢 Resolved (2026-05-01) vs `g6_firmware_devel @ 6944894`:** the rule as written is exactly what the firmware computes (see [Current state § Confirmations](#reconciliation-against-g6_firmware_devel--6944894-run-2026-05-01) and [`message.cpp:157–168`](../../../g6_firmware_devel/panel/src/message.cpp)). Action: tighten the prose ("either even or odd" → "such that") and regenerate examples; see next flag for the example fixes.
 
 **Parity Examples:**
 
@@ -66,6 +112,13 @@ The parity bit is set such that this count modulo 2 equals the parity bit value,
 > - Ex 3 (`0x30`, zeros, stretch=0): popcount = 1 + 2 (`0x30 = 0b00110000`) + 0 = **3** → parity = 1 → header `0x81`. Source says `0x81`. ✓ on the header value, but the parenthetical "(1 + 1 from command → 0 parity)" is wrong twice over — `0x30` has two 1-bits, not one, and "0 parity" contradicts the claimed header `0x81`.
 >
 > No single convention — even-parity, odd-parity, or "parity = count mod 2" — reproduces all three examples. The contradiction must be resolved against the firmware. Likely fixes: (a) Examples 1 and 2 had their headers swapped during transcription, or (b) the rule wording is wrong. Action: read `iorodeo/g6_firmware_devel` parity computation and rewrite either the rule or the examples (or both) to be self-consistent.
+>
+> **🟢 Resolved (2026-05-01) vs `g6_firmware_devel @ 6944894`:** hypothesis (a) is correct. The firmware confirms `parity = popcount mod 2` and the consistent answers are:
+> - **Ex 1** (`0x10`, zeros, stretch=0): popcount = 1+1+0 = 2 → parity = 0 → header = **`0x01`** (source said `0x81` — wrong; headers swapped with Ex 2 during transcription).
+> - **Ex 2** (`0x10`, zeros, stretch=1): popcount = 1+1+1 = 3 → parity = 1 → header = **`0x81`** (source said `0x01` — wrong, swapped).
+> - **Ex 3** (`0x30`, zeros, stretch=0): popcount = 1+2+0 = 3 → parity = 1 → header = **`0x81`** ✓ on header. Parenthetical "(1 + 1 from command → 0 parity)" is wrong twice over: `0x30` has 2 ones (not 1), and `0 parity` contradicts `0x81`. Correct parenthetical: "(1 from version + 2 from command → parity 1)".
+>
+> Action on next pass: regenerate the examples in the spec body to use the correct headers and parentheticals.
 
 ### Stretch Value
 
@@ -77,6 +130,8 @@ The stretch value is a single byte (0-255) that scales the brightness of all pix
 - **Adaptive stimuli**: Match brightness to experimental conditions or subject sensitivity
 
 > **⚠ Flag — stretch semantics underspecified:** "scales the brightness of all pixels" is intuitive but not normative. Open questions: is the scaling linear (`displayed = pixel × stretch / 255`), gamma-corrected, or a BCM duty-cycle multiplier? Does stretch=0 mean "off" (multiplicative interpretation) or does it have some floor? How does stretch interact with the BCM bit-plane refresh in the v3 prototype? Reconcile against `g6_firmware_devel` (v1 baseline) and `G6_Panels_Test_Firmware` (BCM characterization).
+>
+> **🔴 Divergence (2026-05-01) vs `g6_firmware_devel @ 6944894`:** stretch is parsed from the wire and stored on the `Pattern` object, but `Display::show()` ([display.cpp:43–88](../../../g6_firmware_devel/panel/src/display.cpp)) **never reads `pat_.stretch()`**. So in v1 firmware, stretch has zero effect on what gets displayed. See [Current state § D3](#reconciliation-against-g6_firmware_devel--6944894-run-2026-05-01). Action: spec stays as-is for the wire format; firmware needs a ticket to wire stretch into the display loop.
 
 ### Endianess and Bit Packing
 
@@ -97,6 +152,8 @@ The controller SHALL clock exactly the number of bytes required by the command f
 If any validation fails (unsupported protocol version, unsupported command, incorrect message length, parity failure), the panel SHALL discard the message.
 
 > **⚠ Flag — "at least 3 bytes" minimum is incompletely specified:** Why 3? The shortest defined v1 message is 3 bytes total (header + command + 0 payload), but no v1 command is exactly 3 bytes; the shortest is `0x01` COMM_CHECK at 202 bytes and `0x10` at 53 bytes. Question: does "at least 3" describe a minimum SPI clocking length the *controller* enforces (so that the panel always sees enough bytes to decode header + command and decide whether to discard), or is this a forward-looking constraint for v2+ commands like `0x02` / `0x03` / `0x0F` (which have zero-byte payloads)? Reconcile against `g6_firmware_devel`.
+>
+> **🟢 Resolved (2026-05-01) vs `g6_firmware_devel @ 6944894`:** the rule originates from `MESSAGE_MINIMUM_SIZE = HEADER_SIZE (2) + PAYLOAD_MINIMUM_SIZE (1) = 3` ([protocol.cpp:13](../../../g6_firmware_devel/panel/src/protocol.cpp)). The firmware's `check_length()` ([message.cpp:56–66](../../../g6_firmware_devel/panel/src/message.cpp)) requires at least 3 bytes for *any* message and exactly `HEADER_SIZE + payload_size` bytes for known commands. So "at least 3" is a baseline floor; the actual length check is per-command. Forward-looking note: v2 commands `0x02`, `0x03`, `0x0F` have zero-byte payloads in the source spec — under the firmware's current rule, those would need at least 1 dummy payload byte (since `PAYLOAD_MINIMUM_SIZE = 1`), or `PAYLOAD_MINIMUM_SIZE` needs to drop to 0. Carry this question forward to the v2 migration.
 
 > **⚠ Flag — "controller and panel SHALL reset its message parsers" subject-verb mismatch:** typo, should be "shall reset their message parsers" (plural). Trivial.
 
