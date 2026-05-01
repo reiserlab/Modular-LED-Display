@@ -13,6 +13,9 @@ kramdown:
 exclude: [
     # Build and dependency directories
     ".pixi",
+    # Phase-1 G6 dev docs — work-in-progress, not for the public site
+    # (matches the docs/development convention used by submodules)
+    "docs/development",
     # Generation 2
     ## Arena
     "Generation 2/Arenas/arena_12_20",
