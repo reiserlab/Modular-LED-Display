@@ -54,6 +54,32 @@ This file holds the SPI-level protocol between the controller and the panels —
 - **`check_protocol(uint8_t protocol)`** ([message.cpp:69–71](../../../g6_firmware_devel/panel/src/message.cpp)) compares the *full header byte* (including parity bit) against `CMD_PROTOCOL_V1 = 0x01`. For a parity=1 message (header `0x81`) this returns false — it would reject a valid v1 message with parity=1. **However, `Messenger::update()` does not call `check_protocol()`** ([messenger.cpp:45–60](../../../g6_firmware_devel/panel/src/messenger.cpp)), so this latent bug is dormant in v1. It would surface at v2 (when multiple protocol versions co-exist) unless `check_protocol` is changed to mask the parity bit before comparing.
 - **Optional Panel Error Display:** not implemented. Confirmed the spec's "not required for protocol v1 compliance" — firmware doesn't include it.
 
+### Reconciliation: Panel Protocol v2 (run 2026-05-01)
+
+v2 is at **opcodes-declared, behavior-not-implemented** in `iorodeo/g6_firmware_devel @ 6944894`. The thin pass:
+
+| Spec claim | Firmware evidence | Verdict |
+|---|---|---|
+| `0x02` Query diagnostics opcode | `CMD_ID_QUERY_DIAGNOSTIC = 0x02` ([protocol.h:17](../../../g6_firmware_devel/panel/src/protocol.h)) | ✓ declared |
+| `0x03` Reset diagnostic stats opcode | `CMD_ID_RESET_DIAGNOSTICS = 0x03` ([protocol.h:18](../../../g6_firmware_devel/panel/src/protocol.h)) | ✓ declared |
+| `0x0F` Reset PSRAM opcode | `CMD_ID_RESET_PSRAM = 0x0F` ([protocol.h:19](../../../g6_firmware_devel/panel/src/protocol.h)) | ✓ declared |
+| `0x1F` Write 2-Level Grayscale to PSRAM opcode | `CMD_ID_SET_PSRAM_GRAY_2 = 0x1F` ([protocol.h:20](../../../g6_firmware_devel/panel/src/protocol.h)) | ✓ declared |
+| `0x3F` Write 16-Level Grayscale to PSRAM opcode | `CMD_ID_SET_PSRAM_GRAY_16 = 0x3F` ([protocol.h:21](../../../g6_firmware_devel/panel/src/protocol.h)) | ✓ declared |
+| `0x50` Display PSRAM Index opcode | `CMD_ID_DISPLAY_PSRAM = 0x50` ([protocol.h:22](../../../g6_firmware_devel/panel/src/protocol.h)) | ✓ declared |
+
+**Not implemented** (each is a follow-on firmware ticket):
+
+- No payload sizes for `0x02` / `0x03` / `0x0F` / `0x1F` / `0x3F` / `0x50` in `PAYLOAD_SIZE_UMAP` ([protocol.cpp:15–19](../../../g6_firmware_devel/panel/src/protocol.cpp)).
+- No callbacks for v2 commands in `Messenger::cmd_umap_` ([messenger.cpp:11–27](../../../g6_firmware_devel/panel/src/messenger.cpp)).
+- No `CMD_PROTOCOL_V2` constant defined; `protocol.cpp` has only `CMD_PROTOCOL_V1 = 0x01`. v2 messages would be rejected by `check_protocol()` if it were called (it currently isn't).
+- No PSRAM driver, no diagnostic counters, no Pattern-storage abstraction beyond the Display queue.
+
+**Forward-looking constraints surfaced by v2 migration:**
+
+- **Zero-payload commands (`0x02`, `0x03`, `0x0F`) collide with `PAYLOAD_MINIMUM_SIZE = 1`.** The firmware's `check_length()` enforces a 1-byte minimum payload — implementing the v2 zero-payload commands needs either (a) `PAYLOAD_MINIMUM_SIZE` dropped to 0, or (b) the per-command length lookup overriding the floor for these commands. Decide before any of the v2 commands gets implemented.
+- **`0x50` payload size discrepancy unresolved by firmware.** Source spec says "Payload: 4 bytes" but lists only 3 bytes of fields, and the Master Command Summary tab independently lists "3 (idx)". With no firmware implementation, the question stays open. Recommend adopting "3 bytes" — the smaller, internally-consistent figure — when v2 implementation begins.
+- **`0x02` diagnostics return-data format still unspecified.** Spec defers to "circle back once v1 is implemented"; firmware has no diagnostic counters yet, so there's nothing to design against. Spec the diagnostic record format before this command becomes implementable.
+
 > **⚠ Flag — file-scope status mixing:** the file is being built up version-by-version (v1 first, then v2, then v3, then v4/v5/summary), each with sign-off. While that's in progress, the status line above will mix Specified (for landed versions) with `_not yet migrated_` for the rest. This is expected during Phase-1 development.
 
 ---
