@@ -88,7 +88,7 @@ For Protocol v1, the version bits are `0b0000001`, giving possible header values
 
 ### Parity Calculation
 
-The parity bit (MSB of byte 0) is set to make the total count of '1' bits in the entire message (excluding the parity bit itself) either even or odd. Specifically, it counts all '1' bits in:
+The parity bit (MSB of byte 0) is set such that the total count of '1' bits in the entire message (excluding the parity bit itself) modulo 2 equals the parity bit value. Specifically, it counts all '1' bits in:
 
 - Bits 0–6 of byte 0 (version bits)
 - All bits in byte 1 (command)
@@ -96,29 +96,11 @@ The parity bit (MSB of byte 0) is set to make the total count of '1' bits in the
 
 The parity bit is set such that this count modulo 2 equals the parity bit value, providing basic parity-based error detection.
 
-> **⚠ Flag — parity rule ambiguity:** "either even or odd" in the prose is ambiguous on its own; the next sentence anchors it to "count modulo 2 equals the parity bit value" (i.e., `parity = count_of_ones(version || command || payload) mod 2`). Under that rule, parity examples 1 and 2 below are wrong (see next flag). Either the rule needs rewording or the examples need to be regenerated. Decide once we read what `g6_firmware_devel` actually computes.
->
-> **🟢 Resolved (2026-05-01) vs `g6_firmware_devel @ 6944894`:** the rule as written is exactly what the firmware computes (see [Current state § Confirmations](#reconciliation-against-g6_firmware_devel--6944894-run-2026-05-01) and [`message.cpp:157–168`](../../../g6_firmware_devel/panel/src/message.cpp)). Action: tighten the prose ("either even or odd" → "such that") and regenerate examples; see next flag for the example fixes.
-
 **Parity Examples:**
 
-- 2-level oneshot (command `0x10`), all pixels=0, stretch=0 → header should be `0x81` (1 from command → parity 1)
-- 2-level oneshot (command `0x10`), all pixels=0, stretch=1 → header should be `0x01` (1 from command, 1 from stretch = 2 → 0 parity)
-- 16-level oneshot (command `0x30`), all pixels=0, stretch=0 → header should be `0x81` (1 + 1 from command → 0 parity)
-
-> **⚠ Flag — parity examples contradict the stated rule (and each other):** working through each example using the rule literally as stated above (`parity = popcount(version_bits || command || payload) mod 2`):
-> - Ex 1 (`0x10`, zeros, stretch=0): popcount = 1 (version `0b0000001`) + 1 (`0x10`) + 0 = **2** → parity = 0 → header `0x01`. Source says `0x81`.
-> - Ex 2 (`0x10`, zeros, stretch=1): popcount = 1 + 1 + 1 = **3** → parity = 1 → header `0x81`. Source says `0x01`.
-> - Ex 3 (`0x30`, zeros, stretch=0): popcount = 1 + 2 (`0x30 = 0b00110000`) + 0 = **3** → parity = 1 → header `0x81`. Source says `0x81`. ✓ on the header value, but the parenthetical "(1 + 1 from command → 0 parity)" is wrong twice over — `0x30` has two 1-bits, not one, and "0 parity" contradicts the claimed header `0x81`.
->
-> No single convention — even-parity, odd-parity, or "parity = count mod 2" — reproduces all three examples. The contradiction must be resolved against the firmware. Likely fixes: (a) Examples 1 and 2 had their headers swapped during transcription, or (b) the rule wording is wrong. Action: read `iorodeo/g6_firmware_devel` parity computation and rewrite either the rule or the examples (or both) to be self-consistent.
->
-> **🟢 Resolved (2026-05-01) vs `g6_firmware_devel @ 6944894`:** hypothesis (a) is correct. The firmware confirms `parity = popcount mod 2` and the consistent answers are:
-> - **Ex 1** (`0x10`, zeros, stretch=0): popcount = 1+1+0 = 2 → parity = 0 → header = **`0x01`** (source said `0x81` — wrong; headers swapped with Ex 2 during transcription).
-> - **Ex 2** (`0x10`, zeros, stretch=1): popcount = 1+1+1 = 3 → parity = 1 → header = **`0x81`** (source said `0x01` — wrong, swapped).
-> - **Ex 3** (`0x30`, zeros, stretch=0): popcount = 1+2+0 = 3 → parity = 1 → header = **`0x81`** ✓ on header. Parenthetical "(1 + 1 from command → 0 parity)" is wrong twice over: `0x30` has 2 ones (not 1), and `0 parity` contradicts `0x81`. Correct parenthetical: "(1 from version + 2 from command → parity 1)".
->
-> Action on next pass: regenerate the examples in the spec body to use the correct headers and parentheticals.
+- 2-level oneshot (command `0x10`), all pixels=0, stretch=0 → header should be `0x01` (1 from version + 1 from command = 2 ones → parity 0)
+- 2-level oneshot (command `0x10`), all pixels=0, stretch=1 → header should be `0x81` (1 from version + 1 from command + 1 from stretch = 3 ones → parity 1)
+- 16-level oneshot (command `0x30`), all pixels=0, stretch=0 → header should be `0x81` (1 from version + 2 from command = 3 ones → parity 1)
 
 ### Stretch Value
 
@@ -133,15 +115,15 @@ The stretch value is a single byte (0-255) that scales the brightness of all pix
 >
 > **🔴 Divergence (2026-05-01) vs `g6_firmware_devel @ 6944894`:** stretch is parsed from the wire and stored on the `Pattern` object, but `Display::show()` ([display.cpp:43–88](../../../g6_firmware_devel/panel/src/display.cpp)) **never reads `pat_.stretch()`**. So in v1 firmware, stretch has zero effect on what gets displayed. See [Current state § D3](#reconciliation-against-g6_firmware_devel--6944894-run-2026-05-01). Action: spec stays as-is for the wire format; firmware needs a ticket to wire stretch into the display loop.
 
-### Endianess and Bit Packing
+### Endianness and Bit Packing
 
 little-endian for all multi-byte integers. Pack pixels MSB-first within each byte.
 
-> **⚠ Flag — typo + redundancy:** "Endianess" → "Endianness" (same typo as in [`g6_00-architecture.md`](g6_00-architecture.md)). Also, this rule is already stated in `g6_00-architecture.md`; consider removing the duplicate in Phase 2 consolidation, or keep as a per-section reminder if helpful.
+> **⚠ Flag — redundancy:** this rule is already stated in [`g6_00-architecture.md`](g6_00-architecture.md). Consider removing the duplicate in Phase 2 consolidation, or keep as a per-section reminder if helpful.
 
 ### SPI framing
 
-Each message SHALL be transmitted as exactly one SPI transaction, bounded by chip-select (CS). The message begins on CS falling edge and ends on CS rising edge. The controller and panel SHALL reset its message parsers on CS rising edge.
+Each message SHALL be transmitted as exactly one SPI transaction, bounded by chip-select (CS). The message begins on CS falling edge and ends on CS rising edge. The controller and panel SHALL reset their message parsers on CS rising edge.
 
 A message from the controller to the panel is defined by the "protocol commands". The panels return the header and command from the previously received message followed by an 8-bit checksum.
 
@@ -151,11 +133,7 @@ The controller SHALL clock exactly the number of bytes required by the command f
 
 If any validation fails (unsupported protocol version, unsupported command, incorrect message length, parity failure), the panel SHALL discard the message.
 
-> **⚠ Flag — "at least 3 bytes" minimum is incompletely specified:** Why 3? The shortest defined v1 message is 3 bytes total (header + command + 0 payload), but no v1 command is exactly 3 bytes; the shortest is `0x01` COMM_CHECK at 202 bytes and `0x10` at 53 bytes. Question: does "at least 3" describe a minimum SPI clocking length the *controller* enforces (so that the panel always sees enough bytes to decode header + command and decide whether to discard), or is this a forward-looking constraint for v2+ commands like `0x02` / `0x03` / `0x0F` (which have zero-byte payloads)? Reconcile against `g6_firmware_devel`.
->
-> **🟢 Resolved (2026-05-01) vs `g6_firmware_devel @ 6944894`:** the rule originates from `MESSAGE_MINIMUM_SIZE = HEADER_SIZE (2) + PAYLOAD_MINIMUM_SIZE (1) = 3` ([protocol.cpp:13](../../../g6_firmware_devel/panel/src/protocol.cpp)). The firmware's `check_length()` ([message.cpp:56–66](../../../g6_firmware_devel/panel/src/message.cpp)) requires at least 3 bytes for *any* message and exactly `HEADER_SIZE + payload_size` bytes for known commands. So "at least 3" is a baseline floor; the actual length check is per-command. Forward-looking note: v2 commands `0x02`, `0x03`, `0x0F` have zero-byte payloads in the source spec — under the firmware's current rule, those would need at least 1 dummy payload byte (since `PAYLOAD_MINIMUM_SIZE = 1`), or `PAYLOAD_MINIMUM_SIZE` needs to drop to 0. Carry this question forward to the v2 migration.
-
-> **⚠ Flag — "controller and panel SHALL reset its message parsers" subject-verb mismatch:** typo, should be "shall reset their message parsers" (plural). Trivial.
+> **⚠ Flag — v2 forward note:** the "at least 3 bytes" floor is encoded in firmware as `MESSAGE_MINIMUM_SIZE = HEADER_SIZE (2) + PAYLOAD_MINIMUM_SIZE (1) = 3`. v2 commands `0x02`, `0x03`, `0x0F` have zero-byte payloads in the source spec — under the firmware's current rule those would need at least 1 dummy payload byte (since `PAYLOAD_MINIMUM_SIZE = 1`), or `PAYLOAD_MINIMUM_SIZE` needs to drop to 0. Decide during v2 migration.
 
 ## Implemented Commands
 
@@ -177,13 +155,13 @@ Version 1 of the protocol supports only three commands (controller → panel):
 
 Send a known message, display response. For example, upon reception of the command a specific part of the panel could light up. If it is interpreted correctly, a second part of the panel could light up for some time.
 
-**Payload**: 200 bytes of known values
+**Payload**: 200 bytes of known values — the byte sequence `0x00, 0x01, 0x02, …, 0xC7` (i.e., `payload[i] = i` for `i ∈ [0, 200)`).
 
 **Example**:
 
-`[0x01] [0x01] [known sequence: 200 bytes]`
+`[0x01] [0x01] [0x00] [0x01] [0x02] … [0xC7]`
 
-> **⚠ Flag — `COMM_CHECK` "known sequence" is underspecified:** the spec says "200 bytes of known values" without specifying what values. Without a fixed pattern, the panel cannot validate the comm check is "correct" — it can only confirm that the message arrived without parity/length failure. Open questions: (a) Is there a canonical test pattern (e.g., `0x00, 0x01, 0x02, … 0xC7`)? (b) Does the panel just echo back the checksum, or does it verify against an expected sequence? Reconcile against `g6_firmware_devel`.
+> **⚠ Flag — open: panel-side validation behavior:** with the canonical sequence pinned, the remaining open question is whether the panel should also *verify* the bytes match the expected sequence (rejecting mismatches), or whether it just echoes back the checksum and lets the host compare. Firmware currently does no payload-content validation beyond length/parity. Spec the verification policy explicitly.
 
 ### `0x10` — Display 2-Level Grayscale (Oneshot)
 
@@ -354,11 +332,9 @@ During implementation, `<will@iorodeo.com>` should decide which errors are most 
 - Checksum/parity failure
 - Data timeout / incomplete message
 
-To make this error visible — we will need to keep them displayed for a short interval, at least 500 ms. This could be done with a dedicated error message routine that repeats the same pattern. During this time the controller should receive but ignore incoming commands so that the error can be noticed.
+To make this error visible — we will need to keep them displayed for a short interval, at least 500 ms. This could be done with a dedicated error message routine that repeats the same pattern. During this time the panel should receive but ignore incoming commands so that the error can be noticed.
 
 This feature is not required for protocol v1 compliance but provides a quick, hardware-level diagnostic without needing serial debug output.
-
-> **⚠ Flag — "controller should receive but ignore" subject error:** the sentence should say "the *panel* should receive but ignore incoming commands" (the panel is what's busy displaying the error glyph). Trivial typo.
 
 > **⚠ Flag — `0x70` collides with v4:** the suggestion to use command `0x70` for the error display puts it in command space that v4 reserves for "Display Predefined Pattern with Stretch (Oneshot)". Either the error display uses a different command code, or the v4 spec should explicitly carve out a slot for the error glyph (e.g., `predefined pattern 0` is the error glyph, indexed via the v4 `0x70` command). Reconcile when the v4 section lands.
 
@@ -386,17 +362,20 @@ _Not yet migrated. Source: Google Doc tab "Panel Version Summary", lines 1042–
 
 ## Open Questions / TBDs (v1)
 
-1. **Parity rule vs. examples — fundamental contradiction.** The literal rule in § Parity Calculation says `parity = popcount(version || command || payload) mod 2`, but examples 1 and 2 produce headers that don't match the rule. No single parity convention reconciles all three examples. Action: reconcile against `iorodeo/g6_firmware_devel` parity computation; rewrite either the rule or examples 1 and 2 (most likely the latter — looks like the headers got swapped during transcription).
-2. **Stretch semantics underspecified.** Linear scale, gamma-corrected, BCM duty-cycle multiplier? What does stretch=0 mean? How does it interact with the BCM bit-plane refresh? Action: reconcile against firmware (v1 baseline) and BCM prototype (`G6_Panels_Test_Firmware`).
-3. **`COMM_CHECK` "known sequence" is undefined.** Which 200 bytes? Is the panel expected to verify them, or just round-trip the checksum? Action: reconcile against `g6_firmware_devel`.
-4. **"At least 3 bytes" SPI clocking minimum.** Justification unclear since the shortest v1 command is 53 bytes. Likely a forward-looking rule for v2+ zero-payload commands, but worth confirming. Action: reconcile against `g6_firmware_devel`.
-5. **Confirmation-message trigger: `>3` or `≥3` bytes?** As written, every valid message would trigger confirmation send (since "at least 3 bytes" applies to every message). Action: reconcile against firmware.
-6. **"`0x8100`" empty-buffer response endianness.** Could be ambiguous between the 16-bit value `0x8100` packed LE (so on-wire `0x00 0x81`) and "header `0x81`, command `0x00`" (on-wire `0x81 0x00`). The CIPO example block strongly suggests the latter. Action: reword as two-byte description.
-7. **Checksum algorithm name conflict.** Panel-confirmation checksum is "additive" (sum mod 256); pattern-file checksum is "XOR". Confirm both intentional.
-8. **Error-display command code `0x70` collides with v4 predefined-pattern command.** Action: pick one (move error display to a different command code, or reserve `predefined-pattern index 0` as the error glyph slot in v4). Reconcile when v4 section lands.
-9. **Worked pixel-mapping example is pinned to panel v0.1 hardware.** Production is now v0.2; v0.3 is in draft. Decide whether `g6_02-led-mapping.md` carries per-revision tables and this example annotates which revision, or if the example gets refreshed for v0.2/v0.3.
-10. **Subject/verb / typo cleanups deferred to consolidation:** "controller and panel SHALL reset its message parsers" → "their"; "controller should receive but ignore" (re: error display) → "panel should receive…"; "Endianess" → "Endianness".
-11. **Panel error display command-set decision.** The source explicitly defers to `<will@iorodeo.com>`: which errors are most relevant and what command code carries them. Action: track in `g6_firmware_devel` issues / discussions, then update spec.
+1. **Stretch semantics underspecified.** Linear scale, gamma-corrected, BCM duty-cycle multiplier? What does stretch=0 mean? How does it interact with the BCM bit-plane refresh? Firmware currently parses stretch but does not apply it (see [Current state § D3](#reconciliation-against-g6_firmware_devel--6944894-run-2026-05-01)). Action: spec the scaling semantics; firmware ticket to wire stretch into the display loop.
+2. **D1 — Checksum scope.** Spec says "of the payload"; firmware sums whole message including header + command bytes. Decide which is normative.
+3. **D2 — Confirmation message implementation.** Specified, not yet implemented in `g6_firmware_devel`. Decide whether to keep spec as-is (firmware-pending) or reword to defer until firmware lands.
+4. **D4 — `COMM_CHECK` visual response.** Spec aspirational ("could light up"); firmware callback empty. Make it normative or drop the sentence.
+5. **D5 — LED-mapping layering.** Spec says "host owns LED mapping"; firmware also maps schematic→physical. Confirm two-stage model (host: logical→schematic; firmware: schematic→physical) and rewrite both this spec and [`g6_00-architecture.md`](g6_00-architecture.md).
+6. **`COMM_CHECK` panel-side validation policy.** With the canonical sequence pinned, decide whether the panel must verify the bytes or merely echo back the checksum.
+7. **Confirmation-message trigger: `>3` or `≥3` bytes?** As written, every valid message would trigger confirmation send (since "at least 3 bytes" applies to every message). Decide once confirmation message is implemented.
+8. **"`0x8100`" empty-buffer response endianness.** Could be ambiguous between the 16-bit value `0x8100` packed LE (on-wire `0x00 0x81`) and "header `0x81`, command `0x00`" (on-wire `0x81 0x00`). The CIPO example block strongly suggests the latter. Action: reword as two-byte description.
+9. **Checksum algorithm name conflict.** Panel-confirmation checksum is "additive" (sum mod 256); pattern-file checksum is "XOR". Confirm both intentional during [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) reconciliation.
+10. **`0x70` command code collides with v4 predefined-pattern command.** Action: pick one (move error display to a different command code, or reserve `predefined-pattern index 0` as the error glyph slot in v4). Reconcile when v4 section lands.
+11. **v2 forward note: zero-payload commands.** v2 commands `0x02`, `0x03`, `0x0F` have zero-byte payloads in the source spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration whether to drop the floor or add a dummy byte.
+12. **Worked pixel-mapping example is pinned to panel v0.1 hardware.** Production is now v0.2; v0.3 is in draft. Decide whether [`g6_02-led-mapping.md`](g6_02-led-mapping.md) carries per-revision tables and this example annotates which revision, or if the example gets refreshed for v0.2/v0.3.
+13. **Panel error display command-set decision.** The source explicitly defers to `<will@iorodeo.com>`: which errors are most relevant and what command code carries them. Action: track in `g6_firmware_devel` issues / discussions, then update spec.
+14. **SPI mode / clock not yet specified.** Firmware uses CPOL=1, CPHA=1 (Mode 3), MSB-first, 30 MHz. Lift these into normative spec text for cross-platform interop.
 
 ## Cross-references
 
