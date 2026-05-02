@@ -510,7 +510,154 @@ Displays a pattern that was previously stored in PSRAM using command `0x1F` or `
 
 ## v3 — G6 Panel Protocol v3 (teaser)
 
-_Not yet migrated. Source: Google Doc tab "Panel Version 3 [teaser]", lines 622–850. Adds gated and persistent display modes (trigger-line synchronization). Will reconcile against [`G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) which has a working prototype on v0.2.1 / v0.3.1 hardware. The `PIXEL` command exists in that prototype but is **not yet adopted into the protocol**; will be flagged as such._
+Version 3 adds high-performance modes to the existing protocol. This takes advantage of the PSRAM and the additional trigger line, allowing synchronized displays with imaging setups. This release will enable a whole new set of experiments, precisely controlling the timing of visual stimuli to the rest of the experimental rigs.
+
+> **⚠ Flag — version-bit value not stated in source:** v3 implies version bits `0b0000011` (giving headers `0x03` / `0x83`) — consistent with the example bytes used throughout v3 but never written down explicitly. Lift to normative spec text when the master command summary lands.
+
+### Additional Commands (v3)
+
+- `0x12` — Display 2-Level Grayscale (Gated)
+- `0x13` — Display 2-Level Grayscale (Persistent)
+- `0x32` — Display 16-Level Grayscale (Gated)
+- `0x33` — Display 16-Level Grayscale (Persistent)
+- `0x52` — Display PSRAM Index (Gated)
+- `0x53` — Display PSRAM Index (Persistent)
+
+> **⚠ Flag — `0x54` referenced in workflow but not in command list:** the "Gated-persistent display with external control" workflow example below uses command `0x54`, but `0x54` is not declared in the Additional Commands list above and has no per-command spec section. Either (a) `0x54` is a 4th display-mode variant ("Gated-Persistent": trigger-gated repeated display from PSRAM) that needs an explicit row in the command list and a per-command section, or (b) the workflow example is wrong and should use `0x53` (Persistent) or `0x52` (Gated). The v4 master command summary in the source spec confirms `0x64` and `0x74` are "Gated-Persistent" variants for PSRAM-with-stretch and predefined-pattern-with-stretch respectively — strongly suggesting `0x54` is the v3 equivalent and was simply omitted from the v3 command list. **Action:** add `0x54` (or whatever the correct opcode is) explicitly to the v3 command list and per-command sections, and document the Gated-Persistent display mode alongside the other three modes below.
+
+### Display Modes
+
+Protocol v3 introduces three display modes that control when and how patterns are displayed:
+
+**Oneshot** (v1 default): Display the pattern once immediately.
+
+**Gated**: High-performance mode in which the panel's display is gated by the rising edge on the external trigger line. The trigger signal gates the display on and off, enabling sub-frame synchronization with external devices such as two-photon microscope scanning — where the requirement is to only display when the imaging is not integrating fluorescent signals.
+
+> _The precise details of how to best synchronize to fast external signals will be worked out once the timing of the G6 is better understood. The most relevant gating signal is ~10 μs pulses at 8 or 12 kHz (15–25% duty cycle). Possible implementations include asynchronous gating or synchronous gating tied to internal row/column update cycles, potentially gating a single display event (e.g., one row/column combination per trigger). The precise behavior is **to be determined**._
+
+**Persistent**: Display the pattern continuously, repeating it over and over until another command is received. Useful for static backgrounds or continuous stimuli.
+
+> **⚠ Flag — three modes listed, four implied:** the workflow examples use Oneshot (v1), Gated (v3), Persistent (v3), AND Gated-Persistent (v3, via `0x54`). The Display Modes section above only formally describes three (Oneshot, Gated, Persistent). Add a fourth entry: "**Gated-Persistent**: while the trigger line is HIGH the pattern displays repeatedly; while LOW the display is disabled. Pattern remains loaded across trigger transitions until a new command is received." Pair this with the v3 command list update mentioned in the previous flag. The v4 spec already follows this 4-mode pattern (Oneshot / Gated / Persistent / Gated-Persistent) per its `0x6X`/`0x7X` command groups.
+
+#### `0x12` — Display 2-Level Grayscale (Gated)
+
+Displays a 2-level (1-bit per pixel) pattern with each column activation gated by the external trigger signal.
+
+**Payload**: 51 bytes of pattern data & stretch
+
+- 20×20 pixels in row-major order
+- 1 bit per pixel (0=off, 1=on)
+- Total: 400 pixels / 8 = 50 bytes
+
+**Example**:
+
+`[0x03] [0x12] [pixel data: 50 bytes] [stretch]`
+
+**Purpose**: High-performance synchronization where individual column activations are gated by high-frequency trigger signals. Critical for two-photon microscopy with resonant scanners, where visual stimuli must only be displayed during specific phases of the scan cycle.
+
+#### `0x13` — Display 2-Level Grayscale (Persistent)
+
+Displays a 2-level (1-bit per pixel) pattern continuously until a new command is received. This is similar to the default on G3 displays.
+
+**Payload**: 51 bytes of pattern data & stretch
+
+- 20×20 pixels in row-major order
+- 1 bit per pixel (0=off, 1=on)
+- Total: 400 pixels / 8 = 50 bytes
+
+**Example**:
+
+`[0x03] [0x13] [pixel data: 50 bytes] [stretch]`
+
+**Purpose**: Display static or repeating patterns without needing to continuously send commands. Useful for backgrounds, fixation points, or continuous visual stimuli. The pattern repeats until another display command is received.
+
+#### `0x32` — Display 16-Level Grayscale (Gated)
+
+Displays a 16-level (4-bit per pixel) pattern with each column activation gated by the external trigger signal.
+
+**Payload**: 201 bytes of pattern data
+
+- 20×20 pixels in row-major order
+- 4 bits per pixel (0–15 intensity levels)
+- Total: 400 pixels × 4 bits / 8 = 200 bytes
+
+**Example**:
+
+`[0x03] [0x32] [pixel data: 200 bytes] [stretch]`
+
+**Purpose**: Same as `0x12` but with 16-level grayscale for more complex visual stimuli.
+
+> **⚠ Flag — `0x32` payload description omits stretch:** "Payload: 201 bytes of pattern data" suggests 201 bytes are *all* pattern data, but the breakdown only describes 200 bytes of pattern, and the example explicitly includes a `[stretch]` byte. Should read "Payload: 201 bytes (200 pattern + 1 stretch)" to match the convention used by `0x12` and `0x13` ("51 bytes of pattern data & stretch"). Same flag applies to `0x33` below. The total of 201 bytes is correct; only the descriptive wording is off.
+
+#### `0x33` — Display 16-Level Grayscale (Persistent)
+
+Displays a 16-level (4-bit per pixel) pattern continuously until a new command is received.
+
+**Payload**: 201 bytes of pattern data
+
+- 20×20 pixels in row-major order
+- 4 bits per pixel (0–15 intensity levels)
+- Total: 400 pixels × 4 bits / 8 = 200 bytes
+
+**Example**:
+
+`[0x03] [0x33] [pixel data: 200 bytes] [stretch]`
+
+**Purpose**: Same as `0x13` but with 16-level grayscale for more complex visual stimuli.
+
+#### `0x52` — Display PSRAM Index (Gated)
+
+Displays a pattern from PSRAM with each column activation gated by the external trigger signal.
+
+**Payload**: 3 bytes
+
+- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
+
+**Example**:
+
+`[0x03] [0x52] [index: 3 bytes]`
+
+**Purpose**: High-performance mode combining PSRAM efficiency with gated display for two-photon microscopy synchronization.
+
+#### `0x53` — Display PSRAM Index (Persistent)
+
+Displays a pattern from PSRAM continuously until a new command is received.
+
+**Payload**: 3 bytes
+
+- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
+
+**Example**:
+
+`[0x03] [0x53] [index: 3 bytes]`
+
+**Purpose**: Display pre-stored patterns persistently, combining the benefits of PSRAM storage and continuous display.
+
+### Typical v3 Workflows
+
+**Two-photon microscopy with gated display**:
+
+```
+// Send pattern that will be gated by resonant scanner sync signal, stretch 5
+[0x03] [0x32] [pattern data: 200 bytes] [0x05]
+// All panels in an arena can be synchronized to a sub-frame trigger signal
+// that turns the panels on and off
+```
+
+**Gated-persistent display with external control**:
+
+```
+// Pre-load pattern to PSRAM, stretch 5
+[0x03] [0x1F] [0x00 0x00 0x00] [pattern data: 50 bytes] [0x05]
+// Display pattern continuously, but only when trigger line is high
+[0x03] [0x54] [0x00 0x00 0x00]
+// Trigger HIGH -> pattern displays repeatedly
+// Trigger LOW  -> display disabled
+// Trigger HIGH -> pattern displays again
+// …until new command received
+```
+
+> **⚠ Flag — the gated-persistent example mixes a v2 write into the v3 example flow:** the pre-load step uses `0x1F` (v2 Write 2-Level Grayscale to PSRAM) — that's correct since the same PSRAM is shared across protocol versions. The header byte `[0x03]` for the `0x1F` command signals v3 protocol but the command itself is from v2. This is fine if v3 panels accept v2 commands (i.e., higher protocol versions are supersets), but the spec doesn't explicitly state that. **Action:** add a "compatibility statement" to v3 (and v2) clarifying that higher-version panels MUST accept lower-version commands.
 
 ## v4 and beyond
 
