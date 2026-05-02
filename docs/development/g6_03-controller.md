@@ -159,7 +159,7 @@ The controller must support **G4 display Modes 2, 3, 4, and 5:**
 - **Mode 3 (host-commanded position)**
   - Host gives frame index via `set-frame-position`; controller loads → slices → sends.
 - **Mode 4 (Closed Loop Velocity)**
-  - Controller measures analog voltage to compute frame rate, integrates rate to determine frame index, then loads → slices → sends.
+  - Controller samples **AIN0** (Teensy D14, BNC J28, ±10 V via OPA2277 → 0–3.3 V at ADC) at **500 Hz**, computes frame rate as `fps = AI_voltage × 100 × gain / 10` where `gain` is the signed 8-bit byte from `trial-params` encoded as **10× the actual scaling factor** (e.g., `gain = -20` represents -2.0 fps/V scaling for typical G3-flight-arena behavior). 1 V at the AI input therefore maps to 100 base counts, scaled by gain to yield signed fps. Integrates fps over time to advance frame index, then loads → slices → sends. AIN1 (D15, J29) unused for Mode 4 (available for experimenter).
 - **Mode 5 (Streaming)**
   - Host sends raw arena frames; controller slices → packs → sends immediately.
 
@@ -197,12 +197,12 @@ This is a copy of the G4.1 commands. Possibly adjust for G6 use.
 | Stop-Display | `0x01, 0x30` | v1 | Also doubles as "all off" |
 | all-on | `0x01, 0xff` | v1 | Carry over from slim G4.1 (host-composed via Mode 5 is also possible but `0xff` opcode stays canonical for arena bring-up) |
 | all-off | `0x01, 0x00` | v1 | Carry over from slim G4.1 (same rationale as all-on) |
-| Set-refresh-rate | `0x03, 0x16` | v1 | Sets SPI re-transmission rate. **Default depends on `gs_val` from the loaded pattern** — slim G4.1 picks 300 Hz for greenscale and 1000 Hz for binary; G6 inherits the same defaults but reads `gs_val` from the v2 pattern header instead of the dropped `switch-grayscale` opcode. Host can override via this command. |
+| Set-refresh-rate | `0x03, 0x16` | v1 | Sets SPI re-transmission rate. **Default depends on `gs_val` from the loaded pattern** — slim G4.1 picks 300 Hz for grayscale (GS16) and 1000 Hz for binary (GS2); G6 inherits the same defaults but reads `gs_val` from the v2 pattern header instead of the dropped `switch-grayscale` opcode. Host can override via this command. (Note: G6 uses **"grayscale"** terminology consistently; the slim G4.1 "greenscale" name is rebranded here.) |
 | Get-ethernet-ip-address | `0x01, 0x66` | v1 | Returns DHCP-resolved IP as ASCII (matches slim G4.1) |
 | Get-controller-info | `0x01, 0x67` | v1 (G6-new) | Returns `{version, capability_bitmap}` with version-dispatched payload — covers v1 G6-mode detection AND v2 capability detection (Local Storage, Mode 1 TSI, v3 triggered/gated, …). |
 | g6-panel-storage-mode | `0x02, 0x40, mode_byte` | v2 (G6-new) | Switches controller from SD Mode (`mode_byte = 0`) to Local Storage Mode (`mode_byte = 1`); triggers the load phase that copies SD patterns into panel PSRAM. |
 
-**Stream-Frame for G6:** retains the slim G4.1 7-byte stream header `[0x32, len_lo, len_hi, ax_lo, ax_hi, ay_lo, ay_hi, ...]`. Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 7-byte stream header.
+**Stream-Frame for G6:** uses a **3-byte stream header** `[0x32, len_lo, len_hi, ...]`. The slim G4.1's `analog_x` / `analog_y` bytes (4 bytes after `len`) are **dropped for G6** (parsed and logged in slim but never plumbed; experimenters with motion-offset needs use Mode 4 closed-loop or a separate AI-driven workflow). Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 3-byte stream header.
 
 ---
 
@@ -288,7 +288,7 @@ Mode 1 is invalid in SD Mode.
 ### 5. G6-specific controller commands
 
 - **`g6-panel-storage-mode`** (opcode `0x40`) — switches controller from **SD Mode** (default, `mode_byte = 0`) to **Local Storage Mode** (`mode_byte = 1`). When transitioning to Local Storage Mode, triggers the load phase that copies SD patterns into panel PSRAM. Wire form: `[0x02, 0x40, mode_byte]`.
-- **`get-controller-info`** (opcode `0x67`) — returns `{version, capability_bitmap}` with version-dispatched payload. Covers v1 G6-mode detection AND v2 capability detection (Local Storage, Mode 1 TSI, v3 triggered/gated, etc.). Request: `[0x01, 0x67]`. Response payload format TBD pending v2 capability-bit assignments.
+- **`get-controller-info`** (opcode `0x67`) — returns `{version_byte, capability_bitmap}` with the version byte dispatching the response shape. **Capability bitmap** (8-bit, decided 2026-05-02): bit 0 = `g6_mode` (always 1 for any G6 controller), bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 = reserved (transmit as 0; future bits land in a v2 controller-info opcode rev). Request: `[0x01, 0x67]`. Response: `[0x01, 0x67, version_byte, capability_byte]` (parity adjusted).
 
 ### 6. Controller Error Display
 
@@ -341,24 +341,24 @@ v1, v2, and v3 are being designed together. Controller changes for v3 are minima
 - **2026-05-01** — `all_on (0x01,0xff)` and `all_off (0x01,0x00)` carry over from slim G4.1 controller-side opcodes (commit `46264ae`).
 - **2026-05-02** — Mode 4 AI lines exposed on Teensy D14/D15 (±10V); specific wiring still TBD (commit `78be9ca`).
 - **2026-05-02** — Modes table (1–5) lives in this file as the unified reference (commit `3c39a44`).
-- **2026-05-02** — Both `all-on` and `all-off` implemented as carry-overs (this commit; reconciles spec §7 prose with Host Command Summary table).
-- **2026-05-02** — v3 controller dispatcher scoped to Triggered + Gated only (6 opcodes); Persistent reserved but deferred (this commit; tracks the v3 mode-set finalization in `g6_01`).
+- **2026-05-02** — Both `all-on` and `all-off` implemented as carry-overs (commit `d20836d`; reconciles spec §7 prose with Host Command Summary table).
+- **2026-05-02** — v3 controller dispatcher scoped to Triggered + Gated only (6 opcodes); Persistent reserved but deferred (commit `d20836d`; tracks the v3 mode-set finalization in `g6_01`).
+- **2026-05-02** — **Mode 4 wiring decided:** AIN0 (D14, BNC J28) sampled at 500 Hz; `fps = AI_voltage × 100 × gain / 10` with `gain` as signed-int 10× scaling factor (typical `-20` = -2.0 fps/V matches G3 flight-arena behavior). AIN1 unused for Mode 4 (this commit).
+- **2026-05-02** — `STREAM_FRAME_CMD` `analog_x` / `analog_y` bytes dropped for G6 (this commit). Stream header is now 3 bytes `[0x32, len_lo, len_hi]`; experimenters use Mode 4 closed-loop or separate AI workflow for motion offsets.
+- **2026-05-02** — "Greenscale" rebranded to "grayscale" for G6 consistency with GS2/GS16 terminology (this commit).
+- **2026-05-02** — `get-controller-info` (0x67) capability bitmap finalized: 8-bit, bit 0 = `g6_mode`, bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 reserved (this commit).
+- **2026-05-02** — `all-on` in v2 Local Storage Mode keeps v1 behavior: controller composes oneshot all-on subframe (no new opcode) (this commit).
 
 ---
 
 ## Open Questions / TBDs
 
 1. **No G6 controller firmware exists.** All G6-specific behavior here is aspirational. Slim G4.1 baseline (`8f1029f`) is reconciled into the carry-over / modify / new / drop tables in Current state. Next phase: build G6 controller against those tables.
-2. **Region / SPI-bus information missing from v2 pattern header.** Cross-doc with [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md). Three options: arena-config sidecar, computed from `col_count` + fixed regions, or extend the v2 header.
-3. **Closed-loop (Mode 4) analog voltage source.** Slim has `gain_` stored but never read; closed loop runs on an internal counter, not an analog input. Decide where the signal comes from on G6 (`g6_07` exposes 2× ±10V AI lines on D14/D15) and whether closed loop is in scope for G6 v1.
-4. **`all-on` semantics in v2 + Local Storage Mode.** When all frames are in PSRAM, does `all-on` still build a one-shot all-on subframe (v1 behavior) or become a new opcode pointing at a pre-loaded "all-on" PSRAM index?
-5. **Pattern Backend ("Modes 2–4")** vs Section 6 (Modes 2, 3, 4, **and 5**) vs v2 update ("Modes 2, 3, 4, and 5 work exactly as in v1") wording inconsistency. Slim implements only Modes 2/3/4 as top-level dispatch; Mode 5 streaming exists as a state (`STREAMING_FRAME`) but no Mode 5 enum value.
-6. **`STREAM_FRAME_CMD` `analog_x` / `analog_y` bytes** — keep, drop, or repurpose? Parsed and logged at `CommandProcessor.cpp:149-151` but never plumbed in slim.
-7. **"Greenscale" naming retention vs rebrand to "grayscale"** for G6 — slim keeps the legacy "greenscale" name. Pick one and use consistently.
-8. **`SET_REFRESH_RATE_CMD` (0x16) upper bound** for G6 — slim accepts any `uint16_t` Hz. G6 panel BCM may impose a hard ceiling the controller should enforce. Needs G6-side measurement. Note: the *default* refresh rate is `gs_val`-derived (300 Hz for greenscale, 1000 Hz for binary, inheriting slim's defaults but reading from the v2 pattern header instead of the dropped `switch-grayscale` opcode); host can override via 0x16.
-9. **Pattern header bit-packing fragility** in slim (`PatternHeader.h:6-15` — 56-bit union backed by `uint64_t` without `__attribute__((packed))`). G6 should switch to an explicit `uint8_t[18]` or packed struct for the v2 header.
-10. **`get-controller-info` (0x67) response payload format** — capability bitmap layout TBD pending v2 capability-bit assignments (`v2_local_storage`, `mode_1_tsi`, `v3_triggered`, `v3_gated`, etc.).
-11. **Per-version command-carry-over scope** — the v2/v3 superset rule (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md)) implies higher-version panels accept lower-version commands. Reviewing whether all of slim G4.1's carry-over candidates truly need to be supported in G6 v2/v3 panels (vs. left for the controller alone).
+2. **Region / SPI-bus information missing from v2 pattern header.** Cross-doc with [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md). Three options: arena-config sidecar, computed from `col_count` + fixed regions, or extend the v2 header. Hardware-future; arena_10-10 has implicit rule that works.
+3. **`all-on` semantics in v2 + Local Storage Mode.** Decision 2026-05-02: still build a one-shot all-on subframe controller-side (matches v1 behavior); no separate "all-on" PSRAM index opcode in v2. Keep this as a status note for firmware bring-up.
+4. **`SET_REFRESH_RATE_CMD` (0x16) upper bound** for G6 — slim accepts any `uint16_t` Hz. G6 panel BCM may impose a hard ceiling the controller should enforce. Needs G6-side measurement.
+5. **Pattern header bit-packing fragility** in slim (`PatternHeader.h:6-15` — 56-bit union backed by `uint64_t` without `__attribute__((packed))`). G6 should switch to an explicit `uint8_t[18]` or packed struct for the v2 header.
+6. **Per-version command-carry-over scope** — the v2/v3 superset rule (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md)) implies higher-version panels accept lower-version commands. Reviewing whether all of slim G4.1's carry-over candidates truly need to be supported in G6 v2/v3 panels (vs. left for the controller alone). Defer until v2 panel firmware exists.
 
 ---
 

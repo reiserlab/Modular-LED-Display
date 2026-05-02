@@ -7,12 +7,7 @@ This file holds the SPI-level protocol between the controller and the panels —
 
 ## Live Divergences (action items requiring decision)
 
-| # | Topic | Spec | Firmware | Action |
-|---|---|---|---|---|
-| D2 | **Confirmation message** | Panel returns header + command + 8-bit checksum from previous command on next CS transaction; empty buffer → `0x81 0x00` | **Not implemented in v1 firmware.** No MISO write logic in `messenger.cpp` or `panel_spi_custom.cpp`; SPI is configured slave-receive-only | Spec is ahead of firmware. Note in spec text that this is "specified, firmware implementation pending". |
-| D4 | **`COMM_CHECK` visual response** | "upon reception of the command a specific part of the panel could light up" (aspirational) | `Messenger::on_cmd_comms_check()` is empty ([messenger.cpp:82–84](../../../g6_firmware_devel/panel/src/messenger.cpp)) | Either (a) make it normative and require a visual response, or (b) drop the aspirational sentence. Firmware needs updating either way. |
-
-(D1 Checksum scope, D3 Stretch behavior, D5 LED-mapping layering — all resolved 2026-05-02; see § History & Reconciliation § Major decisions log.)
+_All five v1 spec ↔ firmware divergences (D1 checksum scope, D2 confirmation message, D3 stretch behavior, D4 COMM_CHECK visual response, D5 LED-mapping layering) **resolved 2026-05-02**. See § History & Reconciliation § Major decisions log for the resolutions. Each generated a firmware ticket where applicable._
 
 Items the firmware exposes but the spec does not yet specify (lift into spec normatively):
 
@@ -110,7 +105,7 @@ Version 1 of the protocol supports only three commands (controller → panel):
 
 #### `0x01` — Communication check
 
-Send a known message, display response. For example, upon reception of the command a specific part of the panel could light up. If it is interpreted correctly, a second part of the panel could light up for some time.
+Send a known message; the panel silently validates it (byte-for-byte against the canonical sequence) and reports failure via the standard confirmation-message slot. No visual response — visual diagnostics live in the dedicated [Panel Error Display](#optional-panel-error-display) feature.
 
 **Payload**: 200 bytes of known values — the byte sequence `0x00, 0x01, 0x02, …, 0xC7` (i.e., `payload[i] = i` for `i ∈ [0, 200)`).
 
@@ -150,19 +145,19 @@ Displays a 16-level (4-bit per pixel) pattern once.
 
 ### Confirmation message
 
+> **💡 Note — confirmation message is specified, firmware impl pending.** `g6_firmware_devel @ 6944894` does not yet implement the panel-side MISO write logic in `messenger.cpp` or `panel_spi_custom.cpp`; SPI is currently configured slave-receive-only. Spec text below is normative; firmware ticket required to implement.
+
 On CS falling edge, a panel returns the version, command, and a checksum from the previously received command.
 
 When the panel receives a command, it stores the header, version, and calculates an 8-bit checksum **over the whole message** (header byte + command byte + payload bytes, sum mod 256). For invalid commands no information is stored, since they are ignored. This happens, for example, when the parity bit does not match the content, or when the message length does not match the command definition.
 
 The next time the CS is active for more than 3 bytes, the panel sends this message (recalculating the parity bit). After sending it successfully, the temporary buffer is deleted: each confirmation message is only sent once.
 
-If the panel buffer is empty, it returns `0x8100` (empty command "0").
+If the panel buffer is empty, it returns header `0x81` followed by command `0x00` (i.e., on-wire bytes `[0x81] [0x00]`, signaling "empty command 0").
 
 We use an 8-bit (simple additive) checksum over the whole message since this is faster to calculate than CRC, SHA, or other error-detecting algorithms (one loop over the receive buffer). Matches `Message::calculate_8bit_checksum()` in `g6_firmware_devel @ 6944894` ([message.cpp:171–177](../../../g6_firmware_devel/panel/src/message.cpp)). (Note: the panel-confirmation checksum here is **additive** (sum mod 256); the [pattern-file checksum in `g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) is **XOR**. Both are confirmed against firmware; the two algorithms intentionally differ.)
 
 > **⚠ Flag — "CS active for more than 3 bytes" trigger condition.** Strict `>3` (so 3-byte heartbeat reads empty state) or `≥3` (every valid message triggers)? Reconcile against firmware.
-
-> **⚠ Flag — `0x8100` empty-buffer response endianness.** Spec writes `0x8100` but the example block shows on-wire `[0x81] [0x00]`. Reword as "header `0x81` followed by command `0x00`" to remove ambiguity.
 
 **Example:**
 
@@ -227,7 +222,7 @@ For the full v0.1 mapping table (400 rows), see [`g6_02-led-mapping-v0p1.csv`](g
 
 ### Optional: Panel Error Display
 
-While not essential for implementing the v1 commands described here, we expect it will be useful for G6 Panels to implement simple visual error indicators, similar to G3 implementation, to aid troubleshooting during development (and usage). When an error is detected, the panel displays a small predefined pattern representing an error index. The dedicated v1-namespace opcode for this is **`0xC2`** (alongside the existing panel-utility opcodes `0xC0` COMM_CHECK and `0xC1` Diagnostic — though the diagnostic-spec opcodes are tentative; see v2 § Query diagnostics). The error glyph itself can be a panel-firmware-baked predefined pattern, or composed by the controller and sent via `0x30` SetFrame as a v1-firmware-only fallback.
+While not essential for implementing the v1 commands described here, we expect it will be useful for G6 Panels to implement simple visual error indicators, similar to G3 implementation, to aid troubleshooting during development (and usage). When an error is detected, the panel displays a small predefined pattern representing an error index. The dedicated v1-namespace opcode for this is **`0xC2`** (alongside the existing panel-utility opcodes `0xC0` COMM_CHECK and `0xC1` Diagnostic — though the diagnostic-spec opcodes are tentative; see v2 § Query diagnostics). The error glyph itself can be a panel-firmware-baked predefined pattern, or composed by the controller and sent via `0x30` SetFrame as a v1-firmware-only fallback. **(2026-05-02 decision)** When v4 ships, **predefined-pattern index 0 is reserved as the canonical error-glyph slot**, accessed via the v4 `0x70` Display Predefined Pattern command — resolves the v1 `0xC2`/v4 `0x70` namespace pressure and avoids a second opcode dedicated to error display.
 
 Suggested error message format: with 20×20 pixels, have plenty of space for 2×2 characters (5×7 pixel size per char is typical), so suggested messages would be: "PE / 01 - 99" — `PE` = panel error on the top row, and the error code would be displayed on the lower row.
 
@@ -782,18 +777,11 @@ This table provides a complete reference of all commands across protocol version
 
 ## Open Questions / TBDs
 
-1. **D2 — Confirmation message implementation.** Specified, not yet implemented in `g6_firmware_devel`.
-2. **D4 — `COMM_CHECK` visual response.** Spec aspirational; firmware callback empty. Make it normative or drop the sentence.
-3. **`COMM_CHECK` panel-side validation policy.** With the canonical sequence pinned, decide whether the panel must verify the bytes or merely echo back the checksum.
-4. **Confirmation-message trigger: `>3` or `≥3` bytes?** As written, every valid message would trigger confirmation send.
-5. **`0x8100` empty-buffer response endianness.** Reword as two-byte description.
-6. **`0x70` command code collides with v4 predefined-pattern command.** Pick one (move error display to a different code, or reserve predefined-pattern index 0 as the error-glyph slot in v4). Reconcile when v4 implementation begins.
-7. **v2 zero-payload commands.** `0x02`, `0x03`, `0x0F` have zero-byte payloads in spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration: drop the floor or add a dummy byte.
-8. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
-9. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them.
-10. **PIXEL command** (in `G6_Panels_Test_Firmware`): future-version candidate (e.g., `0x55` PIXEL_SET in v4 or later); keep out of v3 spec.
-11. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
-12. **v3 synchronous vs asynchronous gating.** Test rig validates async (external GPIO trigger polling). Sync mode (PIO SM armed by internal counter) unproven — decide before deploying v3.
+1. **Confirmation-message trigger: `>3` or `≥3` bytes?** As written, every valid message would trigger confirmation send. Resolve when D2 (confirmation message firmware impl) lands.
+2. **v2 zero-payload commands.** `0x02`, `0x03`, `0x0F` have zero-byte payloads in spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration: drop the floor or add a dummy byte.
+3. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
+4. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
+5. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
 
 ## History & Reconciliation
 
@@ -821,7 +809,14 @@ This table provides a complete reference of all commands across protocol version
 - **2026-05-02** — **Triggered / Gated / Persistent v3 mode set finalized.** Triggered = per-edge single-shot (`0x12`/`0x32`/`0x52`); Gated = window gating (`0x14` NEW + `0x34` NEW + `0x54` reused); Persistent (`0x13`/`0x33`/`0x53`) reserved but proposed-not-implemented; Gated-Persistent dropped from mode set (commit `a334004`).
 - **2026-05-02** — **D5 LED-mapping layering RESOLVED**: two-stage model. Host owns *logical → schematic* mapping (rotation, flip, panel position in arena); panel firmware owns *schematic → physical-pin* mapping (PCB layout-driven, with `NUM_COLOR = 4` quadrant scheme per `display.cpp::sch_to_pos_index()` in `g6_firmware_devel @ 6944894`). Spec text in `g6_00`, `g6_01`, `g6_02` updated to reflect this (this commit).
 - **2026-05-02** — **D1 Checksum scope RESOLVED**: whole-message (header + command + payload, sum mod 256). Matches `g6_firmware_devel @ 6944894` (`Message::calculate_8bit_checksum()` in `message.cpp:171–177`); spec § Confirmation message updated. Worked example reads payload-only but the value happens to be the same when header + command bytes round to 0 mod 256 — spec text now explicit (this commit).
-- **2026-05-02** — **Stretch semantics RESOLVED**: BCM duty-cycle multiplier. Effective per-bit-plane ON time = `base_T × stretch / 255`; stretch = 0 → display off. Aligns with the test rig's float-weight architecture; cheap on the panel (one multiplier per frame). Firmware ticket: scale BCM weights in `Display::show()` setup (this commit).
+- **2026-05-02** — **Stretch semantics RESOLVED**: BCM duty-cycle multiplier. Effective per-bit-plane ON time = `base_T × stretch / 255`; stretch = 0 → display off. Aligns with the test rig's float-weight architecture; cheap on the panel (one multiplier per frame). Firmware ticket: scale BCM weights in `Display::show()` setup (commit `add7fa6`).
+- **2026-05-02** — **D2 Confirmation message** downgraded from Live Divergence to a 💡 Note in § Confirmation message (spec correct; firmware impl pending) (this commit).
+- **2026-05-02** — **D4 COMM_CHECK visual response**: dropped aspirational "could light up" sentence; spec'd as silent validation. Visual diagnostics live in dedicated Panel Error Display (this commit).
+- **2026-05-02** — **`0x70` collision** between v1 Panel Error Display and v4 Display Predefined Pattern resolved: predefined-pattern **index 0** is reserved as the canonical error-glyph slot; v4 keeps `0x70` for the general predefined-pattern command (this commit).
+- **2026-05-02** — `0x8100` empty-buffer endianness reworded as "header `0x81` followed by command `0x00`" (this commit).
+- **2026-05-02** — PIXEL command (from `G6_Panels_Test_Firmware`) deferred to future-version slot (e.g., `0x55` PIXEL_SET in v4 or later); not in v3 (this commit).
+- **2026-05-02** — `COMM_CHECK` panel-side validation policy: panel MUST verify byte-for-byte (already in spec body; OQ closed) (this commit).
+- **2026-05-02** — **v3 sync-vs-async gating** resolved: the existing Triggered (per-edge sync) and Gated (window/level async) opcodes already cover both modes — no separate "sync vs async" decision needed; `0x12`/`0x32`/`0x52` are sync (triggered by edges), `0x14`/`0x34`/`0x54` are async (level-gated) (this commit).
 
 ## Cross-references
 

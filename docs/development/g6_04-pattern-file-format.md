@@ -28,7 +28,7 @@ PAT file
 | 0–3 | Magic | ASCII | `"G6PT"` | File type identifier (`0x47 0x36 0x50 0x54`) |
 | 4 | `[VVVV][AAAA]` | uint8 | V=2, A=arena_id high 4 bits | Bits 7–4 = format version (= 2); bits 3–0 = upper 4 bits of 6-bit Arena ID |
 | 5 | `[AA][OOOOOO]` | uint8 | A=arena_id low 2 bits, O=observer_id 6 bits | Bits 7–6 = lower 2 bits of Arena ID; bits 5–0 = Observer ID (0–63) |
-| 6–7 | Frame Count | uint16 LE | 1–65,535 | Number of frames in file |
+| 6–7 | Frame Count | uint16 LE | **1–65,535** (0 invalid; decision 2026-05-02) | Number of frames in file |
 | 8 | Row Count | uint8 | 1–255 | Panel rows in arena |
 | 9 | Column Count | uint8 | 1–255 | **Full** grid columns in arena (subset installed via panel mask) |
 | 10 | `gs_val` | uint8 | 1 = GS2, 2 = GS16 | Pixel encoding throughout file |
@@ -93,7 +93,7 @@ The header byte includes parity bit (bit 7) and protocol version (bits 0–6). P
 
 ### Pixel Data Layout
 
-Pixel data is row-major, MSB-first, with origin at the bottom-left of the panel. Canonical reference: [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json) — round-trip test vectors that webDisplayTools and maDisplayTools both validate against.
+Pixel data is row-major, MSB-first, with origin at the bottom-left of the panel. **Normative pixel-encoding reference (decision 2026-05-02):** [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json) — round-trip test vectors that webDisplayTools and maDisplayTools both validate against. Implementations of any G6 pattern reader/writer SHOULD validate against this JSON (lifted from a maDisplayTools internal artifact to canonical-spec status).
 
 ```
 pixel_num    = row_from_bottom × 20 + col          # 0..399
@@ -186,11 +186,9 @@ In v2 implementation the standalone panel-map file is gone — the pattern heade
 
 ## Open Questions / TBDs
 
-1. **Region / SPI-bus information for non-`arena_10-10` arenas.** Three candidate sources: (a) computed from `col_count` + a fixed regions-per-arena setting (works only if the rule generalizes — fragile for asymmetric arenas); (b) sidecar arena-config file alongside `.pat` files (more flexible, more files); (c) embed per-panel region in a future header rev (would push past 18 bytes). User direction 2026-05-02: keep flag live; investigate whether existing `maDisplayTools` arena-config files cover this host-side, and whether the controller actually needs region info beyond compiled-in firmware constants. Resolve before a non-`arena_10-10` G6 arena is built.
-2. **`num_frames` allowed values.** Spec implies 0–65,535; implementation rejects 0. Confirm 0 is invalid (or update implementation to accept it).
-3. **Arena ID + Observer ID semantics.** Spec out: 6-bit ranges, what they mean to the controller, defaults. Without firmware that reads them, they're metadata only today (defaults 0/0 in impl).
-4. **No G6 controller firmware exists.** All Controller Operation steps above are aspirational; G4.1 slim is a G4 baseline only. G6 controller scoping happens in [`g6_03-controller.md`](g6_03-controller.md).
-5. **Lift `g6_encoding_reference.json` into the spec as the normative pixel-encoding reference.** Currently a maDisplayTools internal artifact; should be cited as canonical.
+1. **Region / SPI-bus information for non-`arena_10-10` arenas.** Three candidate sources: (a) computed from `col_count` + a fixed regions-per-arena setting (fragile for asymmetric arenas); (b) sidecar arena-config file alongside `.pat` files (more flexible, more files); (c) embed per-panel region in a future header rev (would push past 18 bytes). Keep flag live; resolve before a non-`arena_10-10` G6 arena is built.
+2. **Arena ID + Observer ID semantics.** Spec out: 6-bit ranges, what they mean to the controller, defaults. Without firmware that reads them, they're metadata only today (defaults 0/0 in impl).
+3. **No G6 controller firmware exists.** All Controller Operation steps above are aspirational; G4.1 slim is a G4 baseline only. G6 controller scoping happens in [`g6_03-controller.md`](g6_03-controller.md).
 
 ## History & Reconciliation
 
@@ -204,6 +202,8 @@ In v2 implementation the standalone panel-map file is gone — the pattern heade
 - **2026-04-29** — Standalone Panel Map file dropped; panel mask (6 bytes) + row/col counts in pattern header (commit `f2aa1e5`).
 - **2026-04-29** — Panel ordering = row-major (commit `f2aa1e5`).
 - **2026-05-01** — Two checksum algorithms in protocol family clarified: pattern-file = XOR; panel-confirmation = additive sum mod 256. Both confirmed against firmware; intentional (commit `9d36b9f`).
+- **2026-05-02** — `num_frames = 0` invalid (spec pinned to 1–65,535); resolves Open Q (this commit).
+- **2026-05-02** — `g6_encoding_reference.json` lifted to canonical pixel-encoding reference; implementations SHOULD validate against it (this commit).
 
 ## Cross-references
 

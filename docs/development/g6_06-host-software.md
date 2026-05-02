@@ -81,7 +81,7 @@ Tools for generating and managing `.TSI` files will be needed (borrowing heavily
 
 Host should query controller version / capabilities to know whether v2 features (Local Storage Mode, Mode 1, TSI) are available, and provide appropriate error messages if not available.
 
-v2 capability detection shares the v1 "G6 mode" gap above — same `get-controller-info` command, version-dispatched response. Bitfield response schema (likely `[v2_local_storage, mode_1_tsi, v3_gated, …]`) belongs in [`g6_03-controller.md`](g6_03-controller.md).
+v2 capability detection shares the v1 "G6 mode" gap above — same `get-controller-info` command, version-dispatched response. **Capability bitmap layout (decided 2026-05-02, 8-bit):** bit 0 = `g6_mode`, bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 reserved. Spec'd in [`g6_03-controller.md`](g6_03-controller.md) § 5 G6-specific controller commands.
 
 ---
 
@@ -115,6 +115,7 @@ What's not yet supplied host-side and remains a firmware-side TBD (each tracked 
 - **2026-05-01** — `0x67 = get-controller-info` opcode assigned (commit `508da9e`); single command with version-dispatched response shape covers v1 G6-mode detection + v2 capability bitmap.
 - **2026-05-01** — `0x40 = g6-panel-storage-mode` opcode assigned (commit `508da9e`); switches controller from SD Mode → Local Storage Mode.
 - **2026-05-02** — v2 18-byte header confirmed canonical; source-tab "TBD" wording obsolete (commit `7b7e804`).
+- **2026-05-02** — `get-controller-info` capability bitmap layout finalized (8-bit: `g6_mode`/`v2_local_storage`/`mode_1_tsi`/`v3_triggered`/`v3_gated` + 3 reserved). Closes the host-side capability-detection gap (this commit).
 
 ---
 

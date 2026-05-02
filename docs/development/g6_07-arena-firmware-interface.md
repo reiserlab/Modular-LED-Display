@@ -129,11 +129,8 @@ Verify mechanical orientation (right-angle vs straight) against the rendered PDF
 
 The source spec calls out the AI line specifically for "flight arena experiments (for mode 4 closed loop), so could be pushed to later version". Reconciled status:
 
-- The slim G4.1 controller has `gain_` stored but never read (`CommandProcessor.cpp:233-248`); closed loop runs on an internal counter, not a real analog input.
-- The G6 arena exposes **two ±10 V analog inputs** (Teensy pins 36/37, GPIO D14/D15 = A0/A1) that the controller firmware can read after OPA2277 scaling.
-- Mapping decision: does Mode 4 read a single AI line (and which one), or both? Single is the spec-implied default; two would let host-supplied gain react to two independent voltages (e.g., x and y axes for a 2-axis joystick or fly-on-ball setup). Defer to the controller doc.
-
-> **⚠ Flag — closed-loop wiring contract is unspecified.** Source spec is silent on which of the two AI lines drives Mode 4; whether AI is sampled at the `analog_closed_loop_frequency_hz=200` rate (slim default) or differently for G6; whether the gain field in `trial-params` scales the AI reading, integrates it, or is unused. Resolve in [`g6_03-controller.md`](g6_03-controller.md) Open Question #8.
+- The slim G4.1 controller had `gain_` stored but never read; closed loop ran on an internal counter, not a real analog input.
+- **Mode 4 wiring resolved 2026-05-02:** controller samples **AIN0** (Teensy D14, BNC J28, ±10 V via OPA2277 → 0–3.3 V at ADC) at **500 Hz**; computes `fps = AI_voltage × 100 × gain / 10` where `gain` from `trial-params` is a signed-int 10× scaling factor (typical `-20` = -2.0 fps/V matches G3 flight-arena behavior). AIN1 (D15, J29) unused for Mode 4 — available for experimenter use. Full spec in [`g6_03-controller.md`](g6_03-controller.md) § 6 Mode Behavior on G6.
 
 ### v3 Triggered/Gated display relevance
 
@@ -188,20 +185,22 @@ These items were captured during the KiCad reconciliation pass at SHA `0a8ec33c`
 - **2026-05-01** — Per-peripheral Teensy 4.1 pin assignment table extracted from KiCad (commit `a696782`).
 - **2026-05-02** — Corrected `TNY.EINT` pin from D33 to **D36** (commit `5d3c496`).
 - **2026-05-02** — Arena jumper J30 default = OPEN (Teensy-mediated EINT trigger) (commit `78be9ca`).
-- **2026-05-02** — v3 Triggered/Gated mode rename propagated through this file (this commit; tracks the v3 mode-set finalization in `g6_01`).
+- **2026-05-02** — v3 Triggered/Gated mode rename propagated through this file (commit `5c8ee7a`; tracks the v3 mode-set finalization in `g6_01`).
+- **2026-05-02** — Mode 4 wiring resolved: AIN0, 500 Hz, signed-int gain (this commit). Cross-doc with `g6_03` § Mode 4 + History.
+- **2026-05-02** — Multi-arena variant (8-of-10) confirmed handled today via the v2 pattern-header panel mask; no arena re-spin needed (this commit).
+- **2026-05-02** — BNC J3 role specified as general-purpose Teensy interrupt for experimenter use (this commit).
 
 ---
 
 ## Open Questions / TBDs
 
-1. **Mode 4 AI line selection** — which of `AIN.A0` (Teensy pin 36/D14) or `AIN.A1` (pin 37/D15) drives Mode 4 closed loop, sampling rate, gain semantics. Cross-doc with [`g6_03-controller.md`](g6_03-controller.md) Open Question #8.
-2. **BNC J3 ("External Interrupt") role** — with J4 now identified as the actual panel-trigger BNC (via J30), what is J3 for? Likely a general-purpose Teensy interrupt for experimenter use (e.g. session-start signal, behavior event marker). Spec out the intended use case.
-3. **`docs/arena.md` lags reality at v1.1.7.** Either update the submodule's docs or note the version-mapping convention here.
-4. **MCP4725 I²C address.** Default is 0x60 or 0x62 depending on factory option; not visible from the schematic without checking the part footprint. Verify before writing AOUT firmware.
-5. **SN74LVC1T45 DIR control nets** for DIO (J4) and EINT (J3). Should follow the Teensy GPIO direction, but the wiring of the DIR pin was not traced — verify before assuming auto-direction.
+1. ~~Mode 4 AI line selection.~~ **Resolved 2026-05-02**: AIN0, 500 Hz, gain as signed-int 10× scaling (1V → 100 base counts × gain/10 = signed fps). See [`g6_03-controller.md`](g6_03-controller.md) § 6 Mode 4.
+2. **BNC J3 ("External Interrupt") role** — with J4 identified as the actual panel-trigger BNC (via J30), J3 serves as a general-purpose Teensy interrupt for experimenter use (e.g. session-start signal, behavior event marker). Detailed use cases to be specced when needed.
+3. **`docs/arena.md` lags reality at v1.1.7.** Either update the submodule's docs or note the version-mapping convention here. Out-of-band item for the upstream arena repo.
+4. **MCP4725 I²C address.** Default is 0x60 or 0x62 depending on factory option; verify before writing AOUT firmware.
+5. **SN74LVC1T45 DIR control nets** for DIO (J4) and EINT (J3). Verify the DIR pin wiring before assuming auto-direction.
 6. **Top-board design (J26 use).** Not yet published. If a future controller doc surfaces a need (extra DO, more DIO, additional analog), this is the place.
-7. **Multi-arena variant** (8-of-10 columns / "288° stimulated / 72° gap behind", per source spec). Production Arena `arena_10-10` is the only published variant; the 8-of-10 case is handled today via the panel mask in the v2 pattern header (see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)) without requiring a different PCB.
-8. **2-channel AO future.** If the spec ever firms up two AO lines for TSI-driven experiments, an arena re-spin is required.
+7. **2-channel AO future.** If the spec ever firms up two AO lines for TSI-driven experiments, an arena re-spin is required.
 
 ---
 
