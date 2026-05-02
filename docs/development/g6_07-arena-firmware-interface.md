@@ -160,7 +160,7 @@ Cross-references:
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 documents the panel-side gated/persistent/triggered modes and flags two open issues (trigger edge polarity, sync-vs-async gating semantics) — both decisions are easier to manage in **J30-open** mode where firmware can reshape the trigger.
 - The slim G4.1 controller has no input pins beyond CS lines; v3 trigger wiring is **net-new for G6** and depends on these arena EINT lines.
 
-> **⚠ Flag — J30 default position is undocumented and not firmware-detectable.** The schematic shows the jumper but no convention for "default shipped position". Firmware cannot detect which way it's set. Action: pick a default per spec (suggest **open** for development flexibility) and document in arena-bringup procedures + the v3 panel-protocol section.
+**J30 default = OPEN** (decision 2026-05-02). Shipped arenas leave J30 open by default → Teensy-mediated EINT path is the canonical v3 wiring. Direct-trigger mode (J30 shorted) is a deliberate per-experiment opt-in documented in arena bring-up notes. Firmware cannot detect the position, so the assumed-open default must be verified physically per arena.
 
 ### v2 PSRAM / Mode 1 (TSI DO/AO) relevance
 
@@ -176,14 +176,13 @@ The source spec for Mode 1 TSI files defines a 5-byte record `[FrameIndex16, DO,
 ## Open Questions / TBDs
 
 1. **Mode 4 AI line selection** — which of `AIN.A0` (Teensy pin 36/D14) or `AIN.A1` (pin 37/D15) drives Mode 4 closed loop, sampling rate, gain semantics. Cross-doc with [`g6_03-controller.md`](g6_03-controller.md) Open Question #8.
-2. **J30 default position** for shipped arenas — pick **shorted** (direct external trigger to panels, low latency, fixed wiring) or **open** (Teensy-mediated, allows reshape / sync / debouncing). Document on the arena bring-up checklist and in `g6_01` § v3. Suggest open as the default for development flexibility.
-3. **BNC J3 ("External Interrupt") role** — with J4 now identified as the actual panel-trigger BNC, what is J3 for? Likely a general-purpose Teensy interrupt for experimenter use (e.g. session-start signal, behavior event marker). Spec out the intended use case.
-4. **`docs/arena.md` lags reality at v1.1.7.** Either update the submodule's docs or note the version-mapping convention here.
-5. **MCP4725 I²C address.** Default is 0x60 or 0x62 depending on factory option; not visible from the schematic without checking the part footprint. Verify before writing AOUT firmware.
-6. **SN74LVC1T45 DIR control nets** for DIO (J4) and EINT (J3). Should follow the Teensy GPIO direction, but the wiring of the DIR pin was not traced — verify before assuming auto-direction.
-7. **Top-board design (J26 use).** Not yet published. If a future controller doc surfaces a need (extra DO, more DIO, additional analog), this is the place.
-8. **Multi-arena variant** (8-of-10 columns / "288° stimulated / 72° gap behind", per source spec). Production Arena `arena_10-10` is the only published variant; the 8-of-10 case is handled today via the panel mask in the v2 pattern header (see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)) without requiring a different PCB.
-9. **2-channel AO future.** If the spec ever firms up two AO lines for TSI-driven experiments, an arena re-spin is required.
+2. **BNC J3 ("External Interrupt") role** — with J4 now identified as the actual panel-trigger BNC (via J30), what is J3 for? Likely a general-purpose Teensy interrupt for experimenter use (e.g. session-start signal, behavior event marker). Spec out the intended use case.
+3. **`docs/arena.md` lags reality at v1.1.7.** Either update the submodule's docs or note the version-mapping convention here.
+4. **MCP4725 I²C address.** Default is 0x60 or 0x62 depending on factory option; not visible from the schematic without checking the part footprint. Verify before writing AOUT firmware.
+5. **SN74LVC1T45 DIR control nets** for DIO (J4) and EINT (J3). Should follow the Teensy GPIO direction, but the wiring of the DIR pin was not traced — verify before assuming auto-direction.
+6. **Top-board design (J26 use).** Not yet published. If a future controller doc surfaces a need (extra DO, more DIO, additional analog), this is the place.
+7. **Multi-arena variant** (8-of-10 columns / "288° stimulated / 72° gap behind", per source spec). Production Arena `arena_10-10` is the only published variant; the 8-of-10 case is handled today via the panel mask in the v2 pattern header (see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)) without requiring a different PCB.
+8. **2-channel AO future.** If the spec ever firms up two AO lines for TSI-driven experiments, an arena re-spin is required.
 
 ---
 
