@@ -741,13 +741,219 @@ Displays a pattern from PSRAM continuously until a new command is received.
 
 > **⚠ Flag — the gated-persistent example mixes a v2 write into the v3 example flow:** the pre-load step uses `0x1F` (v2 Write 2-Level Grayscale to PSRAM) — that's correct since the same PSRAM is shared across protocol versions. The header byte `[0x03]` for the `0x1F` command signals v3 protocol but the command itself is from v2. This is fine if v3 panels accept v2 commands (i.e., higher protocol versions are supersets), but the spec doesn't explicitly state that. **Action:** add a "compatibility statement" to v3 (and v2) clarifying that higher-version panels MUST accept lower-version commands.
 
-## v4 and beyond
+## v4 — G6 Panel Protocol v4 (teaser)
 
-_Not yet migrated. Source: Google Doc tab "Panel Version 4 and beyond", lines 851–1041. Predefined patterns (flash-stored) with stretch multiplier; v5 sketch (additional grayscale levels, color, pattern modifiers)._
+Version 4 introduces predefined patterns. Predefined patterns are widely used patterns such as all-on, checkerboards, etc.
+
+> **⚠ Flag — version-bit value not stated in source:** v4 implies version bits `0b0000100` (giving headers `0x04` / `0x84`) — consistent with the example bytes used throughout v4 but never written down explicitly. Lift to normative spec text when consolidated.
+
+### Additional Commands (v4)
+
+- `0x60` — Display PSRAM Index with Stretch (Oneshot)
+- `0x61` — Display PSRAM Index with Stretch (Trigger)
+- `0x62` — Display PSRAM Index with Stretch (Gated)
+- `0x63` — Display PSRAM Index with Stretch (Persistent)
+- `0x64` — Display PSRAM Index with Stretch (Gated-Persistent)
+- `0x70` — Display Predefined Pattern with Stretch (Oneshot)
+- `0x71` — Display Predefined Pattern with Stretch (Trigger)
+- `0x72` — Display Predefined Pattern with Stretch (Gated)
+- `0x73` — Display Predefined Pattern with Stretch (Persistent)
+- `0x74` — Display Predefined Pattern with Stretch (Gated-Persistent)
+
+> **⚠ Flag — only 3 of 10 v4 commands have per-command spec sections.** The source documents `0x70` (Oneshot), `0x72` (Gated), and `0x73` (Persistent) for predefined patterns. The other 7 (`0x60`/`0x61`/`0x62`/`0x63`/`0x64` for PSRAM-index-with-stretch and `0x71`/`0x74` for predefined-pattern Trigger / Gated-Persistent variants) are only listed here. **Action:** add per-command sections for at least `0x60` (Oneshot), `0x63` (Persistent — used in workflow examples), and any `0x64`/`0x74` (Gated-Persistent — see flags below). The Trigger-mode variants `0x61`/`0x71` are even less defined: no Trigger mode is described in the Display Modes section of v3 or v4.
+
+> **⚠ Flag — "Trigger" is a 4th display mode introduced in v4 with no description.** v3 defined Oneshot / Gated / Persistent and (implicitly via `0x54`) Gated-Persistent. v4 adds a "Trigger" mode (`0x61`, `0x71`) but never describes how Trigger differs from Gated. Hypothesis: Trigger fires the display once on the next trigger edge (one-shot-but-trigger-gated), while Gated continuously gates the display while the trigger line is HIGH. **Action:** add a Trigger entry to the Display Modes section of v3 (or define it here in v4) before any of `0x61`/`0x71` becomes implementable.
+
+> **⚠ Flag — "Gated-Persistent" is now the 5th mode, still not described.** The v4 command list explicitly names `0x64` and `0x74` "Gated-Persistent". v3's workflow example used the corresponding `0x54` for PSRAM-index Gated-Persistent but didn't describe the mode. Consolidate the description with the v3 flag of the same name.
+
+#### `0x70` — Display Predefined Pattern with Stretch (Oneshot)
+
+Displays a predefined pattern (stored in panel flash memory) once with specified stretch value.
+
+**Payload**: 4 bytes
+
+- **Bytes 2–4**: Predefined pattern index (3 bytes, 24-bit integer)
+- **Byte 5**: Stretch value (1 byte, 0–255)
+
+**Example**:
+
+`[0x04] [0x70] [index: 3 bytes] [stretch: 1 byte]`
+
+**Purpose**: Access factory-loaded or pre-programmed patterns stored in panel flash memory. Useful for common patterns (calibration grids, test patterns, standard backgrounds) without requiring PSRAM upload. Stretch allows these base patterns to be displayed at different intensities.
+
+> **⚠ Flag — `0x70` collides with the v1 error display suggestion.** v1 § Optional Panel Error Display suggests using `0x70` for the panel error glyph ("a future-proof implementation could already use the command 0x70"). v4 here uses `0x70` for "Display Predefined Pattern with Stretch (Oneshot)". Resolve: either move the error display to a different opcode, or reserve `predefined-pattern index 0` (or some sentinel index) as the "error glyph" slot indexed via this `0x70` command. Same flag as in v1.
+
+#### `0x72` — Display Predefined Pattern with Stretch (Gated)
+
+Displays a predefined pattern with stretch, gated by external trigger signal.
+
+**Payload**: 4 bytes
+
+- **Bytes 2–4**: Predefined pattern index (3 bytes, 24-bit integer)
+- **Byte 5**: Stretch value (1 byte, 0–255)
+
+**Example**:
+
+`[0x04] [0x72] [index: 3 bytes] [stretch: 1 byte]`
+
+**Purpose**: Gated display of predefined patterns. Useful for synchronized display of standard patterns during specific experimental phases.
+
+#### `0x73` — Display Predefined Pattern with Stretch (Persistent)
+
+Displays a predefined pattern continuously with stretch until new command received.
+
+**Payload**: 4 bytes
+
+- **Bytes 2–4**: Predefined pattern index (3 bytes, 24-bit integer)
+- **Byte 5**: Stretch value (1 byte, 0–255)
+
+**Example**:
+
+`[0x04] [0x73] [index: 3 bytes] [stretch: 1 byte]`
+
+**Purpose**: Persistent display of predefined patterns. Ideal for standard backgrounds or inter-trial displays that can be set once and left running.
+
+> **⚠ Flag — predefined-pattern catalog not specified.** "Calibration grids, test patterns, standard backgrounds" are mentioned but no concrete catalog is given. Open questions: How many predefined slots? Which patterns are "factory-loaded" vs. user-installable? Is the pattern format identical to PSRAM-stored patterns? Where do they live (flash memory? a separate memory region)? How are they programmed (manufacturing, OTA, host command)? Answer before committing to v4 deployment.
+
+### Typical v4 Workflows
+
+**Brightness modulation experiment**:
+
+```
+// Pre-load base pattern at medium intensity
+[0x04] [0x1F] [0x00 0x00 0x00] [pattern data: 50 bytes]
+
+// Display same pattern at different brightnesses
+[0x04] [0x60] [0x00 0x00 0x00] [0x40]   // 25% brightness
+[0x04] [0x60] [0x00 0x00 0x00] [0x80]   // 50% brightness
+[0x04] [0x60] [0x00 0x00 0x00] [0xFF]   // 100% brightness
+```
+
+**High dynamic range with low-bit patterns**:
+
+```
+// Use 2-level pattern (1-bit) but achieve HDR via stretch
+[0x04] [0x1F] [0x00 0x00 0x00] [2-level pattern: 50 bytes]
+
+// Display at various intensities for effective multi-level grayscale
+[0x04] [0x60] [0x00 0x00 0x00] [0x11]   // Dim
+[0x04] [0x60] [0x00 0x00 0x00] [0x55]   // Medium-low
+[0x04] [0x60] [0x00 0x00 0x00] [0xAA]   // Medium-high
+[0x04] [0x60] [0x00 0x00 0x00] [0xFF]   // Bright
+
+// Achieves 4+ effective brightness levels with 50-byte patterns
+```
+
+**Using predefined patterns for calibration**:
+
+```
+// Display factory calibration grid at full brightness
+[0x04] [0x70] [0x00 0x00 0x00] [0xFF]
+
+// Display test pattern at 50% brightness
+[0x04] [0x70] [0x00 0x00 0x01] [0x80]
+```
+
+**Adaptive brightness during experiment**:
+
+```
+// Start with bright stimulus
+[0x04] [0x63] [0x00 0x00 0x00] [0xFF]
+
+// Adapt to subject — reduce brightness mid-experiment
+[0x04] [0x63] [0x00 0x00 0x00] [0x60]
+
+// Pattern continues displaying at new brightness
+```
+
+> **⚠ Flag — `0x1F` write is being used through a `[0x04]` v4 header.** Same compatibility question as v3: does v4 accept v1/v2/v3 commands as a superset? The spec implies yes (the workflow examples mix versions freely) but never states it normatively. Resolve along with the same flag in v3.
+
+> **⚠ Flag — workflow uses `0x60` and `0x63` but neither has a per-command spec section.** The first three workflows above use `0x60` (PSRAM-index-with-stretch Oneshot); the fourth uses `0x63` (Persistent). Both are listed in the Additional Commands list but are missing the per-command details (payload layout, example, purpose). Add per-command sections to make these workflows reproducible.
+
+## v5 — G6 Panel Protocol v5 (sketch)
+
+Add more grayscale levels, color support, and pattern modifiers.
+
+- `0x20…0x2F` — use 4-level grayscales similar to `0x10…0x1F`
+- `0x50…0x4F` — use 256-level grayscales similar to `0x10…0x1F`
+
+> **⚠ Flag — `0x50…0x4F` is an inverted range (typo).** Almost certainly intended to be `0x40…0x4F` (256-level grayscale opcodes paralleling 2-level at `0x10…0x1F` and 16-level at `0x30…0x3F`). The pattern would be: `0x10` = 2-level, `0x20` = 4-level, `0x30` = 16-level, `0x40` = 256-level. (Skipping `0x00` and 8-level — unclear why; perhaps reserved for future or simply an artifact of the 1/2/4-bit pixel encoding choices.)
+
+Other commands that might be interesting:
+
+- Get pattern from PSRAM and display as 2, 4, 16, or 256 level pattern with new color lookup table. That way one could invert a 2-color pattern from memory by just sending 7 bytes payload.
+- Get pattern from PSRAM but translate by x or y pixel.
+- Get pattern from PSRAM and change contrast (either using brightest or darkest pixel as reference).
+- Increase or decrease brightness in other ways than stretch.
+- Scale pattern sizes (zoom in, zoom out).
+
+> **⚠ Flag — v5 is a pure brainstorm, not a spec.** The "interesting commands" bullets above have no opcodes assigned, no payload formats, no examples. Treat v5 as a roadmap section, not a specifiable protocol version. Delete or formalize before consolidation. The precursor [G6 message format proposal](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit) (will@iorodeo.com) raised the 4-level + LUT HDR idea explicitly — that's the closest historical reference for v5's color-LUT direction.
 
 ## Master command summary (v1–v4)
 
-_Not yet migrated. Source: Google Doc tab "Panel Version Summary", lines 1042–1110._
+This table provides a complete reference of all commands across protocol versions v1–v4.
+
+| Byte 0 (header) | Byte 1 (cmd) | Bytes 2+ (payload) | Description | Protocol version |
+| :--: | :--: | :-- | :-- | :--: |
+| `0x01` / `0x81` | `0x01` | 200 bytes | Communication check | v1 |
+| `0x01` / `0x81` | `0x10` | 51 bytes (50 pattern + stretch) | Display 2-Level Grayscale (Oneshot) | v1 |
+| `0x01` / `0x81` | `0x30` | 201 bytes (200 pattern + stretch) | Display 16-Level Grayscale (Oneshot) | v1 |
+| `0x02` / `0x82` | `0x02` | None | Query diagnostic stats | v2 |
+| `0x02` / `0x82` | `0x03` | None | Reset diagnostic stats | v2 |
+| `0x02` / `0x82` | `0x0F` | None | Reset PSRAM (clear user patterns) | v2 |
+| `0x02` / `0x82` | `0x1F` | 3 idx + 50 pattern + stretch | Write 2-Level Grayscale to PSRAM | v2 |
+| `0x02` / `0x82` | `0x3F` | 3 idx + 200 pattern + stretch | Write 16-Level Grayscale to PSRAM | v2 |
+| `0x02` / `0x82` | `0x50` | 3 idx | Display PSRAM Index (Oneshot) | v2 |
+| `0x03` / `0x83` | `0x12` | 51 bytes (50 pattern + stretch) | Display 2-Level Grayscale (Gated) | v3 |
+| `0x03` / `0x83` | `0x13` | 51 bytes (50 pattern + stretch) | Display 2-Level Grayscale (Persistent) | v3 |
+| `0x03` / `0x83` | `0x32` | 201 bytes (200 pattern + stretch) | Display 16-Level Grayscale (Gated) | v3 |
+| `0x03` / `0x83` | `0x33` | 201 bytes (200 pattern + stretch) | Display 16-Level Grayscale (Persistent) | v3 |
+| `0x03` / `0x83` | `0x52` | 3 idx | Display PSRAM Index (Gated) | v3 |
+| `0x03` / `0x83` | `0x53` | 3 idx | Display PSRAM Index (Persistent) | v3 |
+| `0x04` / `0x84` | `0x60` | 3 idx + stretch | Display PSRAM Index with Stretch (Oneshot) | v4 |
+| `0x04` / `0x84` | `0x62` | 3 idx + stretch | Display PSRAM Index with Stretch (Gated) | v4 |
+| `0x04` / `0x84` | `0x63` | 3 idx + stretch | Display PSRAM Index with Stretch (Persistent) | v4 |
+| `0x04` / `0x84` | `0x70` | 3 idx + stretch | Display Predefined Pattern with Stretch (Oneshot) | v4 |
+| `0x04` / `0x84` | `0x72` | 3 idx + stretch | Display Predefined Pattern with Stretch (Gated) | v4 |
+| `0x04` / `0x84` | `0x73` | 3 idx + stretch | Display Predefined Pattern with Stretch (Persistent) | v4 |
+
+> **⚠ Flag — master summary is missing rows for several declared commands.** The v3 command list declared `0x12`/`0x13`/`0x32`/`0x33`/`0x52`/`0x53` (all present here) plus the implied `0x54` (NOT in this table). The v4 command list declared `0x60`/`0x61`/`0x62`/`0x63`/`0x64` and `0x70`/`0x71`/`0x72`/`0x73`/`0x74`, but this table only includes `0x60`/`0x62`/`0x63`/`0x70`/`0x72`/`0x73` — missing `0x61`/`0x64`/`0x71`/`0x74` (Trigger and Gated-Persistent variants). Either the table is incomplete, or those commands are aspirational and should be removed from the v4 command list. **Action:** decide which set is canonical and align the table with the per-version command lists.
+
+> **⚠ Flag — payload-size convention conflict between table and per-command sections.** The table writes `0x10` payload as "51 bytes (50 pattern + stretch)" and `0x30` as "201 bytes (200 pattern + stretch)" — clean and consistent. But the per-command sections in the source v3 use "201 bytes of pattern data" wording (omitting stretch) for `0x32`/`0x33`. Same numeric total, different wording. Standardize on the table's "N bytes (M pattern + stretch)" format throughout.
+
+> **⚠ Flag — v2 `0x1F` and `0x3F` payload counts conflict between v2 source and master summary.** v2 source said `0x1F` is "Payload: 53 bytes" (with byte ranges that actually summed to 54); master summary says "3 idx + 50 pattern + stretch" = 54. Likewise `0x3F`: v2 said 203, summary says 204. The summary's totals are correct — the v2 per-command "53"/"203" figures are off-by-one transcription errors. Decide on the canonical figures and fix the v2 sections to match.
+
+**Notes:**
+
+- **Byte 0 (Header)**: The two values shown (e.g., `0x01` / `0x81`) differ only in the MSB parity bit. The actual value depends on the parity of the entire message.
+- **Protocol Version**: Encoded in bits 0–6 of Byte 0 (`0x01` = v1, `0x02` = v2, `0x03` = v3, `0x04` = v4).
+- **Index**: 24-bit integer (3 bytes) specifying PSRAM or predefined pattern location.
+- **Stretch**: 8-bit value (0–255) for brightness control.
+- **Pattern Data**:
+  - 2-level: 50 bytes (1 bit per pixel, 20×20 = 400 pixels)
+  - 16-level: 200 bytes (4 bits per pixel, 20×20 = 400 pixels)
+
+### Display Mode Summary
+
+| Mode | Behavior | Use Case |
+| :-- | :-- | :-- |
+| **Oneshot** | Display pattern once immediately | Standard display, frame-by-frame control |
+| **Gated** | Wait for first trigger, then gate display (high=show, low=hide) once | Sub-frame synchronization, two-photon microscopy |
+| **Persistent** | Display pattern continuously until new command | Static backgrounds, continuous stimuli |
+
+> **⚠ Flag — Display Mode Summary missing two modes.** The table here lists 3 modes (Oneshot, Gated, Persistent) but the v4 command list named 5: those plus **Trigger** (`0x61`, `0x71`) and **Gated-Persistent** (`0x64`, `0x74`). v3 also implicitly used a 4th mode via `0x54`. Either expand this table to 5 rows or restrict the v4 command list to 3 modes. **Action:** decide the canonical mode set.
+
+> **⚠ Flag — "Gated" description is ambiguous.** "Wait for first trigger, then gate display (high=show, low=hide) once" — what does "once" mean? (a) The display gates HIGH/LOW for the duration of one trigger cycle then stops? (b) The display pattern is shown once, gated by trigger? The v3 § Display Modes describes Gated as "panel's display is gated by the rising edge on the external trigger line" with no notion of "once". Reconcile the two descriptions.
+
+### Protocol Evolution
+
+- **v1**: Basic oneshot display with stretch (2-level and 16-level grayscale)
+- **v2**: PSRAM storage and indexed display (storage efficiency, fast pattern switching)
+- **v3**: High-performance modes with trigger line (precise timing, synchronized display)
+- **v4**: Predefined patterns
+- **v5**: Additional grayscale levels, color support, pattern modifiers (future)
+
+> **⚠ Flag — v3 evolution description is partial.** "High-performance modes with trigger line" describes Gated only; v3 also adds Persistent (which doesn't use the trigger line at all). Reword as "v3: Gated and Persistent display modes (trigger-line synchronization for two-photon microscopy; continuous display for static stimuli)".
 
 ---
 
