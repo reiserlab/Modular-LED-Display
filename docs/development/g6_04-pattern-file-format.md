@@ -1,33 +1,13 @@
 # G6 — Pattern File Format & Panel Map
 
 Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tabs "Pattern Format / Panel Map" lines 1865–2162 + "Panel Map proposal" lines 2169–2407, merged) · Last reviewed: 2026-05-02 by mreiser
-Status: **v2 is canonical** — 18-byte header, written by [`maDisplayTools/g6/g6_save_pattern.m`](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m), round-trip-validated against `webDisplayTools` via [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json). v1 (17-byte) historical content was dropped from this dev doc on 2026-05-02; see "v1 → v2 change summary" below for the diff. The standalone Panel Map proposal from the source Google Doc has been merged in — panel layout lives entirely in the pattern header in v2.
+Status: **v2 is canonical** — 18-byte header, written by [`maDisplayTools/g6/g6_save_pattern.m`](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m), round-trip-validated against `webDisplayTools` via [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json). The standalone Panel Map proposal from the source Google Doc has been merged in — panel layout lives entirely in the pattern header in v2.
 
 ## Current state
 
 - Files **written** today by `maDisplayTools` and `webDisplayTools` use the v2 18-byte header and have a shared bit-level test vector set in [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json).
 - Files **read** today: nothing — there's no consumer until a G6 controller firmware ships.
 - The G4.1 slim controller ([`PatternHeader.h`](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim/blob/main/src/PatternHeader.h)) has its own 8-byte `PatternHeader` union — that reads G4 patterns, **not** G6 `.pat` files. Documented here so the controller doc work doesn't accidentally treat it as the G6 reader.
-
-## v1 → v2 change summary
-
-The original Google Doc spec described a 17-byte header with different byte layout and a separate `Flags` byte. The v2 implementation in `maDisplayTools` made the following changes (D-numbered for cross-doc reference; the v1 spec content has been dropped from this file):
-
-| # | Change | v1 (spec, dropped) | v2 (canonical) |
-|---|---|---|---|
-| **D1** | Header size | 17 bytes | **18 bytes** |
-| **D2** | Byte 4 layout | "Version = 1" only | `[VVVV][AAAA]` — 4-bit version (= 2) + upper 4 bits of Arena ID |
-| **D3** | Byte 5 layout | `Flags` byte (gs_code in bits 0–2, rest reserved) | `[AA][OOOOOO]` — lower 2 bits of Arena ID + 6-bit Observer ID |
-| **D4** | `gs_val` location | Byte 5 bits 0–2 (within Flags) | Standalone byte 10, values `1`=GS2, `2`=GS16 |
-| **D5** | Checksum location | Byte 10 | **Byte 17** (last byte of header) |
-| **D6** | Panel mask location | Bytes 11–16 | Bytes 11–16 (unchanged numerically) |
-| **D7** | Frame Count range | 0–65,535 | 1–65,535 (impl rejects 0) |
-| **D8** | Arena ID + Observer ID | Not in spec | New 6-bit fields each, packed into bytes 4–5; default 0/0 |
-| **D9** | Panel ordering on disk | Panel-set interleaved (e.g., `0, 5, 1, 6, …`) | **Simple row-major** (`0, 1, 2, …, 19`) |
-| **D10** | `col_count` semantics | "panel columns in arena" | **Full grid** even for partial arenas; panel mask carves out subset |
-| **D11** | Format version field | Version = 1 | Version = 2 |
-
-**D9 (panel ordering) is the only major open question** — see "Panel ordering" below. All other Dx items are settled in favor of v2.
 
 ---
 
@@ -89,17 +69,9 @@ Frame:
 
 **Frame overhead:** 4 bytes per frame.
 
-### Panel ordering (D9 — major open question)
+### Panel ordering
 
-The v2 implementation writes panels in simple row-major order: `0, 1, 2, …, num_panels-1`. The original spec proposed **panel-set interleaved** order (e.g., for a 2×10 arena split into 2 regions: `0, 5, 1, 6, 2, 7, 3, 8, 4, 9, 10, 15, 11, 16, …`), which would let the controller transmit to both SPI buses in parallel by iterating over panel sets.
-
-> **⚠ Flag — D9 panel-ordering decision.** Three resolution options:
->
-> 1. **Reorder in implementation**: change `g6_save_pattern.m` to write panel-set-interleaved. Preserves the spec's parallel-SPI rationale.
-> 2. **Reorder in controller** (not yet written): file stays row-major; G6 controller firmware reads sequentially and re-batches into panel sets before SPI transmission.
-> 3. **Drop the panel-set rationale**: row-major is simpler. Acceptable if controller does not need parallel-region transmission.
->
-> Decide before any G6 controller firmware reads `.pat` files. The G4.1 slim controller doesn't help here — it reads G4 patterns, not G6.
+Panels are written in **simple row-major order**: `0, 1, 2, …, num_panels-1`. The G6 controller reads panel blocks sequentially and dispatches them to the appropriate SPI bus per panel ID; parallel-region transmission, if needed, is the controller's job (re-batching CS lines), not the file format's. The earlier panel-set-interleaved proposal from the source spec is dropped as needlessly complex.
 
 ## Panel Block Format
 
@@ -162,7 +134,7 @@ Four independent validation mechanisms (all **optional** in v1 — present in th
 3. **Frame magic** (per frame): `"FR"` + index validates frame boundaries.
 4. **Panel parity** (per block): header byte bit 7 detects transmission errors.
 
-> **⚠ Flag — `pattern.version = 1` cosmetic mismatch in `g6_save_pattern.m`.** The implementation sets the in-memory `pattern.version = 1` ([:131](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m)) while writing the on-disk version field as `2` ([:268](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m)). The in-memory field is unused by the binary writer. Cosmetic but confusing — set in-memory field to 2 or remove it entirely.
+(Maintenance note: the in-memory `pattern.version` field in `g6_save_pattern.m` is unused by the binary writer and should be removed in a future maDisplayTools cleanup commit.)
 
 ## Controller Operation (aspirational; no G6 controller firmware exists yet)
 
@@ -208,19 +180,19 @@ Cross-reference: [`Generation 6/maDisplayTools/docs/patterns.md`](../../Generati
 
 The original Google Doc had a separate "Panel Map proposal" tab defining a standalone host-supplied panel map file with three-byte entries `[region, panel_row, panel_col]` per panel. **In v2 implementation, that file is gone** — the pattern header carries `row_count`, `col_count`, and the 6-byte panel mask, which together capture everything except region/SPI-bus assignment. The source doc itself anticipated this consolidation: *"Now that you have specified everything so well, this entire table can be boiled down to 5 bytes: row_count, col_count, and a 3-byte bit mask. Will consider putting these bytes in a pattern header rather than storing them in a separate file."* — exactly what v2 does (with a 6-byte mask supporting up to 48 panels).
 
-> **⚠ Flag — Region / SPI-bus information is NOT in the v2 pattern header.** The v1 panel-map proposal stored `region` per panel; v2 dropped this. Region info has to come from elsewhere. Three options: (a) computed from `col_count` + a fixed regions-per-arena setting, (b) carried in a sidecar arena-config file, (c) added to a future header (would push past 18 bytes). Cross-doc with [`g6_03-controller.md`](g6_03-controller.md) and [`g6_06-host-software.md`](g6_06-host-software.md). For the production [`arena_10-10`](g6_07-arena-firmware-interface.md) hardware, the assumption (a) holds — columns 0–4 → region 0, 5–9 → region 1.
+For the production [`arena_10-10`](g6_07-arena-firmware-interface.md) hardware, the implicit rule "columns 0–4 → region 0, 5–9 → region 1" works today — region/SPI assignment is hardware-determined, not pattern-file-determined. **For future arenas with different region/bus layouts, the canonical source for region info is still TBD.**
+
+> **⚠ Flag — region/SPI info source for non-`arena_10-10` arenas.** Three candidate sources: (a) computed from `col_count` + a fixed regions-per-arena setting (works only if the rule generalizes — fragile for asymmetric arenas); (b) sidecar arena-config file alongside `.pat` files (more flexible, more files); (c) embed per-panel region in a future header rev (would push past 18 bytes). User direction (2026-05-02): keep this flag live and investigate whether the existing `maDisplayTools` arena-config files already capture this for the host side, and whether the controller actually needs region info beyond what's compiled into firmware. Resolve before a non-arena_10-10 G6 arena is built.
 
 ---
 
 ## Open Questions / TBDs
 
-1. **D9 — panel ordering on disk: panel-set vs row-major.** Three options listed above; decide before G6 controller firmware reads `.pat` files. **Highest-impact open decision in this file.**
-2. **Region / SPI-bus information missing from v2 header.** Decide canonical source (arena-config sidecar, computed from `col_count` + fixed regions, or extend the header). For `arena_10-10` (production), the implicit "5 cols / region" rule works.
-3. **D7 — `num_frames` allowed values.** Spec says 0–65,535; implementation rejects 0. Confirm 0 is invalid (or update implementation to accept it).
-4. **D8 — Arena ID + Observer ID semantics.** Spec out: 6-bit ranges, what they mean to the controller, defaults. Without firmware that reads them, they're metadata only today (defaults 0/0 in impl).
-5. **No G6 controller firmware exists.** All Controller Operation steps above are aspirational; G4.1 slim is a G4 baseline only. G6 controller scoping happens in [`g6_03-controller.md`](g6_03-controller.md).
-6. **`pattern.version = 1` cosmetic mismatch** in `g6_save_pattern.m` (in-memory field 1, on-disk byte 2). Clean up.
-7. **Lift `g6_encoding_reference.json` into the spec as the normative pixel-encoding reference.** Currently a maDisplayTools internal artifact; should be cited as canonical.
+1. **Region / SPI-bus information for non-`arena_10-10` arenas.** See flag in § Panel Map above — investigate whether `maDisplayTools` arena-config files already cover this on the host side, and whether the controller actually needs region info beyond compiled-in firmware constants.
+2. **`num_frames` allowed values.** Spec implies 0–65,535; implementation rejects 0. Confirm 0 is invalid (or update implementation to accept it).
+3. **Arena ID + Observer ID semantics.** Spec out: 6-bit ranges, what they mean to the controller, defaults. Without firmware that reads them, they're metadata only today (defaults 0/0 in impl).
+4. **No G6 controller firmware exists.** All Controller Operation steps above are aspirational; G4.1 slim is a G4 baseline only. G6 controller scoping happens in [`g6_03-controller.md`](g6_03-controller.md).
+5. **Lift `g6_encoding_reference.json` into the spec as the normative pixel-encoding reference.** Currently a maDisplayTools internal artifact; should be cited as canonical.
 
 ## Cross-references
 
