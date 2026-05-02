@@ -283,7 +283,7 @@ Send a known message, display response. For example, upon reception of the comma
 
 `[0x01] [0x01] [0x00] [0x01] [0x02] … [0xC7]`
 
-> **⚠ Flag — open: panel-side validation behavior:** with the canonical sequence pinned, the remaining open question is whether the panel should also *verify* the bytes match the expected sequence (rejecting mismatches), or whether it just echoes back the checksum and lets the host compare. Firmware currently does no payload-content validation beyond length/parity. Spec the verification policy explicitly.
+**Validation**: the panel MUST verify that the received payload matches the expected canonical sequence byte-for-byte. On mismatch, the panel reports a COMM_CHECK failure via the standard confirmation-message slot (in addition to the normal length/parity checks). This catches single-bit errors that pass parity, sequence-shift faults, and dropped-byte SPI faults — the whole point of having a known canonical payload.
 
 #### `0x10` — Display 2-Level Grayscale (Oneshot)
 
@@ -416,7 +416,7 @@ This means:
 
 ### Optional: Panel Error Display
 
-While not essential for implementing the v1 commands described here, we expect it will be useful for G6 Panels to implement simple visual error indicators, similar to G3 implementation, to aid troubleshooting during development (and usage). When an error is detected, the panel displays a small predefined pattern representing an error index. A future-proof implementation could already use the command `0x70`. If Flash pattern storage and display are working well, then this should be the most convenient implementation.
+While not essential for implementing the v1 commands described here, we expect it will be useful for G6 Panels to implement simple visual error indicators, similar to G3 implementation, to aid troubleshooting during development (and usage). When an error is detected, the panel displays a small predefined pattern representing an error index. The dedicated v1-namespace opcode for this is **`0xC2`** (alongside the existing panel-utility opcodes `0xC0` COMM_CHECK and `0xC1` Diagnostic — though the diagnostic-spec opcodes are tentative; see v2 § Query diagnostics). The error glyph itself can be a panel-firmware-baked predefined pattern, or composed by the controller and sent via `0x30` SetFrame as a v1-firmware-only fallback.
 
 Suggested error message format: with 20×20 pixels, have plenty of space for 2×2 characters (5×7 pixel size per char is typical), so suggested messages would be: "PE / 01 - 99" — `PE` = panel error on the top row, and the error code would be displayed on the lower row.
 
@@ -456,8 +456,6 @@ To make this error visible — we will need to keep them displayed for a short i
 
 This feature is not required for protocol v1 compliance but provides a quick, hardware-level diagnostic without needing serial debug output.
 
-> **⚠ Flag — `0x70` collides with v4:** the suggestion to use command `0x70` for the error display puts it in command space that v4 reserves for "Display Predefined Pattern with Stretch (Oneshot)". Either the error display uses a different command code, or the v4 spec should explicitly carve out a slot for the error glyph (e.g., `predefined pattern 0` is the error glyph, indexed via the v4 `0x70` command). See also the v4 `0x70` section below.
-
 ---
 
 ## v2 — G6 Panel Protocol v2 (teaser)
@@ -465,6 +463,8 @@ This feature is not required for protocol v1 compliance but provides a quick, ha
 Version 2 of the protocol extends v1 by adding PSRAM (Pseudo-Static RAM) support, enabling panels to store multiple patterns in memory and display them on demand. While protocol version 1 is already able to emulate all the commands G4 can support, protocol version 2 should be capable of handling higher framerates and might be a first useful version to release to the community.
 
 For Protocol v2, the version bits are `0b0000010`, giving possible header values `0x02` (parity 0) / `0x82` (parity 1).
+
+**Compatibility:** Panels implementing protocol version N MUST accept all commands from versions 1 through N. The version-bits in the header byte select which command set is dispatched, but a v2 panel receiving a header `[0x01]` with a v1 command MUST handle it as a valid v1 command. This rule is what lets v3 workflow examples mix v2 commands (e.g., `0x1F` Write 2-Level to PSRAM) into v3 sequences without conflict. (Scope of which commands carry over per version may be narrowed during implementation review — TBD.)
 
 ### Additional Commands (v2)
 
@@ -602,8 +602,7 @@ For Protocol v3, the version bits are `0b0000011`, giving possible header values
 - `0x33` — Display 16-Level Grayscale (Persistent)
 - `0x52` — Display PSRAM Index (Gated)
 - `0x53` — Display PSRAM Index (Persistent)
-
-> **⚠ Flag — `0x54` referenced in workflow but not in command list:** the "Gated-persistent display with external control" workflow example below uses command `0x54`, but `0x54` is not declared in the Additional Commands list above and has no per-command spec section. Either (a) `0x54` is a 4th display-mode variant ("Gated-Persistent": trigger-gated repeated display from PSRAM) that needs an explicit row in the command list and a per-command section, or (b) the workflow example is wrong and should use `0x53` (Persistent) or `0x52` (Gated). The v4 master command summary in the source spec confirms `0x64` and `0x74` are "Gated-Persistent" variants for PSRAM-with-stretch and predefined-pattern-with-stretch respectively — strongly suggesting `0x54` is the v3 equivalent and was simply omitted from the v3 command list. **Action:** add `0x54` (or whatever the correct opcode is) explicitly to the v3 command list and per-command sections, and document the Gated-Persistent display mode alongside the other three modes below.
+- `0x54` — Display PSRAM Index (Gated-Persistent)
 
 ### Display Modes
 
@@ -617,7 +616,7 @@ Protocol v3 introduces three display modes that control when and how patterns ar
 
 **Persistent**: Display the pattern continuously, repeating it over and over until another command is received. Useful for static backgrounds or continuous stimuli.
 
-> **⚠ Flag — three modes listed, four implied:** the workflow examples use Oneshot (v1), Gated (v3), Persistent (v3), AND Gated-Persistent (v3, via `0x54`). The Display Modes section above only formally describes three (Oneshot, Gated, Persistent). Add a fourth entry: "**Gated-Persistent**: while the trigger line is HIGH the pattern displays repeatedly; while LOW the display is disabled. Pattern remains loaded across trigger transitions until a new command is received." Pair this with the v3 command list update mentioned in the previous flag. The v4 spec already follows this 4-mode pattern (Oneshot / Gated / Persistent / Gated-Persistent) per its `0x6X`/`0x7X` command groups.
+**Gated-Persistent**: While the trigger line is HIGH the pattern displays repeatedly; while LOW the display is disabled. Pattern remains loaded across trigger transitions until a new command is received. Combines the per-trigger gating of Gated mode with the auto-repeat of Persistent.
 
 #### `0x12` — Display 2-Level Grayscale (Gated)
 
@@ -711,6 +710,20 @@ Displays a pattern from PSRAM continuously until a new command is received.
 
 **Purpose**: Display pre-stored patterns persistently, combining the benefits of PSRAM storage and continuous display.
 
+#### `0x54` — Display PSRAM Index (Gated-Persistent)
+
+Displays a pattern from PSRAM repeatedly while the external trigger line is HIGH; display disabled while LOW. Pattern remains loaded across trigger transitions until a new command is received.
+
+**Payload**: 3 bytes
+
+- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
+
+**Example**:
+
+`[0x03] [0x54] [index: 3 bytes]`
+
+**Purpose**: External-trigger-gated repeated display — useful for stimuli that should be visible only during specific phases of an external control signal (e.g., behavior-rig event windows) without re-issuing a display command per gating window.
+
 ### Typical v3 Workflows
 
 **Two-photon microscopy with gated display**:
@@ -735,7 +748,7 @@ Displays a pattern from PSRAM continuously until a new command is received.
 // …until new command received
 ```
 
-> **⚠ Flag — the gated-persistent example mixes a v2 write into the v3 example flow:** the pre-load step uses `0x1F` (v2 Write 2-Level Grayscale to PSRAM) — that's correct since the same PSRAM is shared across protocol versions. The header byte `[0x03]` for the `0x1F` command signals v3 protocol but the command itself is from v2. This is fine if v3 panels accept v2 commands (i.e., higher protocol versions are supersets), but the spec doesn't explicitly state that. **Action:** add a "compatibility statement" to v3 (and v2) clarifying that higher-version panels MUST accept lower-version commands.
+(The pre-load step uses `0x1F` from v2 with the v3 header byte `[0x03]` — explicit application of the version-superset rule from v2 § Compatibility.)
 
 ## v4 — G6 Panel Protocol v4 (teaser)
 
@@ -900,6 +913,7 @@ This table provides a complete reference of all commands across protocol version
 | `0x03` / `0x83` | `0x33` | 201 bytes (200 pattern + stretch) | Display 16-Level Grayscale (Persistent) | v3 |
 | `0x03` / `0x83` | `0x52` | 3 idx | Display PSRAM Index (Gated) | v3 |
 | `0x03` / `0x83` | `0x53` | 3 idx | Display PSRAM Index (Persistent) | v3 |
+| `0x03` / `0x83` | `0x54` | 3 idx | Display PSRAM Index (Gated-Persistent) | v3 |
 | `0x04` / `0x84` | `0x60` | 3 idx + stretch | Display PSRAM Index with Stretch (Oneshot) | v4 |
 | `0x04` / `0x84` | `0x62` | 3 idx + stretch | Display PSRAM Index with Stretch (Gated) | v4 |
 | `0x04` / `0x84` | `0x63` | 3 idx + stretch | Display PSRAM Index with Stretch (Persistent) | v4 |
@@ -907,7 +921,7 @@ This table provides a complete reference of all commands across protocol version
 | `0x04` / `0x84` | `0x72` | 3 idx + stretch | Display Predefined Pattern with Stretch (Gated) | v4 |
 | `0x04` / `0x84` | `0x73` | 3 idx + stretch | Display Predefined Pattern with Stretch (Persistent) | v4 |
 
-> **⚠ Flag — master summary is missing rows for several declared commands.** The v3 command list declared `0x12`/`0x13`/`0x32`/`0x33`/`0x52`/`0x53` (all present here) plus the implied `0x54` (NOT in this table). The v4 command list declared `0x60`/`0x61`/`0x62`/`0x63`/`0x64` and `0x70`/`0x71`/`0x72`/`0x73`/`0x74`, but this table only includes `0x60`/`0x62`/`0x63`/`0x70`/`0x72`/`0x73` — missing `0x61`/`0x64`/`0x71`/`0x74` (Trigger and Gated-Persistent variants). Either the table is incomplete, or those commands are aspirational and should be removed from the v4 command list. **Action:** decide which set is canonical and align the table with the per-version command lists.
+> **⚠ Flag — v4 master-summary rows incomplete.** v4 declared `0x60`/`0x61`/`0x62`/`0x63`/`0x64` and `0x70`/`0x71`/`0x72`/`0x73`/`0x74`, but this table only includes the Oneshot/Gated/Persistent variants. The Trigger (`0x61`/`0x71`) and Gated-Persistent (`0x64`/`0x74`) variants are still TBD pending the v4 mode-set review noted below.
 
 **Notes:**
 
@@ -924,12 +938,12 @@ This table provides a complete reference of all commands across protocol version
 | Mode | Behavior | Use Case |
 | :-- | :-- | :-- |
 | **Oneshot** | Display pattern once immediately | Standard display, frame-by-frame control |
-| **Gated** | Wait for first trigger, then gate display (high=show, low=hide) once | Sub-frame synchronization, two-photon microscopy |
+| **Gated** | Display gated by external trigger line (high = show, low = hide) | Sub-frame synchronization, two-photon microscopy |
 | **Persistent** | Display pattern continuously until new command | Static backgrounds, continuous stimuli |
+| **Gated-Persistent** | While trigger HIGH the pattern displays repeatedly; while LOW disabled. Pattern stays loaded across transitions | External-trigger-gated repeated display (behavior-rig event windows) |
+| **Trigger** _(v4)_ | Fires the display once on the next trigger edge — TBD, see flag in v4 § Additional Commands | Single-shot trigger-aligned stimulus delivery |
 
-> **⚠ Flag — Display Mode Summary missing two modes.** The table here lists 3 modes (Oneshot, Gated, Persistent) but the v4 command list named 5: those plus **Trigger** (`0x61`, `0x71`) and **Gated-Persistent** (`0x64`, `0x74`). v3 also implicitly used a 4th mode via `0x54`. Either expand this table to 5 rows or restrict the v4 command list to 3 modes. **Action:** decide the canonical mode set.
-
-> **⚠ Flag — "Gated" description is ambiguous.** "Wait for first trigger, then gate display (high=show, low=hide) once" — what does "once" mean? (a) The display gates HIGH/LOW for the duration of one trigger cycle then stops? (b) The display pattern is shown once, gated by trigger? The v3 § Display Modes describes Gated as "panel's display is gated by the rising edge on the external trigger line" with no notion of "once". Reconcile the two descriptions.
+(All five modes are subject to a future review against the prototype high-performance implementation — the current proof-of-concept is "one column per trigger", and the canonical mode set may narrow once that wiring is finalized.)
 
 ### Protocol Evolution
 
