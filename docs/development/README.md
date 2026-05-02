@@ -10,18 +10,26 @@ Each file opens with a three-line plain-prose header — source tab + last-revie
 
 ## File status
 
+All seven Phase-1 files are migrated, reconciled, and signed off as of 2026-05-02. A consolidation pass (2026-05-02) collapsed resolved flags into clean statements; remaining flags mark genuinely open questions. Phase-2 (consolidation to public-facing docs) remains deferred until the user explicitly calls the dev set stable.
+
 | File | Source tab(s) | Status | Implementation evidence |
 |---|---|---|---|
-| [`g6_00-architecture.md`](g6_00-architecture.md) | Introduction | _not yet migrated_ | — |
-| [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) | Panel Version 1 / 2 / 3 / 4 / Version Summary | _not yet migrated_ | v1 ↔ [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel); v3 ↔ [`mbreiser/G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) (proof-of-concept only) |
-| [`g6_02-led-mapping.md`](g6_02-led-mapping.md) | Panel LED Mappings | _not yet migrated_ | Hardware: `Generation 6/Panels/` (production `v0p2r0`; `v0.3.0` in draft) |
-| [`g6_03-controller.md`](g6_03-controller.md) | Controller Teensy SW + Major updates for v2 + v3 and onwards | _gated on G4.1-slim review_ | G4 baseline: [`floesche/LED-Display_G4.1_ArenaController_Slim`](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim) |
-| [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) | Pattern Format / Panel Map | _not yet migrated_ | Compare against `LED-Display_G4.1_ArenaController_Slim/src/PatternHeader.h` |
-| [`g6_05-panel-map.md`](g6_05-panel-map.md) | Panel Map proposal | _not yet migrated_ | — |
-| [`g6_06-host-software.md`](g6_06-host-software.md) | Host PC Matlab SW | _not yet migrated_ | Reconcile with `Generation 6/maDisplayTools/docs/g6_quickstart.md` and `sd_card_deployment_notes.md` |
-| _Arena firmware interface_ | G6 arena design (v1/v2) | _decision deferred_ | Source tab is superseded by the built arena hardware (v1.1.7); a thin firmware-relevant arena reference will be added only if the controller doc surfaces an actual gap |
+| [`g6_00-architecture.md`](g6_00-architecture.md) | Introduction | **Draft — signed off** | — |
+| [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) | Panel Version 1 / 2 / 3 / 4 / Version Summary | **Specified (v1) + Teaser (v2/v3) + Stub (v4/v5) — signed off** | v1 ↔ [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) `@ 6944894`; v3 prototype ↔ [`mbreiser/G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) `@ bb26a44` |
+| [`g6_02-led-mapping.md`](g6_02-led-mapping.md) | Panel LED Mappings | **Specified for panel v0.1 — signed off** | Hardware: `Generation 6/Panels/` (production `v0p2r0`; `v0.3.0` in draft); v0.1 mapping is canonical for the worked example today |
+| [`g6_03-controller.md`](g6_03-controller.md) | Controller Teensy SW + Major updates for v2 + v3 and onwards | **Draft (v1) + Teaser (v2) + Stub (v3+) — signed off** | G4 baseline: [`floesche/LED-Display_G4.1_ArenaController_Slim`](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim) `@ 8f1029f`. No G6 controller firmware yet. |
+| [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) | Pattern Format / Panel Map (merged) | **v2 canonical — signed off** | [`Generation 6/maDisplayTools/g6/g6_save_pattern.m`](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m); JS round-trip via [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json) |
+| [`g6_06-host-software.md`](g6_06-host-software.md) | Host PC Matlab SW | **Stub — signed off (firmware-contract framing)** | Deep MATLAB-side migration deferred until display tools migrate to G6. Authoritative reference today: `Generation 6/maDisplayTools/docs/{g6_quickstart, sd_card_deployment_notes, ...}.md` (in submodule, public Jekyll site). |
+| [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) | G6 arena design (v1/v2) | **Thin firmware-interface reference — signed off** | Production arena `arena_10-10` v1.1.7 (ordered 2026-04-28); pin assignments extracted from KiCad sources `@ 0a8ec33c` |
 
-Status values: `Specified` (concrete enough to implement against), `Draft` (mostly there, gaps marked), `Teaser` (sketched), `Stub` (placeholder). v1 sections may upgrade to `Specified — implementation verified` once reconciled against `iorodeo/g6_firmware_devel`.
+Status values: `Specified` (concrete enough to implement against), `Draft` (mostly there, gaps marked), `Teaser` (sketched), `Stub` (placeholder). v1 sections may upgrade to `Specified — implementation verified` once a v1 firmware implementation is widely deployed.
+
+### Decisions made during consolidation (2026-05-02)
+
+- Drop `SWITCH_GRAYSCALE_CMD` (0x06) and `DISPLAY_RESET_CMD` (0x01) from the G6 v1 command set. Pattern-header `gs_val` is the canonical grayscale source.
+- G6 host ↔ controller transport is **TCP only** (matches slim G4.1 baseline; resolves the prior plan's TCP-vs-UDP ambiguity).
+- Production arenas ship with EINT routing jumper **J30 = OPEN** (Teensy-mediated panel trigger); shorted is a deliberate per-experiment opt-in.
+- Pattern File Format **v1 historical content is dropped** from `g6_04`; v2 (18-byte header) is sole canonical layout. v1 → v2 changelog (D1–D11) preserved for cross-doc reference.
 
 ## Doc-by-doc review loop
 
