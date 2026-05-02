@@ -65,13 +65,11 @@ Same G4 command set, but the host must know it's talking to a G6 controller (via
 
 Wherever the host currently streams frames to G4, it now must generate full-arena frames that the G6 controller can slice.
 
-With Mode 5 implemented, we will implement **host-controlled utility functions** that further simplify the set of commands required of the controller:
+With Mode 5 implemented, the host can additionally compose the following test patterns as full-arena frames, since they don't need dedicated controller commands:
 
-- `all_on`
-- `all_off`
-- `show_panel_IDs`
+- `show_panel_IDs` — each panel displays its `panel_id`, useful for verifying panel-map correctness end-to-end.
 
-> **⚠ Flag — `all_on` / `all_off` placement: controller-side opcode or host-composed?** Slim G4.1 has both `ALL_ON_CMD (0xFF)` and `ALL_OFF_CMD (0x00)`. This section proposes implementing them host-side as composed full-arena frames sent via Stream-Frame (Mode 5). The two are not equivalent: controller-side opcodes work without Mode 5 being functional (e.g., during arena bring-up), while host-composed all-on/all-off requires the streaming path to be working end-to-end. Decide which semantics G6 supports.
+`all_on` (`0x01, 0xff`) and `all_off` (`0x01, 0x00`) remain as **controller-side opcodes** carried over from slim G4.1 — they work during arena bring-up before the Mode 5 streaming path is fully functional, which is critical for diagnostics. See [`g6_03-controller.md`](g6_03-controller.md) § Host Command Summary.
 
 ---
 
@@ -103,12 +101,10 @@ v2 capability detection shares the v1 "G6 mode" gap above — same `get-controll
 
 ## Open Questions / TBDs
 
-1. **Controller version/capability query opcode** — required by both v1 ("G6 mode" detection) and v2 (feature detection). Not in slim G4.1; spec belongs in `g6_03`. Same opcode could serve both, with a bitfield response.
-2. **`all_on` / `all_off` placement** — controller-side opcode (slim has both) or host-composed via Mode 5? Affects arena bring-up workflows.
-3. **PSRAM-vs-SD pattern integrity check** — algorithm and host/panel responsibility split. Open until v2 panel firmware exists.
-4. **Region / SPI-bus info source** — same cross-doc question as `g6_03` Open Question #7 and `g6_04` Open Question #6. Pattern header dropped this in v2; host needs to supply it from somewhere (arena-config sidecar most likely).
-5. **`show_panel_IDs` test pattern** — defined as a host-composed visualization (each panel displays its `panel_id`). Useful for verifying the panel map is correct end-to-end. Implementation owner: maDisplayTools-side; firmware just receives a Mode 5 frame.
-6. **Deep MATLAB display-tools spec migration** — deferred until display tools are formally migrated to G6. Today's reference: `Generation 6/maDisplayTools/docs/{g6_quickstart, sd_card_deployment_notes, experiment_pipeline_guide, pattern_library_convention, pattern_tools_quickstart, patterns}.md` (already in the submodule's public Jekyll site).
+1. **PSRAM-vs-SD pattern integrity check** — algorithm and host/panel responsibility split. Open until v2 panel firmware exists.
+2. **Region / SPI-bus info source** — same cross-doc question as `g6_03` Open Question #2 and `g6_04` flag in § Panel Map. For the production `arena_10-10`, the implicit "5 cols / region" rule works; for future arenas, investigate whether `maDisplayTools` arena-config files already cover this on the host side.
+3. **`show_panel_IDs` test pattern** — host-composed visualization (each panel displays its `panel_id`); useful for verifying the panel map end-to-end. Implementation owner: maDisplayTools-side; firmware just receives a Mode 5 frame.
+4. **Deep MATLAB display-tools spec migration** — deferred until display tools are formally migrated to G6. Reference: `Generation 6/maDisplayTools/docs/*.md` in the submodule (public Jekyll site).
 
 ---
 
