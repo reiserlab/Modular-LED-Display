@@ -1,22 +1,111 @@
-# G6 — Panel LED Mapping (v0.1 hardware)
+# G6 — Panel Hardware Reference (v0.2 + v0.3) and LED Mapping
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Panel LED Mappings", lines 1112–1571) · Last reviewed: 2026-05-01 by mreiser
-Status: **Specified for panel v0.1 hardware** — current production hardware is `panel_rp2354_20x20_v0p2` with `v0.3.0` in draft. The 400-row mapping below is the v0.1 PCB layout extracted from the KiCAD production files; per-revision tables for v0.2 / v0.3 are not yet captured here.
+Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Panel LED Mappings", lines 1112–1571) — LED mapping section · v0.3 hardware extracted from `panel_rp2354_20x20_v0.3.0.pdf` in [`G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) · v0.2 hardware-relevant pin layout from [`g6_firmware_devel/panel/src/constants.cpp`](https://github.com/iorodeo/g6_firmware_devel) `@ 6944894` · Last reviewed: 2026-05-02 by mreiser
+Status: **Specified for v0.2 + v0.3** (firmware-relevant pin/PIO/peripheral deltas captured) · v0.1 LED designator mapping table extracted to [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) adjunct · v0.2 / v0.3 LED designator tables pending KiCad source access (Panels submodule blocked on SSH host-key trust per handover).
 
-This file records the physical LED mapping for one G6 panel — the (row, column) ↔ LED-designator translation that lets host software compute which physical LED corresponds to each logical pixel. The table is the authoritative source for the worked pixel-mapping example in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format → Example pixel ↔ LED mapping.
+This file captures the firmware ↔ panel-hardware contract for the two in-house G6 panel revisions (v0.2 production, v0.3 parallel revision), plus the LED designator mapping that lets host software compute which physical LED corresponds to each logical pixel. The major firmware-relevant delta between v0.2 and v0.3 is **pin/column wiring + PIO viability**: v0.3 has fully contiguous COL and ROW GPIO ranges suitable for dual-PIO drive; v0.2 has a SPI block that splits the ROW range and forces CPU-driven row scan (or a more complex PIO mapping).
 
-> **⚠ Flag — pinned to panel v0.1; production is v0.2 / v0.3:** the 20×20 grid and the 400-row mapping below were extracted from the **panel v0.1** PCB production files. Current production hardware is `panel_rp2354_20x20_v0p2` (per `_data/repos.yml` and the `prod_v0p2r0` PR merged 2026-04-29 in `reiserlab/LED-Display_G6_Hardware_Panel`); a `v0.3.0` panel is in draft (commits `89960365` "fix EINT note position", `429357b1` "cleanup", `62c876d7` "fix XIP_CS1n pind", `02b1acd6` "shrink to 45x45", all 2026-04-09). **Action:** decide whether this file (a) carries one canonical per-revision table per panel revision, with a header row indicating which is current, or (b) is replaced by per-revision tables for v0.2 and v0.3 and the v0.1 mapping is dropped. Until decided, treat the v0.1 mapping as historical.
+## Revisions in scope
 
-> **⚠ Flag — production-file extraction not reproducible from this doc:** the source says "extracted from the PCB production files. In the KiCAD PCB, the LEDs are named 'D1' to 'D400'." Concretely, *which* KiCAD file, *which* commit/SHA, and *which* extraction script produced the table is not captured. **Action:** before this doc becomes implementation-driving, link to the specific KiCAD source path (in the `Generation 6/Panels/` submodule) and check in (or document) the extraction script so the table can be regenerated for v0.2 and v0.3.
+- **v0.1** — legacy reference; the 20×20 LED-designator mapping at the bottom of this file is from v0.1 and is used in the [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format worked example. **Not built today.**
+- **v0.2** — `panel_rp2354_20x20_v0p2`; **current production**; in-house. The `prod_v0p2r0` PR was merged 2026-04-29 in `reiserlab/LED-Display_G6_Hardware_Panel`. Firmware-relevant pin layout below is recovered from `g6_firmware_devel @ 6944894` (`panel/src/constants.cpp`); full PCB confirmation pending KiCad submodule init.
+- **v0.3** — `panel_rp2354_20x20_v0p3`; parallel revision; in-house but **not enough boards yet for full systems**. Hardware below is captured from `panel_rp2354_20x20_v0.3.0.pdf` (KiCad PDF dated 2026-04-09, included in the `G6_Panels_Test_Firmware` repo for reference).
 
-## Current state
+Firmware will need to support both v0.2 and v0.3 — a board-id mechanism (build-time `#define`, runtime detection via spare GPIO, or magic bytes on PSRAM) is TBD. See Open Question #4 below.
 
-- The v0.1 mapping is canonical for any worked example that references panel v0.1 hardware.
-- v0.2 / v0.3 mappings are not yet captured. The panel firmware in [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) implements a *schematic-to-physical* mapping in `panel/src/display.cpp` (`sch_to_pos_index()` at lines 91–114) — that is a different mapping layer from the (logical pixel, row, col) ↔ LED-designator one described here. See [`g6_00-architecture.md`](g6_00-architecture.md) § Host responsibilities and [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Reconciliation D5 for the layering question.
+## MCU and memory subsystem
 
-## Grid Layout
+| Aspect | v0.2 | v0.3 |
+|---|---|---|
+| MCU | Raspberry Pi RP2354B QFN-80 (per filename convention `panel_rp2354_*`; confirm against KiCad) | **Raspberry Pi RP2354B QFN-80** (confirmed; `panel_mcu.kicad_sch`) |
+| Crystal | 12 MHz (assumed; confirm against KiCad) | **12 MHz ABM8-272-T3** (with 15 pF C1/C2 + R5 series) |
+| Secondary PSRAM | APS6404L-3SQR 8 MB QSPI (assumed; confirm against KiCad) | **APS6404L-3SQR** 8 MB QSPI on `XIP_CS1n` (R29 = 33 Ω series); QSPI lines `QSPI_SD0..3` + `QSPI_SCLK` shared with primary flash interface |
+| 1V1 rail | RP2354B internal switching regulator (3.3 µH inductor, VREG_AVDD/VIN/FB/LX/PGND) | RP2354B internal switching regulator (3.3 µH inductor; same topology) |
+| 3V3 rail | AP2112K-3.3 LDO (assumed; confirm against KiCad) | **AP2112K-3.3TRG1** LDO (LCSC PN C51118; Digikey AP2112K-3.3TRG1DICT-ND); 10 µF input + 10 µF output caps |
+| 5 V input | USB | USB |
 
-The 20×20 matrix below shows the LED designators **in physical PCB layout order** — the way you'd see them looking at the panel face-up. The "D" prefix from KiCAD has been dropped to save horizontal space; "1" here means "D1" in KiCAD, etc.
+## Pin assignments
+
+The load-bearing firmware contract. Pin assignments differ between v0.2 and v0.3 — this is the source of the PIO-viability delta below.
+
+### v0.2 (recovered from `g6_firmware_devel/panel/src/constants.cpp:7–22`)
+
+| Function | RP2354 pin | Notes |
+|---|---|---|
+| SPI SCK | 34 | Mode 3 (CPOL=1, CPHA=1), MSB-first, 30 MHz |
+| SPI MOSI | 32 | |
+| SPI MISO | 35 | |
+| SPI CS | 33 | |
+| COL drive (20 lines) | **1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20** | Sequential ✓ (PIO-clean for COL state machine) |
+| ROW drive (20 lines) | **21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 36, 37, 38, 39, 40, 41, 42, 43, 44** | **Split** (gap 32–35 reserved for SPI) ⚠ |
+| EINT (external trigger), USB_BOOT, RUN, XIP_CS1n (PSRAM) | TBD | Not declared in firmware constants; recover from KiCad once submodule accessible |
+
+### v0.3 (from `panel_rp2354_20x20_v0.3.0.pdf` p.2)
+
+| Function | RP2354 GPIO | Pin # | Notes |
+|---|---|---|---|
+| SPI MOSI | GPIO40 (ADC0) | 49 | |
+| SPI CS0 | GPIO41 (ADC1) | 52 | |
+| SPI SCK | GPIO42 (ADC2) | 53 | |
+| QSPI XIP_CS1n (PSRAM) | GPIO43 (ADC3) | 56 | R29 = 33 Ω series to APS6404L `XIP_CS1n` |
+| SPI MISO | GPIO44 (ADC4) | 55 | |
+| EINT (external trigger) | GPIO45 (ADC5) | 56 | |
+| Spare | GPIO46 (ADC6), GPIO47 (ADC7) | — | Unused; available for board-id, telemetry, etc. |
+| COL drive (20 lines) | **GPIO0–GPIO19** | 77, 78, 79, 80, 1–8, 11–18 | Sequential ✓ (PIO-clean) |
+| ROW drive (20 lines) | **GPIO20–GPIO39** | 21–29, 36, 38, 39, 40, 41, 43, 45, 46, 47, 48 | Sequential ✓ (PIO-clean) |
+| USB DP / DM | GPIO66 / GPIO67 (USB_DP / USB_DM) | 67 / 68 | R7 / R8 = 27 Ω series, placed close to RP2354 |
+| USB_BOOT switch | drives QSPI_SS via R3 = 1 kΩ | — | SW1 momentary push; pulls QSPI_SS LOW on boot |
+| RUN switch | drives RUN via R2 = 1 kΩ | 35 | SW2 momentary push; resets MCU |
+
+## PIO viability — the major firmware-relevant delta
+
+**v0.2:** 20 contiguous COL GPIOs (1–20) → COL drive can use one PIO state machine for parallel column output. ROW GPIOs split into two ranges (21–31 and 36–44) by the SPI block on 32–35 → **dual-PIO `PIOFULL` (PIO0 cols, PIO1 rows) requires non-contiguous ROW mapping or splitting the ROW state machine**. CPU-driven row scan (BCMBURST architecture, validated in `G6_Panels_Test_Firmware`) works fine; PIO row scan needs careful work.
+
+**v0.3:** Both COL (GPIO0–GPIO19) and ROW (GPIO20–GPIO39) are fully contiguous, with SPI relocated to GPIO40–45 (out of the way). **Dual-PIO `PIOFULL` is straightforward** — validated end-to-end against v0.3.1 panels in `G6_Panels_Test_Firmware @ bb26a44` (see `single_led/PRODUCTION_ARCHITECTURE.md` § 5 PIOFULL).
+
+**Firmware implication:** `iorodeo/g6_firmware_devel` (today targets v1 protocol on v0.2-style panels) uses CPU row scan. To run the same firmware on v0.3 hardware, pin assignments need to flip and the row driver may optionally upgrade to PIO. To support both panel revisions in a single firmware binary, a board-id mechanism is TBD (Open Question #4).
+
+## LED drivers and matrix
+
+- **40× UCC27517** single-channel low-side gate drivers per panel — 20 column drivers (U3–U22) + 20 row drivers (U23–U42), each fed by 100 nF decoupling cap (C19–C58), shared 10 µF bulk caps (C59–C76) on +5 V. (v0.3 confirmed; v0.2 same chip per BOM expectation — flag for KiCad confirmation.)
+- **20×20 LED matrix** = 400 LEDs (designators D1–D400). Series resistors **R9–R28** at the column inputs (5 unique resistor values cycling `R_T0`/`R_T1`/`R_T2`/`R_T3` across 4-LED groups).
+- **LED part:** yellow-green per `XL0402YGC.PDF` and "Photoelectric parameters … BIN at 5mA.pdf" datasheets in `G6_Panels_Test_Firmware/`.
+
+## Connectors
+
+### USB (data + power)
+
+**JST-SH 4-pin** Stemma-QT/QWIIC-style (`Conn_01x04`, J1). Pinout: 1=GND, 2=D+, 3=D−, 4=+5 V. Needs USB-to-Stemma adapter cable (M5Stack `connector-grove-to-usb-c` + SparkFun Grove-to-JST-SH `15109` per schematic notes). USB series resistors **R7 / R8 = 27 Ω**, placed close to RP2354 (callout in panel_mcu sheet).
+
+### SPI / EINT inter-panel headers (4× 1×5)
+
+| Header | Position | Pin 1 | Pin 2 | Pin 3 | Pin 4 | Pin 5 |
+|---|---|---|---|---|---|---|
+| **J2** | bottom (`Conn_01x05`) | MISO | MOSI | SCK | GND | +5 V |
+| **J3** | bottom (`Conn_01x05`) | EINT | CS3 | CS2 | CS1 | +5 V |
+| **J4** | top (`Conn_01x05`, mirror of J2) | MISO | MOSI | SCK | GND | +5 V |
+| **J5** | top (`Conn_01x05`) | EINT | NC ("X" in schematic) | CS2 | CS1 | +5 V |
+
+**Header parts** (per schematic procurement notes):
+
+- v0.2 / latest: JLCPCB/LCSC PN C7298801; Digikey 952-M20-8890545RCT-ND or 952-3266-ND
+- v0.1.3 (legacy): LCSC C5142238 (HX-PZZ254-1×5P-WT), C46061678
+- Female receptacle (top side): Digikey S5HH-105-02-T-S, Manufacturer SMH-105-02-T-S; LCSC C5142238 (X6511FRS-05-CB5D30) for v0.1.3
+
+**CS routing — open question:** v0.3 schematic shows three CS lines (CS1/CS2/CS3) plus EINT pass through the headers, but only one CS reaches the MCU as `CS0` per the top-level sheet. The selection mechanism (PCB jumper? 0-Ω resistor? slot position?) is not visible in the per-page schematic sheets readable here — needs full hierarchical schematic review or annotated KiCad project. See Open Question #3.
+
+## 3V3 power supply (panel_usb_power sheet)
+
+- **Regulator:** AP2112K-3.3TRG1 LDO (U43)
+- **Caps:** C67 = 10 µF input, C68 = 10 µF output
+
+## LED designator mapping (v0.1)
+
+The 400-row v0.1 LED designator table is now in [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) (CSV with header `row,col,led` + 400 data rows). v0.2 and v0.3 designator tables are pending KiCad source access (Open Question #2).
+
+### Grid layout (v0.1 — for visual orientation)
+
+The 20×20 matrix below shows the LED designators **in physical PCB layout order** — the way you'd see them looking at the panel face-up. The "D" prefix from KiCAD has been dropped to save horizontal space.
 
 ```
   1  21 20 40 81  101 100 120 161 181 180 200 241 261 260 280 321 341 340 360
@@ -41,429 +130,44 @@ The 20×20 matrix below shows the LED designators **in physical PCB layout order
  50  70 51 71 130 150 131 151 210 230 211 231 290 310 291 311 370 390 371 391
 ```
 
-**Visual orientation:** The grid is printed with row 0 at the **bottom** of the panel (visually the **last** printed row, D50/D70/D51/...) and row 19 at the **top** (visually the **first** printed row, D1/D21/D20/...). Host pixel coordinates are read **bottom-up**: `pixel[0,0]` = bottom-left = D50; `pixel[19,19]` = top-right = D360. The table below uses this same bottom-up convention.
+**Visual orientation:** Row 0 is at the **bottom** of the panel (visually the **last** printed row, D50/D70/D51/…) and row 19 is at the **top** (visually the **first** printed row, D1/D21/D20/…). Host pixel coordinates are read **bottom-up**: `pixel[0,0]` = bottom-left = D50; `pixel[19,19]` = top-right = D360.
 
-## Row/Column Mapping Table
+### Sample of the row/column mapping (first 5 rows for sanity check)
 
-Authoritative 400-row lookup: each row gives the LED designator for one logical pixel position. Row indexing is row-major from the bottom-left (`(0, 0)` = bottom-left = D50, `(19, 19)` = top-right = D360).
+Authoritative full table: [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) (400 rows).
 
-| ROW | COLUMN | LED |
-| :-: | :-: | :-: |
-| 0 | 0 | 50 |
-| 0 | 1 | 70 |
-| 0 | 2 | 51 |
-| 0 | 3 | 71 |
-| 0 | 4 | 130 |
-| 0 | 5 | 150 |
-| 0 | 6 | 131 |
-| 0 | 7 | 151 |
-| 0 | 8 | 210 |
-| 0 | 9 | 230 |
-| 0 | 10 | 211 |
-| 0 | 11 | 231 |
-| 0 | 12 | 290 |
-| 0 | 13 | 310 |
-| 0 | 14 | 291 |
-| 0 | 15 | 311 |
-| 0 | 16 | 370 |
-| 0 | 17 | 390 |
-| 0 | 18 | 371 |
-| 0 | 19 | 391 |
-| 1 | 0 | 10 |
-| 1 | 1 | 30 |
-| 1 | 2 | 11 |
-| 1 | 3 | 31 |
-| 1 | 4 | 90 |
-| 1 | 5 | 110 |
-| 1 | 6 | 91 |
-| 1 | 7 | 111 |
-| 1 | 8 | 170 |
-| 1 | 9 | 190 |
-| 1 | 10 | 171 |
-| 1 | 11 | 191 |
-| 1 | 12 | 250 |
-| 1 | 13 | 270 |
-| 1 | 14 | 251 |
-| 1 | 15 | 271 |
-| 1 | 16 | 330 |
-| 1 | 17 | 350 |
-| 1 | 18 | 331 |
-| 1 | 19 | 351 |
-| 2 | 0 | 49 |
-| 2 | 1 | 69 |
-| 2 | 2 | 52 |
-| 2 | 3 | 72 |
-| 2 | 4 | 129 |
-| 2 | 5 | 149 |
-| 2 | 6 | 132 |
-| 2 | 7 | 152 |
-| 2 | 8 | 209 |
-| 2 | 9 | 229 |
-| 2 | 10 | 212 |
-| 2 | 11 | 232 |
-| 2 | 12 | 289 |
-| 2 | 13 | 309 |
-| 2 | 14 | 292 |
-| 2 | 15 | 312 |
-| 2 | 16 | 369 |
-| 2 | 17 | 389 |
-| 2 | 18 | 372 |
-| 2 | 19 | 392 |
-| 3 | 0 | 9 |
-| 3 | 1 | 29 |
-| 3 | 2 | 12 |
-| 3 | 3 | 32 |
-| 3 | 4 | 89 |
-| 3 | 5 | 109 |
-| 3 | 6 | 92 |
-| 3 | 7 | 112 |
-| 3 | 8 | 169 |
-| 3 | 9 | 189 |
-| 3 | 10 | 172 |
-| 3 | 11 | 192 |
-| 3 | 12 | 249 |
-| 3 | 13 | 269 |
-| 3 | 14 | 252 |
-| 3 | 15 | 272 |
-| 3 | 16 | 329 |
-| 3 | 17 | 349 |
-| 3 | 18 | 332 |
-| 3 | 19 | 352 |
-| 4 | 0 | 48 |
-| 4 | 1 | 68 |
-| 4 | 2 | 53 |
-| 4 | 3 | 73 |
-| 4 | 4 | 128 |
-| 4 | 5 | 148 |
-| 4 | 6 | 133 |
-| 4 | 7 | 153 |
-| 4 | 8 | 208 |
-| 4 | 9 | 228 |
-| 4 | 10 | 213 |
-| 4 | 11 | 233 |
-| 4 | 12 | 288 |
-| 4 | 13 | 308 |
-| 4 | 14 | 293 |
-| 4 | 15 | 313 |
-| 4 | 16 | 368 |
-| 4 | 17 | 388 |
-| 4 | 18 | 373 |
-| 4 | 19 | 393 |
-| 5 | 0 | 8 |
-| 5 | 1 | 28 |
-| 5 | 2 | 13 |
-| 5 | 3 | 33 |
-| 5 | 4 | 88 |
-| 5 | 5 | 108 |
-| 5 | 6 | 93 |
-| 5 | 7 | 113 |
-| 5 | 8 | 168 |
-| 5 | 9 | 188 |
-| 5 | 10 | 173 |
-| 5 | 11 | 193 |
-| 5 | 12 | 248 |
-| 5 | 13 | 268 |
-| 5 | 14 | 253 |
-| 5 | 15 | 273 |
-| 5 | 16 | 328 |
-| 5 | 17 | 348 |
-| 5 | 18 | 333 |
-| 5 | 19 | 353 |
-| 6 | 0 | 47 |
-| 6 | 1 | 67 |
-| 6 | 2 | 54 |
-| 6 | 3 | 74 |
-| 6 | 4 | 127 |
-| 6 | 5 | 147 |
-| 6 | 6 | 134 |
-| 6 | 7 | 154 |
-| 6 | 8 | 207 |
-| 6 | 9 | 227 |
-| 6 | 10 | 214 |
-| 6 | 11 | 234 |
-| 6 | 12 | 287 |
-| 6 | 13 | 307 |
-| 6 | 14 | 294 |
-| 6 | 15 | 314 |
-| 6 | 16 | 367 |
-| 6 | 17 | 387 |
-| 6 | 18 | 374 |
-| 6 | 19 | 394 |
-| 7 | 0 | 7 |
-| 7 | 1 | 27 |
-| 7 | 2 | 14 |
-| 7 | 3 | 34 |
-| 7 | 4 | 87 |
-| 7 | 5 | 107 |
-| 7 | 6 | 94 |
-| 7 | 7 | 114 |
-| 7 | 8 | 167 |
-| 7 | 9 | 187 |
-| 7 | 10 | 174 |
-| 7 | 11 | 194 |
-| 7 | 12 | 247 |
-| 7 | 13 | 267 |
-| 7 | 14 | 254 |
-| 7 | 15 | 274 |
-| 7 | 16 | 327 |
-| 7 | 17 | 347 |
-| 7 | 18 | 334 |
-| 7 | 19 | 354 |
-| 8 | 0 | 46 |
-| 8 | 1 | 66 |
-| 8 | 2 | 55 |
-| 8 | 3 | 75 |
-| 8 | 4 | 126 |
-| 8 | 5 | 146 |
-| 8 | 6 | 135 |
-| 8 | 7 | 155 |
-| 8 | 8 | 206 |
-| 8 | 9 | 226 |
-| 8 | 10 | 215 |
-| 8 | 11 | 235 |
-| 8 | 12 | 286 |
-| 8 | 13 | 306 |
-| 8 | 14 | 295 |
-| 8 | 15 | 315 |
-| 8 | 16 | 366 |
-| 8 | 17 | 386 |
-| 8 | 18 | 375 |
-| 8 | 19 | 395 |
-| 9 | 0 | 6 |
-| 9 | 1 | 26 |
-| 9 | 2 | 15 |
-| 9 | 3 | 35 |
-| 9 | 4 | 86 |
-| 9 | 5 | 106 |
-| 9 | 6 | 95 |
-| 9 | 7 | 115 |
-| 9 | 8 | 166 |
-| 9 | 9 | 186 |
-| 9 | 10 | 175 |
-| 9 | 11 | 195 |
-| 9 | 12 | 246 |
-| 9 | 13 | 266 |
-| 9 | 14 | 255 |
-| 9 | 15 | 275 |
-| 9 | 16 | 326 |
-| 9 | 17 | 346 |
-| 9 | 18 | 335 |
-| 9 | 19 | 355 |
-| 10 | 0 | 45 |
-| 10 | 1 | 65 |
-| 10 | 2 | 56 |
-| 10 | 3 | 76 |
-| 10 | 4 | 125 |
-| 10 | 5 | 145 |
-| 10 | 6 | 136 |
-| 10 | 7 | 156 |
-| 10 | 8 | 205 |
-| 10 | 9 | 225 |
-| 10 | 10 | 216 |
-| 10 | 11 | 236 |
-| 10 | 12 | 285 |
-| 10 | 13 | 305 |
-| 10 | 14 | 296 |
-| 10 | 15 | 316 |
-| 10 | 16 | 365 |
-| 10 | 17 | 385 |
-| 10 | 18 | 376 |
-| 10 | 19 | 396 |
-| 11 | 0 | 5 |
-| 11 | 1 | 25 |
-| 11 | 2 | 16 |
-| 11 | 3 | 36 |
-| 11 | 4 | 85 |
-| 11 | 5 | 105 |
-| 11 | 6 | 96 |
-| 11 | 7 | 116 |
-| 11 | 8 | 165 |
-| 11 | 9 | 185 |
-| 11 | 10 | 176 |
-| 11 | 11 | 196 |
-| 11 | 12 | 245 |
-| 11 | 13 | 265 |
-| 11 | 14 | 256 |
-| 11 | 15 | 276 |
-| 11 | 16 | 325 |
-| 11 | 17 | 345 |
-| 11 | 18 | 336 |
-| 11 | 19 | 356 |
-| 12 | 0 | 44 |
-| 12 | 1 | 64 |
-| 12 | 2 | 57 |
-| 12 | 3 | 77 |
-| 12 | 4 | 124 |
-| 12 | 5 | 144 |
-| 12 | 6 | 137 |
-| 12 | 7 | 157 |
-| 12 | 8 | 204 |
-| 12 | 9 | 224 |
-| 12 | 10 | 217 |
-| 12 | 11 | 237 |
-| 12 | 12 | 284 |
-| 12 | 13 | 304 |
-| 12 | 14 | 297 |
-| 12 | 15 | 317 |
-| 12 | 16 | 364 |
-| 12 | 17 | 384 |
-| 12 | 18 | 377 |
-| 12 | 19 | 397 |
-| 13 | 0 | 4 |
-| 13 | 1 | 24 |
-| 13 | 2 | 17 |
-| 13 | 3 | 37 |
-| 13 | 4 | 84 |
-| 13 | 5 | 104 |
-| 13 | 6 | 97 |
-| 13 | 7 | 117 |
-| 13 | 8 | 164 |
-| 13 | 9 | 184 |
-| 13 | 10 | 177 |
-| 13 | 11 | 197 |
-| 13 | 12 | 244 |
-| 13 | 13 | 264 |
-| 13 | 14 | 257 |
-| 13 | 15 | 277 |
-| 13 | 16 | 324 |
-| 13 | 17 | 344 |
-| 13 | 18 | 337 |
-| 13 | 19 | 357 |
-| 14 | 0 | 43 |
-| 14 | 1 | 63 |
-| 14 | 2 | 58 |
-| 14 | 3 | 78 |
-| 14 | 4 | 123 |
-| 14 | 5 | 143 |
-| 14 | 6 | 138 |
-| 14 | 7 | 158 |
-| 14 | 8 | 203 |
-| 14 | 9 | 223 |
-| 14 | 10 | 218 |
-| 14 | 11 | 238 |
-| 14 | 12 | 283 |
-| 14 | 13 | 303 |
-| 14 | 14 | 298 |
-| 14 | 15 | 318 |
-| 14 | 16 | 363 |
-| 14 | 17 | 383 |
-| 14 | 18 | 378 |
-| 14 | 19 | 398 |
-| 15 | 0 | 3 |
-| 15 | 1 | 23 |
-| 15 | 2 | 18 |
-| 15 | 3 | 38 |
-| 15 | 4 | 83 |
-| 15 | 5 | 103 |
-| 15 | 6 | 98 |
-| 15 | 7 | 118 |
-| 15 | 8 | 163 |
-| 15 | 9 | 183 |
-| 15 | 10 | 178 |
-| 15 | 11 | 198 |
-| 15 | 12 | 243 |
-| 15 | 13 | 263 |
-| 15 | 14 | 258 |
-| 15 | 15 | 278 |
-| 15 | 16 | 323 |
-| 15 | 17 | 343 |
-| 15 | 18 | 338 |
-| 15 | 19 | 358 |
-| 16 | 0 | 42 |
-| 16 | 1 | 62 |
-| 16 | 2 | 59 |
-| 16 | 3 | 79 |
-| 16 | 4 | 122 |
-| 16 | 5 | 142 |
-| 16 | 6 | 139 |
-| 16 | 7 | 159 |
-| 16 | 8 | 202 |
-| 16 | 9 | 222 |
-| 16 | 10 | 219 |
-| 16 | 11 | 239 |
-| 16 | 12 | 282 |
-| 16 | 13 | 302 |
-| 16 | 14 | 299 |
-| 16 | 15 | 319 |
-| 16 | 16 | 362 |
-| 16 | 17 | 382 |
-| 16 | 18 | 379 |
-| 16 | 19 | 399 |
-| 17 | 0 | 2 |
-| 17 | 1 | 22 |
-| 17 | 2 | 19 |
-| 17 | 3 | 39 |
-| 17 | 4 | 82 |
-| 17 | 5 | 102 |
-| 17 | 6 | 99 |
-| 17 | 7 | 119 |
-| 17 | 8 | 162 |
-| 17 | 9 | 182 |
-| 17 | 10 | 179 |
-| 17 | 11 | 199 |
-| 17 | 12 | 242 |
-| 17 | 13 | 262 |
-| 17 | 14 | 259 |
-| 17 | 15 | 279 |
-| 17 | 16 | 322 |
-| 17 | 17 | 342 |
-| 17 | 18 | 339 |
-| 17 | 19 | 359 |
-| 18 | 0 | 41 |
-| 18 | 1 | 61 |
-| 18 | 2 | 60 |
-| 18 | 3 | 80 |
-| 18 | 4 | 121 |
-| 18 | 5 | 141 |
-| 18 | 6 | 140 |
-| 18 | 7 | 160 |
-| 18 | 8 | 201 |
-| 18 | 9 | 221 |
-| 18 | 10 | 220 |
-| 18 | 11 | 240 |
-| 18 | 12 | 281 |
-| 18 | 13 | 301 |
-| 18 | 14 | 300 |
-| 18 | 15 | 320 |
-| 18 | 16 | 361 |
-| 18 | 17 | 381 |
-| 18 | 18 | 380 |
-| 18 | 19 | 400 |
-| 19 | 0 | 1 |
-| 19 | 1 | 21 |
-| 19 | 2 | 20 |
-| 19 | 3 | 40 |
-| 19 | 4 | 81 |
-| 19 | 5 | 101 |
-| 19 | 6 | 100 |
-| 19 | 7 | 120 |
-| 19 | 8 | 161 |
-| 19 | 9 | 181 |
-| 19 | 10 | 180 |
-| 19 | 11 | 200 |
-| 19 | 12 | 241 |
-| 19 | 13 | 261 |
-| 19 | 14 | 260 |
-| 19 | 15 | 280 |
-| 19 | 16 | 321 |
-| 19 | 17 | 341 |
-| 19 | 18 | 340 |
-| 19 | 19 | 360 |
+| ROW | COLUMN | LED | | ROW | COLUMN | LED |
+| :-: | :-: | :-: |---| :-: | :-: | :-: |
+| 0 | 0 | 50 | | 0 | 1 | 70 |
+| 0 | 2 | 51 | | 0 | 3 | 71 |
+| 0 | 4 | 130 | | 0 | 5 | 150 |
+| 1 | 0 | 10 | | 1 | 1 | 30 |
+| 19 | 18 | 340 | | 19 | 19 | 360 |
 
-(Reminder: this is the v0.1 panel layout. v0.2 / v0.3 mappings need to be added — see flag at top of file.)
+Worked example consumers: [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format uses `pixel[0,0] → D50`, `pixel[0,1] → D70`, `pixel[19,18] → D340`, `pixel[19,19] → D360` — all four cross-check against the CSV.
 
 ## Open Questions / TBDs
 
-1. **Per-revision tables.** Decide whether `g6_02-led-mapping.md` carries one table per panel revision (v0.1 / v0.2 / v0.3 each as their own subsection or adjunct file), or whether it always reflects "current production" with the previous revision moved to an archive subsection.
-2. **Extraction script + KiCAD source path.** Capture the script and the specific KiCAD file used to produce the v0.1 table so v0.2 and v0.3 can be regenerated reproducibly.
-3. **CSV adjunct vs. inline table.** A 400-row Markdown table is heavy in any viewer. Consider promoting the table to `g6_02-led-mapping.csv` next to this file; the Markdown then describes the schema and links to the CSV. Defer to Phase 2 consolidation.
-4. **Visual orientation note.** Make the grid orientation explicit in this file (row 0 = bottom, row 19 = top) so future readers don't have to infer from the v1 worked example.
-5. **Layering relative to panel firmware's schematic-to-pin mapping.** This file describes (pixel, row, col) ↔ LED-designator. Panel firmware additionally applies schematic-to-physical-pin remapping (`display.cpp::sch_to_pos_index()` in `iorodeo/g6_firmware_devel`). Confirm the two layers are independent and document which mapping each layer is responsible for. Cross-references the same architecture flag (D5) in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md).
+1. **KiCad confirmation pass for v0.2 hardware.** Several v0.2 hardware-row entries above (MCU revision letter, PSRAM exact part, LED driver part, header form factor, EINT/USB_BOOT/RUN/XIP_CS1n pin numbers) are inferred from the v0.3 schematic + `panel_rp2354_20x20_v0p2` filename convention. Confirm against KiCad once `Generation 6/Panels` submodule is initialized (blocked on SSH host-key trust per handover).
+2. **Per-revision LED designator tables for v0.2 and v0.3.** Need a KiCad-source extraction script. Once available, add `g6_02-led-mapping-v0p2.csv` and `g6_02-led-mapping-v0p3.csv` companions following the same `row,col,led` schema. Layering vs `display.cpp::sch_to_pos_index()` — confirm the two mapping layers are independent.
+3. **CS-line routing per panel position.** v0.3 schematic shows CS1/CS2/CS3 + EINT pass through the inter-panel headers, but only one CS line reaches the MCU as `CS0` per the top-level sheet. The selection mechanism (PCB jumper, 0-Ω resistor, slot-position routing) is not visible in the per-page schematic sheets — needs full hierarchical schematic review.
+4. **Board-id mechanism for firmware to detect v0.2 vs v0.3.** Build-time `#define` (separate firmware binaries)? Runtime ID via spare GPIO (e.g. v0.3's GPIO46 / GPIO47)? Magic bytes on PSRAM populated at factory? Decide before unified firmware ships.
+5. **Layering vs `display.cpp::sch_to_pos_index`.** This file describes (logical pixel, row, col) ↔ LED-designator. Panel firmware additionally applies schematic-to-physical-pin remapping (`display.cpp::sch_to_pos_index()` in `iorodeo/g6_firmware_devel`, lines 91–114, with `NUM_COLOR = 4` quadrant scheme). Confirm the two layers are independent and document which mapping each layer is responsible for. Cross-references the same flag (D5) in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md).
+
+## History & Reconciliation
+
+Earlier versions of this file (pre-2026-05-02) were titled "G6 — Panel LED Mapping (v0.1 hardware)" and carried the 400-row v0.1 LED designator table inline. Per user direction 2026-05-02, scope expanded to "Panel Hardware Reference (v0.2 + v0.3)" capturing the firmware ↔ panel-hardware contract for both in-house revisions. The 400-row v0.1 table was extracted to `g6_02-led-mapping-v0p1.csv` (commit message documents the extraction). v0.2 hardware data is recovered from `g6_firmware_devel @ 6944894` until `Generation 6/Panels` submodule is initialized; v0.3 hardware data is from `panel_rp2354_20x20_v0.3.0.pdf` in `G6_Panels_Test_Firmware`.
 
 ## Cross-references
 
-- [Source Google Doc, "Panel LED Mappings" tab](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#) — verbatim source for this file.
-- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Example pixel ↔ LED mapping — uses this table for the four worked-example pixels (`pixel[0,0]` → D50, `pixel[0,1]` → D70, `pixel[19,18]` → D340, `pixel[19,19]` → D360).
+- [Source Google Doc, "Panel LED Mappings" tab](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#) — v0.1 LED mapping verbatim source.
+- [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) — full 400-row v0.1 LED designator mapping (extracted from this file 2026-05-02).
+- `panel_rp2354_20x20_v0.3.0.pdf` (in `G6_Panels_Test_Firmware/`) — v0.3 schematic source.
+- [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) `panel/src/constants.cpp` — v0.2 pin layout source (`COL_PIN`, `ROW_PIN`, `SPI_*_PIN`).
+- [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) `panel/src/display.cpp::sch_to_pos_index()` — schematic → physical pin remapping layer (Open Q #5).
+- [`mbreiser/G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) `single_led/PRODUCTION_ARCHITECTURE.md` — PIOFULL validation on v0.3.1 panels (PIO viability evidence).
+- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format — uses the v0.1 mapping for the four worked-example pixels (`pixel[0,0]` → D50, `pixel[0,1]` → D70, `pixel[19,18]` → D340, `pixel[19,19]` → D360).
 - [`g6_00-architecture.md`](g6_00-architecture.md) § Host responsibilities — host owns LED mapping; this file is the data the host uses.
-- `Generation 6/Panels/panel_rp2354_20x20_v0p2/` (in submodule) — current production panel.
-- `Generation 6/Panels/panel_rp2354_20x20_v0p3/` (draft, in submodule) — next-revision panel.
+- `Generation 6/Panels/panel_rp2354_20x20_v0p2/` (in submodule, currently uninitialized) — current production panel.
+- `Generation 6/Panels/panel_rp2354_20x20_v0p3/` (in submodule, currently uninitialized) — parallel revision panel.
+- `Generation 6/Panels/docs/` (in submodule, currently uninitialized) — authoritative panel hardware docs (when submodule lands).
