@@ -606,6 +606,8 @@ For Protocol v3, the version bits are `0b0000011`, giving possible header values
 
 ### Display Modes
 
+> **⚠ Flag — TERMINOLOGY REVIEW PENDING: "Trigger" vs "Gated".** What this spec currently calls **"Gated"** (high-performance per-trigger-edge display, prototyped in `G6_Panels_Test_Firmware` with 865 ± 17 ns trigger-to-LED latency) is actually what should be called **"Trigger" mode** (panel fires on each rising edge of the trigger line — per-edge single-shot). True **"Gated" mode** — window gating where the display is enabled while the trigger line is HIGH and disabled while LOW — has **not been implemented yet**. A future rename will rotate the v3 commands `0x12` / `0x32` / `0x52` / `0x54` (currently labeled Gated / Gated-Persistent) to "Trigger" / "Trigger-Persistent" semantics, and add new opcodes for the unimplemented Gated (window) mode if it's still wanted. **Action:** do not silently rename until the new Gated semantics are spec'd; for now the spec text below describes the prototyped behavior under the legacy "Gated" name.
+
 Protocol v3 introduces three display modes that control when and how patterns are displayed:
 
 **Oneshot** (v1 default): Display the pattern once immediately.
@@ -756,6 +758,8 @@ Version 4 introduces predefined patterns. Predefined patterns are widely used pa
 
 For Protocol v4, the version bits are `0b0000100`, giving possible header values `0x04` (parity 0) / `0x84` (parity 1).
 
+> **⚠ Flag — v4 deferred to future work; v1–v3 prioritized.** The v4 section below is a **teaser** — content gaps are intentional and not actionable until v1+v2+v3 ship. Specifically deferred: per-command spec sections for 7 of 10 v4 commands (`0x60`, `0x61`, `0x63`, `0x64`, `0x71`, `0x74`); a definition for the "Trigger" 4th display mode (which interacts with the v3 Trigger-vs-Gated terminology review above); the predefined-pattern catalog (slot count, factory-loaded vs user-installable, format, programming mechanism). Do not target v4 for near-term implementation. The list and partial spec below are a roadmap, not a buildable surface.
+
 ### Additional Commands (v4)
 
 - `0x60` — Display PSRAM Index with Stretch (Oneshot)
@@ -768,12 +772,6 @@ For Protocol v4, the version bits are `0b0000100`, giving possible header values
 - `0x72` — Display Predefined Pattern with Stretch (Gated)
 - `0x73` — Display Predefined Pattern with Stretch (Persistent)
 - `0x74` — Display Predefined Pattern with Stretch (Gated-Persistent)
-
-> **⚠ Flag — only 3 of 10 v4 commands have per-command spec sections.** The source documents `0x70` (Oneshot), `0x72` (Gated), and `0x73` (Persistent) for predefined patterns. The other 7 (`0x60`/`0x61`/`0x62`/`0x63`/`0x64` for PSRAM-index-with-stretch and `0x71`/`0x74` for predefined-pattern Trigger / Gated-Persistent variants) are only listed here. **Action:** add per-command sections for at least `0x60` (Oneshot), `0x63` (Persistent — used in workflow examples), and any `0x64`/`0x74` (Gated-Persistent — see flags below). The Trigger-mode variants `0x61`/`0x71` are even less defined: no Trigger mode is described in the Display Modes section of v3 or v4.
-
-> **⚠ Flag — "Trigger" is a 4th display mode introduced in v4 with no description.** v3 defined Oneshot / Gated / Persistent and (implicitly via `0x54`) Gated-Persistent. v4 adds a "Trigger" mode (`0x61`, `0x71`) but never describes how Trigger differs from Gated. Hypothesis: Trigger fires the display once on the next trigger edge (one-shot-but-trigger-gated), while Gated continuously gates the display while the trigger line is HIGH. **Action:** add a Trigger entry to the Display Modes section of v3 (or define it here in v4) before any of `0x61`/`0x71` becomes implementable.
-
-(Gated-Persistent — the 5th mode named by `0x64` / `0x74` — is the same gap flagged in v3 § Display Modes; address both together.)
 
 #### `0x70` — Display Predefined Pattern with Stretch (Oneshot)
 
@@ -820,7 +818,7 @@ Displays a predefined pattern continuously with stretch until new command receiv
 
 **Purpose**: Persistent display of predefined patterns. Ideal for standard backgrounds or inter-trial displays that can be set once and left running.
 
-> **⚠ Flag — predefined-pattern catalog not specified.** "Calibration grids, test patterns, standard backgrounds" are mentioned but no concrete catalog is given. Open questions: How many predefined slots? Which patterns are "factory-loaded" vs. user-installable? Is the pattern format identical to PSRAM-stored patterns? Where do they live (flash memory? a separate memory region)? How are they programmed (manufacturing, OTA, host command)? Answer before committing to v4 deployment.
+(Catalog of predefined patterns — slot count, factory-loaded vs user-installable, programming mechanism — is part of the v4 deferred work; see banner at the top of v4 § Additional Commands.)
 
 ### Typical v4 Workflows
 
@@ -921,7 +919,7 @@ This table provides a complete reference of all commands across protocol version
 | `0x04` / `0x84` | `0x72` | 3 idx + stretch | Display Predefined Pattern with Stretch (Gated) | v4 |
 | `0x04` / `0x84` | `0x73` | 3 idx + stretch | Display Predefined Pattern with Stretch (Persistent) | v4 |
 
-> **⚠ Flag — v4 master-summary rows incomplete.** v4 declared `0x60`/`0x61`/`0x62`/`0x63`/`0x64` and `0x70`/`0x71`/`0x72`/`0x73`/`0x74`, but this table only includes the Oneshot/Gated/Persistent variants. The Trigger (`0x61`/`0x71`) and Gated-Persistent (`0x64`/`0x74`) variants are still TBD pending the v4 mode-set review noted below.
+(v4 Trigger/Gated-Persistent rows are intentionally absent here — see v4 deferred banner.)
 
 **Notes:**
 
