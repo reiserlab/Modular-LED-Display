@@ -51,7 +51,7 @@ Same G4 command set, but the host must know it's talking to a G6 controller (via
 - Use G6-compatible pattern sizes (20×20 per panel)
 - Avoid any legacy G4 hardware assumptions.
 
-> **⚠ Flag — `get-controller-info` opcode is missing in slim G4.1 baseline.** Source says G6-mode detection happens "via ID/version" but no opcode or response format is defined. The slim G4.1 controller (`commands.h:6-17`) has no controller-identification command. For G6, a single `get-controller-info` command (one opcode, version-dispatched response shape) covers both v1 G6-mode detection AND v2 capability bitmap (see "Diagnostics / capability detection" below). Opcode assignment tracked in `g6_03` Open Question #2.
+G6 adds opcode `0x67 = get-controller-info` (single command with version-dispatched response shape) covering both v1 G6-mode detection and v2 capability bitmap. Specification lives in [`g6_03-controller.md`](g6_03-controller.md) § Host Command Summary.
 
 ### Pattern and file format expectations
 

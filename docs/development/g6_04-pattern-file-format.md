@@ -54,7 +54,7 @@ Compact bitmask indicating which panel positions are physically present:
 - **Result**: single byte (0–255)
 - **Usage**: optional validation in v1 panel protocol; enables future error detection
 
-> **⚠ Flag — two checksum algorithms in the protocol family.** Pattern file uses **XOR**; panel-confirmation message uses **additive sum mod 256** (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Confirmation message). Both confirmed against firmware. Worth flagging in any consolidated specification so users don't conflate them.
+**💡 Note — two checksum algorithms in the protocol family.** Pattern file uses **XOR**; panel-confirmation message uses **additive sum mod 256** (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Confirmation message). Both intentional, both confirmed against firmware — listed here so readers don't conflate them.
 
 ## Frame Format
 

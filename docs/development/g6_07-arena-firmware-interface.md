@@ -14,7 +14,7 @@ Status: **Thin firmware-interface reference with extracted pin assignments.** Pe
 
 - **Test arena (historical, dev-only, not used):** [`reiserlab/LED-Display_G6_Hardware_Test_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Test_Arena) (in this clone as the `Generation 6/Hardware` submodule). Per its own `docs/test-arena.md`: "intended as a development platform for arena firmware, but it was never actually used … this test arena should not be the default starting point". Captured here only because the dev-set README's status table lists it as a sibling of the production arena; firmware work targets the production arena, not the test arena.
 
-> **⚠ Flag — `docs/arena.md` lags the README.** The production Arena `README.md` declares v1.1.7 as the production run; `docs/arena.md` still recommends v1p1r6. The KiCad project root `arena_10_of_10_v1r1.kicad_pro` keeps a `_v1r1` filename even at later revisions. Reconcile (probably by updating `docs/arena.md`) or note the version mapping convention here.
+**💡 Note — version-mapping in the Arena submodule:** the production Arena `README.md` declares v1.1.7 as the current production run, but `docs/arena.md` still recommends v1p1r6 and the KiCad project root keeps a `_v1r1` filename across revisions. Out-of-band action item for the upstream Arena repo to reconcile; not a spec question for this dev set.
 
 ---
 
@@ -90,7 +90,7 @@ This matches the source spec exactly (the spec uses 0-indexed columns, the hardw
 
 **Chip-select topology:** **20 distinct Teensy GPIOs** carry the CS lines (4 per panel column × 5 columns per bus, with the same Teensy pin gating the corresponding columns on B0 and B1 — see Pin assignments above). The slim G4.1 baseline uses a 30-pin CS matrix for a 5×6 arena; G6 needs a 4-CS-per-column × 10-column matrix instead. This is in the **Modify** section of [`g6_03-controller.md`](g6_03-controller.md)'s reconciliation.
 
-> **⚠ Flag — D13 / `LED_BUILTIN` conflict on SPI bus B0 SCK.** Firmware must NOT use `digitalWrite(LED_BUILTIN, ...)` for status — it will glitch the SCK on bus B0. Use `ETH_LED` (Teensy pin 61) or one of the spare GPIOs as a status indicator instead.
+**💡 Firmware advisory — D13 / `LED_BUILTIN` conflict on SPI bus B0 SCK:** firmware must NOT use `digitalWrite(LED_BUILTIN, ...)` for status — it will glitch the SCK on bus B0. Use `ETH_LED` (Teensy pin 61) or one of the spare GPIOs as a status indicator instead.
 
 External-interrupt routing is also present per panel column (panel-internal `PAN.EINT_P1..P10`, all driven by Teensy pin 25 / `D33` / `TNY.EINT`). This is the panel-side interrupt, distinct from the experimenter EINT BNC.
 
