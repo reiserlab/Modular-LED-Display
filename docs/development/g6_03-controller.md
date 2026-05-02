@@ -95,10 +95,12 @@ The G6 controller preserves the G4 host interface and display-mode semantics, wh
 The host communicates with the controller using the existing G4 command set, including:
 
 - Trial-params
-- Set-frame-rate
 - Set-frame-position
 - Stream-frame
-- Stop-display, all-on, etc.
+- Stop-display, all-on, all-off
+- Set-refresh-rate (host override of the `gs_val`-derived default)
+- Get-ethernet-ip-address
+- Get-controller-info (G6-new; covers G6-mode detection + v2 capability detection)
 
 The host remains responsible for LED mapping, arena layout, and pattern composition.
 
@@ -190,17 +192,17 @@ This is a copy of the G4.1 commands. Possibly adjust for G6 use.
 | Name | G4 Starting bytes | Version | Comment |
 |---|---|---|---|
 | Trial-params | `0x0c, 0x08` | v1 | "Combined command" |
-| Set-frame-rate | `0x03, 0x12` | v1 | |
 | Set-frame-position | `0x03, 0x70` | v1 | |
-| Stream-Frame | `0x32` | v1 | This needs a different length. |
+| Stream-Frame | `0x32` | v1 | G6 frame-data length differs (see below) |
 | Stop-Display | `0x01, 0x30` | v1 | Also doubles as "all off" |
-| all-on | `0x01, 0xff` | v1 | |
-
-> **⚠ Flag — `set-frame-rate 0x12` is not in slim G4.1.** Slim has `SET_REFRESH_RATE_CMD = 0x16` (SPI re-transmission rate) but no standalone frame-rate opcode; frame rate is set via the `frame_rate` field in `TRIAL_PARAMS_CMD (0x08)` (`int16_t`, negative = reverse). Opcode `0x12` is free for G6 to claim if a standalone `set-frame-rate` is wanted; otherwise, drop the row from the Host Command Summary table.
+| all-on | `0x01, 0xff` | v1 | Carry over from slim G4.1 (host-composed via Mode 5 is also possible but `0xff` opcode stays canonical for arena bring-up) |
+| all-off | `0x01, 0x00` | v1 | Carry over from slim G4.1 (same rationale as all-on) |
+| Set-refresh-rate | `0x03, 0x16` | v1 | Sets SPI re-transmission rate. **Default depends on `gs_val` from the loaded pattern** — slim G4.1 picks 300 Hz for greenscale and 1000 Hz for binary; G6 inherits the same defaults but reads `gs_val` from the v2 pattern header instead of the dropped `switch-grayscale` opcode. Host can override via this command. |
+| Get-ethernet-ip-address | `0x01, 0x66` | v1 | Returns DHCP-resolved IP as ASCII (matches slim G4.1) |
+| Get-controller-info | `0x01, 0x67` | v1 (G6-new) | Returns `{version, capability_bitmap}` with version-dispatched payload — covers v1 G6-mode detection AND v2 capability detection (Local Storage, Mode 1 TSI, v3 gated, …). |
+| g6-panel-storage-mode | `0x02, 0x40, mode_byte` | v2 (G6-new) | Switches controller from SD Mode (`mode_byte = 0`) to Local Storage Mode (`mode_byte = 1`); triggers the load phase that copies SD patterns into panel PSRAM. |
 
 **Stream-Frame for G6:** retains the slim G4.1 7-byte stream header `[0x32, len_lo, len_hi, ax_lo, ax_hi, ay_lo, ay_hi, ...]`. Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 7-byte stream header.
-
-> **⚠ Flag — table is incomplete.** Section 7 names `set-refresh-rate` and `get-ethernet-ip-address` as required commands, but neither appears in this table. Phase 2 should consolidate into a single command-summary table covering every command the G6 controller is expected to honor (with G4.1 opcode, G6 status: carry-over / modify / new / drop, version introduced).
 
 ---
 
@@ -258,11 +260,9 @@ Mode 1 (formerly Position Function Mode) introduced in v2, valid only in Local S
 
 **TSI File Storage and Naming**
 
-- Stored on SD as `001.TSI`, `002.TSI`, … (or similar, following `.PAT` file conventions).
+- Stored on SD as `tsi<NNNN>_<descriptive-name>.tsi` (4-digit zero-padded ID + underscore + descriptive name + extension), matching the `.PAT` file convention.
 - To avoid adding a new host-side command, use existing fields in `trial-params`:
-  - `InitPos-LO` / `InitPos-HI` → together encode the TSI file index (1 → `001.TSI`, 2 → `002.TSI`, etc.)
-
-> **⚠ Flag — TSI naming convention.** The text says "`001.TSI`, `002.TSI`, … (or similar, following `.PAT` file conventions)" but the `.PAT` convention is `pat<NNNN>_<descriptive-name>.pat` (zero-padded ID + underscore + descriptive name). Decide: are TSI files just `<NNN>.TSI` or do they follow the same `tsi<NNNN>_<name>.tsi` form?
+  - `InitPos-LO` / `InitPos-HI` → together encode the TSI file index (`1` → `tsi0001_*.tsi`, etc.)
 
 **TSI Record Format (5 bytes per time slice)**
 
@@ -287,10 +287,8 @@ Mode 1 is invalid in SD Mode.
 
 ### 5. G6-specific controller commands
 
-- Switching from **SD mode** (the default) to **local storage mode.** Initiates copying files from SD card to the panels' storage.
-  - e.g. `g6-panel-storage-mode`
-
-> **⚠ Flag — opcode unspecified.** No byte assignment for `g6-panel-storage-mode` is given. Phase 2 should pick a free opcode (avoid 0x00, 0x01, 0x06, 0x08, 0x16, 0x30, 0x32, 0x66, 0x70, 0xFF — already taken by G4.1 slim) and document the request/response framing.
+- **`g6-panel-storage-mode`** (opcode `0x40`) — switches controller from **SD Mode** (default, `mode_byte = 0`) to **Local Storage Mode** (`mode_byte = 1`). When transitioning to Local Storage Mode, triggers the load phase that copies SD patterns into panel PSRAM. Wire form: `[0x02, 0x40, mode_byte]`.
+- **`get-controller-info`** (opcode `0x67`) — returns `{version, capability_bitmap}` with version-dispatched payload. Covers v1 G6-mode detection AND v2 capability detection (Local Storage, Mode 1 TSI, v3 gated/persistent, etc.). Request: `[0x01, 0x67]`. Response payload format TBD pending v2 capability-bit assignments.
 
 ### 6. Controller Error Display
 
@@ -323,27 +321,17 @@ Mode 1 is invalid in SD Mode.
 
 ## Open Questions / TBDs
 
-### Decisions made (2026-05-02)
-
-- **Drop `SWITCH_GRAYSCALE_CMD` (0x06) and `DISPLAY_RESET_CMD` (0x01).** Both removed from G6 v1 command set. Pattern-header `gs_val` is the canonical grayscale source.
-- **Host ↔ controller transport: TCP only.** G6 inherits slim G4.1's TCP-on-port-62222 framing; no UDP path. Resolves the prior-plan TCP-vs-UDP ambiguity.
-
-### Still open
-
 1. **No G6 controller firmware exists.** All G6-specific behavior here is aspirational. Slim G4.1 baseline (`8f1029f`) is reconciled into the carry-over / modify / new / drop tables in Current state. Next phase: build G6 controller against those tables.
-2. **`g6-panel-storage-mode` opcode assignment.** Free opcodes (not used by slim): anything outside `{0x00, 0x01, 0x06, 0x08, 0x16, 0x30, 0x32, 0x66, 0x70, 0xFF}`. Pick one.
-3. **`set-frame-rate` opcode `0x12` — adopt or skip?** Slim has no standalone command; frame rate is a `trial-params` field. Decide whether G6 needs a runtime frame-rate adjustment without re-issuing trial-params.
-4. **`get-controller-info` opcode** — required for both v1 G6-mode detection and v2 capability detection (cross-doc with [`g6_06-host-software.md`](g6_06-host-software.md)). Single opcode with version-dispatched response shape recommended.
-5. **TSI filename convention** (`001.TSI` vs `tsi<NNNN>_<name>.tsi`)?
-6. **Region / SPI-bus information missing from v2 pattern header.** Cross-doc with [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md). Three options: arena-config sidecar, computed from `col_count` + fixed regions, or extend the v2 header.
-7. **Closed-loop (Mode 4) analog voltage source.** Slim has `gain_` stored but never read; closed loop runs on an internal counter, not an analog input. Decide where the signal comes from on G6 (`g6_07` exposes 2× ±10V AI lines) and whether closed loop is in scope for G6 v1.
-8. **`all-on` semantics in v2 + Local Storage Mode.** When all frames are in PSRAM, does `all-on` still build a one-shot all-on subframe (v1 behavior) or become a new opcode pointing at a pre-loaded "all-on" PSRAM index?
-9. **Pattern Backend ("Modes 2–4")** vs Section 6 (Modes 2, 3, 4, **and 5**) vs v2 update ("Modes 2, 3, 4, and 5 work exactly as in v1") wording inconsistency. Slim implements only Modes 2/3/4 as top-level dispatch; Mode 5 streaming exists as a state (`STREAMING_FRAME`) but no Mode 5 enum value.
-10. **`STREAM_FRAME_CMD` `analog_x` / `analog_y` bytes** — keep, drop, or repurpose? Parsed and logged at `CommandProcessor.cpp:149-151` but never plumbed in slim.
-11. **"Greenscale" naming retention vs rebrand to "grayscale"** for G6 — slim keeps the legacy "greenscale" name. Pick one and use consistently.
-12. **`SET_REFRESH_RATE_CMD` (0x16) upper bound** for G6 — slim accepts any `uint16_t` Hz. G6 panel BCM may impose a hard ceiling the controller should enforce. Needs G6-side measurement.
-13. **Pattern header bit-packing fragility** in slim (`PatternHeader.h:6-15` — 56-bit union backed by `uint64_t` without `__attribute__((packed))`). G6 should switch to an explicit `uint8_t[18]` or packed struct for the v2 header.
-14. **Phase 2 cleanup of Host Command Summary table** — currently incomplete (omits `set-refresh-rate`, `get-ethernet-ip-address`, `g6-panel-storage-mode`). Phase 2 produces one canonical table.
+2. **Region / SPI-bus information missing from v2 pattern header.** Cross-doc with [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md). Three options: arena-config sidecar, computed from `col_count` + fixed regions, or extend the v2 header.
+3. **Closed-loop (Mode 4) analog voltage source.** Slim has `gain_` stored but never read; closed loop runs on an internal counter, not an analog input. Decide where the signal comes from on G6 (`g6_07` exposes 2× ±10V AI lines on D14/D15) and whether closed loop is in scope for G6 v1.
+4. **`all-on` semantics in v2 + Local Storage Mode.** When all frames are in PSRAM, does `all-on` still build a one-shot all-on subframe (v1 behavior) or become a new opcode pointing at a pre-loaded "all-on" PSRAM index?
+5. **Pattern Backend ("Modes 2–4")** vs Section 6 (Modes 2, 3, 4, **and 5**) vs v2 update ("Modes 2, 3, 4, and 5 work exactly as in v1") wording inconsistency. Slim implements only Modes 2/3/4 as top-level dispatch; Mode 5 streaming exists as a state (`STREAMING_FRAME`) but no Mode 5 enum value.
+6. **`STREAM_FRAME_CMD` `analog_x` / `analog_y` bytes** — keep, drop, or repurpose? Parsed and logged at `CommandProcessor.cpp:149-151` but never plumbed in slim.
+7. **"Greenscale" naming retention vs rebrand to "grayscale"** for G6 — slim keeps the legacy "greenscale" name. Pick one and use consistently.
+8. **`SET_REFRESH_RATE_CMD` (0x16) upper bound** for G6 — slim accepts any `uint16_t` Hz. G6 panel BCM may impose a hard ceiling the controller should enforce. Needs G6-side measurement. Note: the *default* refresh rate is `gs_val`-derived (300 Hz for greenscale, 1000 Hz for binary, inheriting slim's defaults but reading from the v2 pattern header instead of the dropped `switch-grayscale` opcode); host can override via 0x16.
+9. **Pattern header bit-packing fragility** in slim (`PatternHeader.h:6-15` — 56-bit union backed by `uint64_t` without `__attribute__((packed))`). G6 should switch to an explicit `uint8_t[18]` or packed struct for the v2 header.
+10. **`get-controller-info` (0x67) response payload format** — capability bitmap layout TBD pending v2 capability-bit assignments (`v2_local_storage`, `mode_1_tsi`, `v3_gated`, etc.).
+11. **Per-version command-carry-over scope** — the v2/v3 superset rule (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md)) implies higher-version panels accept lower-version commands. Reviewing whether all of slim G4.1's carry-over candidates truly need to be supported in G6 v2/v3 panels (vs. left for the controller alone).
 
 ---
 
