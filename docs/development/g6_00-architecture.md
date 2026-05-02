@@ -53,10 +53,8 @@ The Teensy 4.1 + 2-SPI-bus configuration is concrete for the current production 
 **Host owns arena / panel layout**
 
 - The PC host also defines how multiple panels are arranged in space (arena layout).
-- The controller never needs to know "this panel is top-left" etc. — it just treats panels as indices `0..N-1`.
-- Controller only needs the panel count and bus assignment.
-
-> **⚠ Flag — partial truth re: position-blind controller:** Mode 4 (Closed Loop Velocity, per the [Controller Teensy SW](g6_03-controller.md) tab) integrates an analog input into a frame index. That index is host-defined and the host still owns layout, but the controller does maintain enough positional context to walk a frame sequence. Phrase as "controller does not need to know spatial layout; it only needs frame indices and panel-set ordering" rather than the absolute "never needs to know" wording.
+- The controller does not need to know **spatial** layout (which panel is top-left, panel orientation, etc.) — it just treats panels as indices `0..N-1` and dispatches each block to the appropriate SPI bus per panel ID.
+- The controller does maintain **temporal** position via frame indices (e.g., Mode 4 closed-loop integrates an analog input into a frame index, walking the frame sequence). Layout still belongs to the host; sequencing belongs to the controller.
 
 ### Controller responsibilities
 
