@@ -55,17 +55,13 @@ Extracted from the KiCad sources at SHA `0a8ec33c` (last commit touching `arena_
 | | Power switch state | — | — | — | **No firmware visibility.** SW1 (SPDT) gates 5 V from J25/J26 barrel jacks into `SW_5V`; that net is local to `power.kicad_sch` and never reaches a Teensy GPIO |
 | **Unused / future** | spare / NC | 26, 30, 31, 32, 33, 38, 39, 42 | D34, D38–D41, D16, D17, D20 | `Net-(U1-NN_..)` or `no_connect` | Available for future hardware revisions; firmware should not assert these |
 
-### Things firmware-relevant that the source spec didn't anticipate
+### Operational gotchas firmware MUST know
 
-0. **EINT routing jumper J30 selects between Teensy-mediated and direct-to-panels external trigger.** When shorted, BNC J4 drives `TNY.EINT` directly through R216 (1 kΩ series) — Teensy can sense the line on D35 but is bypassed for the actual panel trigger; firmware-emitted D36 (`TNY.EINT`) still has effect via R25 33Ω, but the J4 BNC dominates if both are driven. When open, the Teensy is solely in the loop: firmware reads D35 (input), processes (timing reshape, gating decisions), and drives D36 (output) to the panels. **The jumper position is not firmware-detectable** — it must be a deployment-time config, documented and physically verified per arena. Note: BNC J3 silk-labeled "External Interrupt" is a *different* path (Teensy D37, level-translated, no jumper bypass) — the actual panel-trigger BNC is J4 despite its "0-5V Digital In/Out" silk label.
-1. **20 distinct Teensy CS pins, not 10** (despite "10-panel arena"). Each Teensy CS pin gates one panel column on bus B0 *and* one panel column on bus B1 simultaneously — the bus separation prevents collisions. Firmware can therefore address P1 and P6 in parallel by writing to both buses concurrently with the same CS asserted. There are **4 CS lines per panel column** (CS0–CS3), presumably fanned out to 4 sub-panels per column on the column-buffer board (see `column_buffer.kicad_sch`, `fan_out_by_2x.kicad_sch`, `fan_out_by_5x.kicad_sch`).
-2. **SCK_B0 is on D13** — the same pin as the Teensy on-board LED (`LED_BUILTIN`). Asserting LED for board status will visibly flicker SCK during SPI traffic; conversely, `digitalWrite(LED_BUILTIN, ...)` while bus B0 is active will glitch the SPI clock. **Firmware must not use `LED_BUILTIN` as a generic status indicator** — pick a different GPIO or the `ETH_LED` net.
-3. **AOUT is an MCP4725 I²C DAC, not a direct Teensy DAC pin.** Teensy 4.1 has no built-in DAC; firmware needs an I²C library plus the MCP4725 address (default 0x60/0x62). This affects update rate (≪ direct DAC) and adds a one-tick I²C latency to TSI Mode 1 AO updates.
-4. **AI lines are scaled via OPA2277 op-amp.** ±10 V external (BNC J28/J29) → 0–3.3 V at the Teensy ADC pin. There is also an on-board precision **REF102AU 10 V reference** (U84) used by the scaling chain — drift in this part biases AI calibration.
-5. **DIO and EINT are bidirectional 5 V via SN74LVC1T45 level translators.** Firmware sets direction via `pinMode`; the level translator's DIR pin is wired to follow the Teensy GPIO direction signal. Verify the DIR control net before assuming this is automatic.
-6. **The on/off switch is invisible to firmware.** SW1 only gates the 5 V supply rail; if firmware needs to know "user pressed off", it can't — the Teensy will simply lose VIN. Use external watchdog / brown-out behavior instead.
-7. **Multiple SN74HCS08 / column-buffer chips exist** between the Teensy CS lines and the actual panel CS pins — firmware should be aware that the propagation delay (~5–10 ns each) accumulates, but won't matter at the 5 MHz SPI rate the slim G4.1 controller uses.
-8. **Pins 30–33 and 38, 39, 42 are explicit `no_connect` markers in the schematic.** Pins 26, 28 (D34, D36) are auto-named, also floating. All these are spare GPIO available for hardware revisions.
+These three are spec-relevant — they change how firmware MUST be written. (Lower-priority background facts, including AOUT/AI implementation details, level-translator notes, and unused-pin enumeration, are in § History & Reconciliation at the bottom.)
+
+1. **EINT routing jumper J30 selects between Teensy-mediated and direct-to-panels external trigger.** When shorted, BNC J4 drives `TNY.EINT` directly through R216 (1 kΩ series) — Teensy can sense the line on D35 but is bypassed for the actual panel trigger; firmware-emitted D36 (`TNY.EINT`) still has effect via R25 33Ω, but the J4 BNC dominates if both are driven. When open, the Teensy is solely in the loop: firmware reads D35 (input), processes (timing reshape, gating decisions), and drives D36 (output) to the panels. **The jumper position is not firmware-detectable** — it must be a deployment-time config, documented and physically verified per arena. Note: BNC J3 silk-labeled "External Interrupt" is a *different* path (Teensy D37, level-translated, no jumper bypass) — the actual panel-trigger BNC is J4 despite its "0-5V Digital In/Out" silk label.
+2. **20 distinct Teensy CS pins, not 10** (despite "10-panel arena"). Each Teensy CS pin gates one panel column on bus B0 *and* one panel column on bus B1 simultaneously — the bus separation prevents collisions. Firmware can therefore address P1 and P6 in parallel by writing to both buses concurrently with the same CS asserted. There are **4 CS lines per panel column** (CS0–CS3), presumably fanned out to 4 sub-panels per column on the column-buffer board (see `column_buffer.kicad_sch`, `fan_out_by_2x.kicad_sch`, `fan_out_by_5x.kicad_sch`).
+3. **SCK_B0 is on D13** — the same pin as the Teensy on-board LED (`LED_BUILTIN`). Asserting LED for board status will visibly flicker SCK during SPI traffic; conversely, `digitalWrite(LED_BUILTIN, ...)` while bus B0 is active will glitch the SPI clock. **Firmware must not use `LED_BUILTIN` as a generic status indicator** — pick a different GPIO or the `ETH_LED` net.
 
 ---
 
@@ -92,7 +88,7 @@ This matches the source spec exactly (the spec uses 0-indexed columns, the hardw
 
 **💡 Firmware advisory — D13 / `LED_BUILTIN` conflict on SPI bus B0 SCK:** firmware must NOT use `digitalWrite(LED_BUILTIN, ...)` for status — it will glitch the SCK on bus B0. Use `ETH_LED` (Teensy pin 61) or one of the spare GPIOs as a status indicator instead.
 
-External-interrupt routing is also present per panel column (panel-internal `PAN.EINT_P1..P10`, all driven by Teensy pin 25 / `D33` / `TNY.EINT`). This is the panel-side interrupt, distinct from the experimenter EINT BNC.
+External-interrupt routing is also present per panel column (panel-internal `PAN.EINT_P1..P10`, all driven by **Teensy pin 28 / `D36` / `TNY.EINT`**, via R25 33 Ω series — see Pin assignments table at top of file for the canonical reference; commit `5d3c496` corrected an earlier `D33` typo). This is the panel-side interrupt, distinct from the experimenter EINT BNC.
 
 ### Experiment I/O
 
@@ -139,7 +135,7 @@ The source spec calls out the AI line specifically for "flight arena experiments
 
 > **⚠ Flag — closed-loop wiring contract is unspecified.** Source spec is silent on which of the two AI lines drives Mode 4; whether AI is sampled at the `analog_closed_loop_frequency_hz=200` rate (slim default) or differently for G6; whether the gain field in `trial-params` scales the AI reading, integrates it, or is unused. Resolve in [`g6_03-controller.md`](g6_03-controller.md) Open Question #8.
 
-### v3 gated/persistent display relevance
+### v3 Triggered/Gated display relevance
 
 The arena exposes three EINT-related signals — and one configurable jumper (**J30**) that determines whether the external trigger reaches the panels directly or is mediated by the Teensy:
 
@@ -147,17 +143,17 @@ The arena exposes three EINT-related signals — and one configurable jumper (**
 |---|---|---|---|
 | BNC **J3** ("External Interrupt" silk) | pin 29 / D37 | Bidirectional 5 V via SN74LVC1T45 (U2) | Teensy-only path. **No panel bypass.** General-purpose interrupt the controller can monitor or assert. |
 | BNC **J4** ("0-5V Digital In/Out" silk) | pin 27 / D35 | Bidirectional 5 V via SN74LVC1T45 (U3) | Doubles as the panel-trigger source via jumper J30. The "DIO" silk label understates this. |
-| Panel-internal `TNY.EINT` | pin 28 / D36 | Driven via R25 (33 Ω) into the EINT fan-out for all 10 panel columns | Controller-driven path to gate the panels' display mode in v3 gated/persistent operation. |
+| Panel-internal `TNY.EINT` | pin 28 / D36 | Driven via R25 (33 Ω) into the EINT fan-out for all 10 panel columns | Controller-driven path to fire (Triggered) or window-gate (Gated) the panels' display in v3 operation. |
 | **Jumper J30** (selector) | — | Connects `D35_0_3V3` (J4 input at 3.3 V) to `TNY.EINT` via R216 (1 kΩ) | **Shorted = direct path**: J4 BNC drives panels with no Teensy in the loop. **Open = Teensy-mediated**: firmware reads D35 input and explicitly drives D36 output to forward. |
 
 For v3 trigger work this means **two distinct deployment modes** are physically supported:
 
-- **Direct trigger (J30 shorted)** — lowest-latency external gating. Useful when the experiment-side trigger waveform is already correctly shaped for v3 gated/persistent mode (edge polarity, pulse width). The Teensy can still observe the signal on D35, but firmware participation is optional.
+- **Direct trigger (J30 shorted)** — lowest-latency external triggering/gating. Useful when the experiment-side trigger waveform is already correctly shaped for v3 Triggered or Gated mode (edge polarity, pulse width, window timing). The Teensy can still observe the signal on D35, but firmware participation is optional.
 - **Teensy-mediated trigger (J30 open)** — highest flexibility. Firmware can perform timing reshape, debouncing, edge-polarity inversion, gating-window enforcement, sync-to-BCM-cycle alignment, or skip entirely (firmware decides whether to forward). Required if the experiment-side trigger doesn't directly match the panel-protocol v3 expectations.
 
 Cross-references:
 
-- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 documents the panel-side gated/persistent/triggered modes and flags two open issues (trigger edge polarity, sync-vs-async gating semantics) — both decisions are easier to manage in **J30-open** mode where firmware can reshape the trigger.
+- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 documents the panel-side Triggered (per-edge single-shot, `0x12`/`0x32`/`0x52`) and Gated (window gating, `0x14`/`0x34`/`0x54`) modes plus two open issues (trigger edge polarity, sync-vs-async gating semantics) — both decisions are easier to manage in **J30-open** mode where firmware can reshape the trigger.
 - The slim G4.1 controller has no input pins beyond CS lines; v3 trigger wiring is **net-new for G6** and depends on these arena EINT lines.
 
 **J30 default = OPEN** (decision 2026-05-02). Shipped arenas leave J30 open by default → Teensy-mediated EINT path is the canonical v3 wiring. Direct-trigger mode (J30 shorted) is a deliberate per-experiment opt-in documented in arena bring-up notes. Firmware cannot detect the position, so the assumed-open default must be verified physically per arena.
@@ -170,6 +166,29 @@ The source spec for Mode 1 TSI files defines a 5-byte record `[FrameIndex16, DO,
 - The TSI record's DO byte (1 byte) → encodes a single digital output state; arena has 1 DO line → straightforward mapping.
 - The TSI record's AO field (16 bits) → encodes a single analog output sample; arena has 1 AO line → single-channel; firmware writes the upper 12 bits to MCP4725 (DAC is 12-bit, low 4 bits of AO field are ignored or rounded).
 - **The source spec floated "2 AO lines might be interesting, depending on arena design".** As-built has 1 AO — adding a second would require an arena re-spin (or repurposing one of the AI lines, which the OPA2277 chain doesn't currently support).
+
+---
+
+## History & Reconciliation
+
+### Lower-priority background facts (read once, internalize)
+
+These items were captured during the KiCad reconciliation pass at SHA `0a8ec33c` but are not load-bearing for spec correctness — they're worth knowing once but don't need to live near the top of the file.
+
+- **AOUT is an MCP4725 I²C DAC, not a direct Teensy DAC pin.** Teensy 4.1 has no built-in DAC; firmware needs an I²C library plus the MCP4725 address (default 0x60/0x62). This affects update rate (≪ direct DAC) and adds a one-tick I²C latency to TSI Mode 1 AO updates.
+- **AI lines are scaled via OPA2277 op-amp.** ±10 V external (BNC J28/J29) → 0–3.3 V at the Teensy ADC pin. There is also an on-board precision **REF102AU 10 V reference** (U84) used by the scaling chain — drift in this part biases AI calibration.
+- **DIO and EINT are bidirectional 5 V via SN74LVC1T45 level translators.** Firmware sets direction via `pinMode`; the level translator's DIR pin is wired to follow the Teensy GPIO direction signal. Verify the DIR control net before assuming this is automatic.
+- **The on/off switch is invisible to firmware.** SW1 only gates the 5 V supply rail; if firmware needs to know "user pressed off", it can't — the Teensy will simply lose VIN. Use external watchdog / brown-out behavior instead.
+- **Multiple SN74HCS08 / column-buffer chips exist** between the Teensy CS lines and the actual panel CS pins — firmware should be aware that the propagation delay (~5–10 ns each) accumulates, but won't matter at the 5 MHz SPI rate the slim G4.1 controller uses.
+- **Pins 30–33 and 38, 39, 42 are explicit `no_connect` markers in the schematic.** Pins 26, 28 (D34, D36) are auto-named, also floating. All these are spare GPIO available for hardware revisions.
+
+### Major decisions log
+
+- **2026-04-29** — Production arena `arena_10-10` v1.1.7 ordered (commit `a696782` in this dev set; upstream `0a8ec33c` in `reiserlab/LED-Display_G6_Hardware_Arena`).
+- **2026-05-01** — Per-peripheral Teensy 4.1 pin assignment table extracted from KiCad (commit `a696782`).
+- **2026-05-02** — Corrected `TNY.EINT` pin from D33 to **D36** (commit `5d3c496`).
+- **2026-05-02** — Arena jumper J30 default = OPEN (Teensy-mediated EINT trigger) (commit `78be9ca`).
+- **2026-05-02** — v3 Triggered/Gated mode rename propagated through this file (this commit; tracks the v3 mode-set finalization in `g6_01`).
 
 ---
 
