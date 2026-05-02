@@ -9,11 +9,10 @@ This file holds the SPI-level protocol between the controller and the panels —
 
 | # | Topic | Spec | Firmware | Action |
 |---|---|---|---|---|
-| D1 | **Checksum scope** | "calculates a 8-bit checksum **of the payload**" (§ Confirmation message) | `calculate_8bit_checksum()` sums **all bytes** including header byte and command byte ([message.cpp:171–177](../../../g6_firmware_devel/panel/src/message.cpp)) | Decide whether checksum covers payload only or whole message. Firmware impl is simpler; spec example reads as payload-only. |
 | D2 | **Confirmation message** | Panel returns header + command + 8-bit checksum from previous command on next CS transaction; empty buffer → `0x81 0x00` | **Not implemented in v1 firmware.** No MISO write logic in `messenger.cpp` or `panel_spi_custom.cpp`; SPI is configured slave-receive-only | Spec is ahead of firmware. Note in spec text that this is "specified, firmware implementation pending". |
-| D3 | **Stretch behavior** | "scales the brightness of all pixels in a pattern" (linear / gamma / BCM duty cycle — semantics underspec'd) | **Stretch is parsed from the wire and stored on the Pattern, but `Display::show()` ([display.cpp:43–88](../../../g6_firmware_devel/panel/src/display.cpp)) never reads `pat_.stretch()`.** Stretch has zero effect on the rendered display. | Major divergence. v1 firmware does not yet implement stretch. Spec sign-off OK; firmware ticket needed; spec needs scaling-semantics decision. |
 | D4 | **`COMM_CHECK` visual response** | "upon reception of the command a specific part of the panel could light up" (aspirational) | `Messenger::on_cmd_comms_check()` is empty ([messenger.cpp:82–84](../../../g6_firmware_devel/panel/src/messenger.cpp)) | Either (a) make it normative and require a visual response, or (b) drop the aspirational sentence. Firmware needs updating either way. |
-| D5 | **Schematic-to-position LED mapping in panel firmware** | "Host owns LED mapping (pixel → physical LED)" — i.e., panel firmware should NOT remap | `display.cpp::sch_to_pos_index()` ([display.cpp:91–114](../../../g6_firmware_devel/panel/src/display.cpp)) **does** apply a non-trivial schematic→physical mapping with `NUM_COLOR = 4` quadrant scheme | Likely correct framing: host owns *logical → schematic*; firmware owns *schematic → physical-pin*. Update spec for 2-stage mapping. Cross-references same flag in [`g6_00-architecture.md`](g6_00-architecture.md) and [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #5. |
+
+(D1 Checksum scope, D3 Stretch behavior, D5 LED-mapping layering — all resolved 2026-05-02; see § History & Reconciliation § Major decisions log.)
 
 Items the firmware exposes but the spec does not yet specify (lift into spec normatively):
 
@@ -68,14 +67,14 @@ The parity bit is set such that this count modulo 2 equals the parity bit value,
 
 #### Stretch Value
 
-The stretch value is a single byte (0-255) that scales the brightness of all pixels in a pattern. This provides:
+The stretch value is a single byte (0–255) that scales the brightness of all pixels in a pattern by **modulating the BCM bit-plane ON-time durations** (not the pixel values themselves). Effective per-bit-plane ON time = `base_T × stretch / 255`, where `base_T` is the BCM base time (0.5 µs in the test rig). Stretch = 0 → all bit-planes have zero ON time → display off; stretch = 255 → unchanged from base BCM weights. This:
 
-- **Dynamic brightness control**: Adjust pattern intensity without changing the pattern
-- **High dynamic range**: Use low-bit patterns (e.g., 4-level) with stretch to achieve effective higher dynamic ranges
-- **Efficient modulation**: Change brightness rapidly for temporal experiments
-- **Adaptive stimuli**: Match brightness to experimental conditions or subject sensitivity
+- Gives **per-frame uniform brightness control** without rewriting pixel values.
+- Enables **high dynamic range** via low-bit patterns + per-frame stretch (e.g., 4-level pattern at varying stretch yields finer effective brightness levels than 4-level alone).
+- Is **cheap on the panel** (one multiplier on the BCM weight array per frame; no per-pixel multiply).
+- Aligns with the test rig's **float-weight architecture** (`G6_Panels_Test_Firmware @ bb26a44` § BCMWEIGHTS), which already encodes per-bit-plane ON time as a float.
 
-> **⚠ Flag — stretch semantics underspecified.** Linear / gamma / BCM duty cycle? Stretch=0 = off or floor? See Live Divergence D3 above; firmware parses but does not apply.
+> **💡 Note — implementation status.** Stretch is parsed from the wire and stored on the `Pattern` object in `g6_firmware_devel @ 6944894`, but `Display::show()` does not yet apply it (Live Divergence D3 — historical, see History). Firmware ticket: scale BCM weights by `stretch/255` in the per-frame setup before bit-plane dispatch.
 
 #### Endianness and Bit Packing
 
@@ -153,13 +152,13 @@ Displays a 16-level (4-bit per pixel) pattern once.
 
 On CS falling edge, a panel returns the version, command, and a checksum from the previously received command.
 
-When the panel receives a command, it stores the header, version, and calculates a 8-bit checksum of the payload. For invalid commands no information is stored, since they are ignored. This happens, for example, when the parity bit does not match the content, or when the message length does not match the command definition.
+When the panel receives a command, it stores the header, version, and calculates an 8-bit checksum **over the whole message** (header byte + command byte + payload bytes, sum mod 256). For invalid commands no information is stored, since they are ignored. This happens, for example, when the parity bit does not match the content, or when the message length does not match the command definition.
 
 The next time the CS is active for more than 3 bytes, the panel sends this message (recalculating the parity bit). After sending it successfully, the temporary buffer is deleted: each confirmation message is only sent once.
 
 If the panel buffer is empty, it returns `0x8100` (empty command "0").
 
-We use an 8-bit (simple additive) checksum since this is faster to calculate than CRC, SHA, or other error detecting algorithms. (Note: the panel-confirmation checksum here is **additive** (sum mod 256); the [pattern-file checksum in `g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) is **XOR**. Both are confirmed against firmware; the two algorithms intentionally differ.)
+We use an 8-bit (simple additive) checksum over the whole message since this is faster to calculate than CRC, SHA, or other error-detecting algorithms (one loop over the receive buffer). Matches `Message::calculate_8bit_checksum()` in `g6_firmware_devel @ 6944894` ([message.cpp:171–177](../../../g6_firmware_devel/panel/src/message.cpp)). (Note: the panel-confirmation checksum here is **additive** (sum mod 256); the [pattern-file checksum in `g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) is **XOR**. Both are confirmed against firmware; the two algorithms intentionally differ.)
 
 > **⚠ Flag — "CS active for more than 3 bytes" trigger condition.** Strict `>3` (so 3-byte heartbeat reads empty state) or `≥3` (every valid message triggers)? Reconcile against firmware.
 
@@ -783,21 +782,18 @@ This table provides a complete reference of all commands across protocol version
 
 ## Open Questions / TBDs
 
-1. **Stretch semantics underspecified.** Linear / gamma / BCM duty cycle? What does stretch=0 mean? See Live Divergence D3 — firmware parses but does not apply.
-2. **D1 — Checksum scope.** Spec says "of the payload"; firmware sums whole message. Decide which is normative.
-3. **D2 — Confirmation message implementation.** Specified, not yet implemented in `g6_firmware_devel`.
-4. **D4 — `COMM_CHECK` visual response.** Spec aspirational; firmware callback empty. Make it normative or drop the sentence.
-5. **D5 — LED-mapping layering.** Two-stage model (host: logical→schematic; firmware: schematic→physical) — confirm and rewrite both this spec and [`g6_00-architecture.md`](g6_00-architecture.md), [`g6_02-led-mapping.md`](g6_02-led-mapping.md).
-6. **`COMM_CHECK` panel-side validation policy.** With the canonical sequence pinned, decide whether the panel must verify the bytes or merely echo back the checksum.
-7. **Confirmation-message trigger: `>3` or `≥3` bytes?** As written, every valid message would trigger confirmation send.
-8. **`0x8100` empty-buffer response endianness.** Reword as two-byte description.
-9. **`0x70` command code collides with v4 predefined-pattern command.** Pick one (move error display to a different code, or reserve predefined-pattern index 0 as the error-glyph slot in v4). Reconcile when v4 implementation begins.
-10. **v2 zero-payload commands.** `0x02`, `0x03`, `0x0F` have zero-byte payloads in spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration: drop the floor or add a dummy byte.
-11. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Production is now v0.2; v0.3 is in-house. Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
-12. **Panel error display command-set decision.** The source defers to `<will@iorodeo.com>`: which errors are most relevant and what command code carries them.
-13. **PIXEL command** (in `G6_Panels_Test_Firmware`): single-pixel update at row, col, intensity. Useful for incremental updates but adds protocol complexity (race conditions with frame swaps, rate-limiting). Recommendation: keep out of v3 spec; document as future-version candidate (e.g., new `0x55` PIXEL_SET in v4 or later).
-14. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing on falling edge (±2.5 V overshoot). Hypothesis documented in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
-15. **v3 synchronous vs asynchronous gating.** Test rig validates async (external GPIO trigger polling). Sync mode (PIO SM armed by internal counter) unproven — decide before deploying v3.
+1. **D2 — Confirmation message implementation.** Specified, not yet implemented in `g6_firmware_devel`.
+2. **D4 — `COMM_CHECK` visual response.** Spec aspirational; firmware callback empty. Make it normative or drop the sentence.
+3. **`COMM_CHECK` panel-side validation policy.** With the canonical sequence pinned, decide whether the panel must verify the bytes or merely echo back the checksum.
+4. **Confirmation-message trigger: `>3` or `≥3` bytes?** As written, every valid message would trigger confirmation send.
+5. **`0x8100` empty-buffer response endianness.** Reword as two-byte description.
+6. **`0x70` command code collides with v4 predefined-pattern command.** Pick one (move error display to a different code, or reserve predefined-pattern index 0 as the error-glyph slot in v4). Reconcile when v4 implementation begins.
+7. **v2 zero-payload commands.** `0x02`, `0x03`, `0x0F` have zero-byte payloads in spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration: drop the floor or add a dummy byte.
+8. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
+9. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them.
+10. **PIXEL command** (in `G6_Panels_Test_Firmware`): future-version candidate (e.g., `0x55` PIXEL_SET in v4 or later); keep out of v3 spec.
+11. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
+12. **v3 synchronous vs asynchronous gating.** Test rig validates async (external GPIO trigger polling). Sync mode (PIO SM armed by internal counter) unproven — decide before deploying v3.
 
 ## History & Reconciliation
 
@@ -822,7 +818,10 @@ This table provides a complete reference of all commands across protocol version
 - **2026-05-01** — Mode 4 AI lines exposed on Teensy D14/D15 (±10V); specific wiring still TBD (commit `78be9ca`).
 - **2026-05-01** — v4 explicitly deferred to future work; v1–v3 prioritized (commit `f3da927`).
 - **2026-05-01** — Modes table (1–5) lives in `g6_03` as the unified reference (commit `3c39a44`).
-- **2026-05-02** — **Triggered / Gated / Persistent v3 mode set finalized.** Triggered = per-edge single-shot (`0x12`/`0x32`/`0x52`); Gated = window gating (`0x14` NEW + `0x34` NEW + `0x54` reused); Persistent (`0x13`/`0x33`/`0x53`) reserved but proposed-not-implemented; Gated-Persistent dropped from mode set (this commit).
+- **2026-05-02** — **Triggered / Gated / Persistent v3 mode set finalized.** Triggered = per-edge single-shot (`0x12`/`0x32`/`0x52`); Gated = window gating (`0x14` NEW + `0x34` NEW + `0x54` reused); Persistent (`0x13`/`0x33`/`0x53`) reserved but proposed-not-implemented; Gated-Persistent dropped from mode set (commit `a334004`).
+- **2026-05-02** — **D5 LED-mapping layering RESOLVED**: two-stage model. Host owns *logical → schematic* mapping (rotation, flip, panel position in arena); panel firmware owns *schematic → physical-pin* mapping (PCB layout-driven, with `NUM_COLOR = 4` quadrant scheme per `display.cpp::sch_to_pos_index()` in `g6_firmware_devel @ 6944894`). Spec text in `g6_00`, `g6_01`, `g6_02` updated to reflect this (this commit).
+- **2026-05-02** — **D1 Checksum scope RESOLVED**: whole-message (header + command + payload, sum mod 256). Matches `g6_firmware_devel @ 6944894` (`Message::calculate_8bit_checksum()` in `message.cpp:171–177`); spec § Confirmation message updated. Worked example reads payload-only but the value happens to be the same when header + command bytes round to 0 mod 256 — spec text now explicit (this commit).
+- **2026-05-02** — **Stretch semantics RESOLVED**: BCM duty-cycle multiplier. Effective per-bit-plane ON time = `base_T × stretch / 255`; stretch = 0 → display off. Aligns with the test rig's float-weight architecture; cheap on the panel (one multiplier per frame). Firmware ticket: scale BCM weights in `Display::show()` setup (this commit).
 
 ## Cross-references
 

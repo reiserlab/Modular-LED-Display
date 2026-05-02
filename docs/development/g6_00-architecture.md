@@ -41,10 +41,11 @@ The Teensy 4.1 + 2-SPI-bus configuration is concrete for the current production 
 
 ### Host responsibilities
 
-**Host owns LED mapping (pixel → physical LED)**
+**LED mapping is two-stage** (decision 2026-05-02):
 
-- The PC host is responsible for per-panel LED mapping, including corrections for rotated / flipped panels.
-- The G6 controller sees patterns only as sequences of 20×20 subframes, ordered by panel number already mapped by the host. Controller then packs pixels and forwards them to the appropriate panel according to the G6 panel protocol.
+- **Host** owns the *logical → schematic* mapping: handles per-panel rotation/flip and panel position in the arena, producing 20×20 subframes in the panel's own "schematic pixel" coordinate system.
+- **Panel firmware** owns the *schematic → physical-pin* mapping: applies the PCB-layout-driven remap (e.g., `display.cpp::sch_to_pos_index()` in `g6_firmware_devel @ 6944894`, with the `NUM_COLOR = 4` quadrant scheme) to convert schematic-pixel index to actual COL/ROW drive pins.
+- The G6 controller sees patterns only as sequences of 20×20 subframes, ordered by panel number already mapped by the host. Controller packs pixels and forwards them per the G6 panel protocol — it does **not** apply LED mapping.
 
 (Note: the source spec mentioned "color-LED organization (until we decide to make the panels 'color-aware' in v4/5)" — current v4 and v5 do not specify color awareness; the parenthetical is dropped, captured in Open Q #1.)
 
@@ -96,6 +97,7 @@ The panel receives commands via SPI and returns confirmations according to the [
 - **2026-05-01** — TCP-only host↔controller transport adopted (commit `46264ae`); replaces UDP from earlier draft.
 - **2026-05-02** — v3 mode set finalized: Triggered + Gated + (Persistent deferred); Gated-Persistent dropped (commit `a334004` in `g6_01`).
 - **2026-05-02** — Panel hardware reference for v0.2 + v0.3 captured in [`g6_02-led-mapping.md`](g6_02-led-mapping.md) (commits `a805e59` + `6450445`).
+- **2026-05-02** — LED-mapping layering decided: two-stage model (host: logical→schematic; firmware: schematic→physical-pin). Resolves D5 from `g6_01` Live Divergences.
 
 ## Cross-references
 
