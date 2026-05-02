@@ -86,6 +86,8 @@ This matches the source spec exactly (the spec uses 0-indexed columns, the hardw
 
 **Chip-select topology:** **20 distinct Teensy GPIOs** carry the CS lines (4 per panel column × 5 columns per bus, with the same Teensy pin gating the corresponding columns on B0 and B1 — see Pin assignments above). The slim G4.1 baseline uses a 30-pin CS matrix for a 5×6 arena; G6 needs a 4-CS-per-column × 10-column matrix instead. This is in the **Modify** section of [`g6_03-controller.md`](g6_03-controller.md)'s reconciliation.
 
+The 4 CS lines per column are delivered to the 4 panels in that column via the **panel-internal J3↔J5 connector pin shift** mechanism (each panel hardwires `J3 pin 1 → MCU CS0`; J3 pins 2/3/4 carrying CS1/CS2/CS3 wire to J5 pins 1/2/3 — shifted up by one — so the daisy-chain rotates the CS line each panel up the stack). Full spec in [`g6_02-led-mapping.md`](g6_02-led-mapping.md) § Connectors. This means the arena's 4 column-buffer CS outputs each go to a single physical panel slot; no per-panel jumper is needed.
+
 **💡 Firmware advisory — D13 / `LED_BUILTIN` conflict on SPI bus B0 SCK:** firmware must NOT use `digitalWrite(LED_BUILTIN, ...)` for status — it will glitch the SCK on bus B0. Use `ETH_LED` (Teensy pin 61) or one of the spare GPIOs as a status indicator instead.
 
 External-interrupt routing is also present per panel column (panel-internal `PAN.EINT_P1..P10`, all driven by **Teensy pin 28 / `D36` / `TNY.EINT`**, via R25 33 Ω series — see Pin assignments table at top of file for the canonical reference; commit `5d3c496` corrected an earlier `D33` typo). This is the panel-side interrupt, distinct from the experimenter EINT BNC.

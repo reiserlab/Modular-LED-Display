@@ -167,7 +167,14 @@ The arena-side wiring (Teensy D36 `TNY.EINT` → R25 33 Ω → fan-out → all 1
 
 J4/J5 (top side) enable **panel daisy-chaining / vertical stacking**. The production `arena_10-10` does not use stacking; J4/J5 are unused on those panels.
 
-> **⚠ Flag — CS routing per panel position.** Each panel's MCU sees a single `CS0` line, but the headers carry CS1/CS2/CS3. Selection mechanism (PCB jumper, 0-Ω resistor, slot-position routing in the header passthrough) is not yet captured — see Open Question #3.
+**CS-line selection: physical slot-position via panel-internal connector pin shift** (resolved 2026-05-02, KiCad wire-trace from `floesche/LED-Display_G6_Hardware_Panel @ 23dad5e`, PR #4 head, `panel_rp2354_20x20_v0p3/panel_header.kicad_sch`):
+
+- Each panel hardwires **J3 pin 1 → MCU `CS0`** unconditionally (no on-panel selection hardware — no jumper, no 0-Ω resistor, no solder bridge).
+- Inside the panel, the J3↔J5 routing **shifts CS lines up by one position** for the daisy-chain: `J3 pin 2 (CS1) → J5 pin 1`, `J3 pin 3 (CS2) → J5 pin 2`, `J3 pin 4 (CS3) → J5 pin 3`. EINT propagates straight through (`J3 pin 5 ↔ J5 pin 5`). `J5 pin 4 = NC` (the "X" in the schematic — there is no CS3 propagated up because we've reached the top of the 4-panel stack).
+- When panels stack via mating connectors (lower J5 ↔ upper J3), each successive panel's MCU CS0 receives the arena's *next* CS line in the chain. **Up to 4 panels per stack** supported (CS0/CS1/CS2/CS3 fan out to 4 sub-panels per arena column).
+- v0.2 uses the **same mechanism** (verified: `panel_rp2354_20x20_v0p2/panel_header.kicad_sch` has identical hierarchical labels and J3/J5 layout).
+
+This is the elegant "rotating CS" daisy-chain — slot-position is encoded in the connector pinout shift, not in any on-panel configuration. Cross-doc with [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § Chip-select topology (which describes how the arena drives 4 distinct Teensy CS pins per column to feed this 4-panel stack).
 
 ## Programming / boot workflow
 
@@ -247,7 +254,7 @@ Useful when moving firmware between panel revisions. Source: `PANEL_V021_V031_HW
 
 1. **KiCad submodule init for direct hardware audit.** The PR-review docs in `G6_Panels_Test_Firmware/test_firmware/single_led/` cover most firmware-relevant facts above; the `Generation 6/Panels` submodule (blocked on SSH host-key trust per handover) gives independent verification. Initialize when convenient; spot-check a few load-bearing claims (R6 net assignment, R1/R4 pull-up targets, J1 USB pinout).
 2. **Per-revision LED designator tables for v0.2 and v0.3.** Need a KiCad-source extraction script. The v0.1 mapping is from the original Janelia v0.1 PCB; v0.2 and v0.3 may differ in physical placement (LED orientation flipped in v0.2 affects designator-to-position mapping). Once available, add `g6_02-led-mapping-v0p2.csv` and `g6_02-led-mapping-v0p3.csv` companions following the same `row,col,led` schema.
-3. **CS-line routing per panel position.** Headers carry CS1/CS2/CS3 + EINT, but only one CS line reaches each panel's MCU as `CS0`. Selection mechanism (PCB jumper, 0-Ω resistor, slot-position routing in passthrough) not yet captured. Probably resolved in the arena's column-buffer board (which fans out CS lines) — cross-doc with [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § Chip-select topology.
+3. ~~CS-line routing per panel position.~~ **Resolved 2026-05-02**: panel-internal J3↔J5 wiring shifts CS lines up by one (`J3 pin 1 → MCU CS0` always; `J3 pin 2 (CS1) → J5 pin 1`, etc.); slot-position daisy-chain delivers the 4 different CS lines from the arena to the 4 panels in a column. See § Connectors above for the full trace. KiCad source verified.
 4. ~~Board-id mechanism for firmware to detect v0.2 vs v0.3.~~ **Resolved 2026-05-02**: build-time `#define` (separate firmware binaries). See § Revisions in scope above.
 5. ~~Layering vs `display.cpp::sch_to_pos_index`.~~ **Resolved 2026-05-02**: two-stage model. Host owns *logical → schematic* mapping (rotation, flip, panel position); panel firmware owns *schematic → physical-pin* mapping (`display.cpp::sch_to_pos_index()` with `NUM_COLOR = 4` quadrant scheme). LED designator tables in this file describe the schematic-coordinate ↔ LED-designator layer; firmware adds the schematic ↔ physical-pin layer on top. See `g6_01` § History decisions log for the full resolution.
 6. **Confirm 160 Ω current-limit value physically.** PR-review doc says expected 160 Ω per prior optimization; recommend in-circuit measurement on R9 (or LCSC C851657 part lookup) before precision brightness work.
@@ -263,7 +270,8 @@ Useful when moving firmware between panel revisions. Source: `PANEL_V021_V031_HW
 - **2026-05-02** — v3 Triggered/Gated panel-protocol mode set finalized (commit `a334004` in `g6_01`); EINT firmware contract added to this file.
 - **2026-05-02** — v0.2 EINT (GP45), PSRAM CS (GP0), and SPI peripheral (SPI0) resolved by reconciling against `PANEL_V021_V031_HW_SUMMARY.md`; v0.3 MISO corrected from GP44 → GP43 (R29 termination is on the SPI1 MISO output, GP43, not GP44 spare); XIP_CS1n confirmed on GP47 (commit `6450445`).
 - **2026-05-02** — **Board-id mechanism = build-time `#define`** (Open Q #4 resolved). Separate firmware binaries per panel revision; arena uses one panel version throughout (this commit).
-- **2026-05-02** — **LED-mapping layering = two-stage** (Open Q #5 resolved, D5 in `g6_01` resolved). Host: logical → schematic; panel firmware: schematic → physical-pin via `sch_to_pos_index()`. Spec text updated in `g6_00`, `g6_01`, `g6_02` (this commit).
+- **2026-05-02** — **LED-mapping layering = two-stage** (Open Q #5 resolved, D5 in `g6_01` resolved). Host: logical → schematic; panel firmware: schematic → physical-pin via `sch_to_pos_index()`. Spec text updated in `g6_00`, `g6_01`, `g6_02` (commit `add7fa6`).
+- **2026-05-02** — **CS-line routing per panel position resolved** (Open Q #3): physical slot-position via panel-internal J3↔J5 connector pin shift. KiCad wire-trace from `floesche/LED-Display_G6_Hardware_Panel @ 23dad5e` (PR #4 head) confirms: J3 pin 1 → MCU CS0 unconditionally; J3 pins 2/3/4 (CS1/CS2/CS3) → J5 pins 1/2/3 (one position up); J5 pin 4 = NC; EINT propagates straight through. Up to 4 panels per stack. Same mechanism in v0.2 and v0.3 (this commit).
 
 ## Cross-references
 
