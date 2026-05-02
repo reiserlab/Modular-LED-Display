@@ -17,3 +17,6 @@ docs/*docx
 
 # Ruby lock file
 Gemfile.lock
+
+# macOS Finder metadata
+.DS_Store
