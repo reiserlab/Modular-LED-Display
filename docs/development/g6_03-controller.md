@@ -1,11 +1,88 @@
 # G6 — Controller (Teensy SW)
 
 Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tabs "Controller Teensy SW" lines 1572–1714 + "Major updates for v2" lines 1715–1859 + "v3 and onwards…" lines 1860–1864) · Last reviewed: 2026-05-02 by mreiser
-Status: **Draft (v1 spec) + Teaser (v2) + Stub (v3+)** — verbatim migration only; **no G6 controller firmware exists yet**, so all controller-side behavior described below is aspirational. The G4.1 slim controller ([floesche/LED-Display_G4.1_ArenaController_Slim](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim)) is the G4 baseline against which G6 deltas will be reconciled.
+Status: **Draft (v1 spec) + Teaser (v2) + Stub (v3+)** — verbatim migration of three Google Doc tabs, reconciled 2026-05-02 against the G4.1 slim controller baseline ([floesche/LED-Display_G4.1_ArenaController_Slim](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim) @ `8f1029f`). **No G6 controller firmware exists yet** — all G6-specific behavior below remains aspirational. The reconciliation classifies which G4.1 functionality carries over unchanged for G6, which needs modification, which is net-new, and which can be dropped.
 
 This file describes the host-PC ↔ controller interface and the controller-side responsibilities for slicing, packing, and transmitting frames over SPI to G6 v1 panels. The controller acts as a transport-and-timing engine: it preserves the G4 host command set, loads/streams full arena frames, slices them per panel, encodes G6 v1 panel messages, and transmits them on one or more SPI buses.
 
-> **⚠ Flag — no reconciliation in this commit.** This file is the verbatim baseline. Reconciliation against the G4.1 slim controller (which commands carry over, which need modification, which are net-new for G6, which can be dropped) lands in a separate commit.
+---
+
+## Current state
+
+There is **no G6 controller firmware** yet. Both candidate G6 panel firmwares ([`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) for v1 and [`G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) for the v3 prototype rig) target the panel side, not the controller. The G4 baseline is the **slim G4.1 Arena Controller** ([`LED-Display_G4.1_ArenaController_Slim`](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim) @ `8f1029f`, 2026-04-28; PlatformIO Teensy 4.1 project, ~1/4 the LOC of the legacy G4.1 controller, no QP framework). All controller-side claims in this file are reconciled against that codebase.
+
+### Reconciliation: Controller spec vs G4.1 slim baseline (run 2026-05-02)
+
+Inventory of the slim G4.1 controller used to produce the four classifications below:
+
+- 11 source files: `main.cpp`, `CommandProcessor.{cpp,h}`, `NetworkManager.{cpp,h}`, `SpiManager.{cpp,h}`, `SdManager.{cpp,h}`, `PatternHeader.h`, `commands.h`, `constants.h`, `modes.h`
+- 1 timing characterization: `timing.md` (~93 KB; only SD/init timing is captured — no SPI/refresh/BCM/Ethernet RTT measurements)
+- `README.md` and `docs/BRING_UP_GUIDE.md`
+
+**Carry-over from G4 (use as-is for G6):**
+
+| Item | Slim G4.1 source | G6 fit |
+|---|---|---|
+| `ALL_OFF_CMD` (0x00), `STOP_DISPLAY_CMD` (0x30) | `commands.h:7,12`, `CommandProcessor.cpp:38-51` | ✓ same semantics |
+| `ALL_ON_CMD` (0xFF) | `commands.h:15`, `CommandProcessor.cpp:43-46`, `SpiManager::fillBufferAllOn` | ✓ semantically identical (buffer composition changes — see Modify) |
+| `SET_FRAME_POSITION_CMD` (0x70) | `commands.h:14`, `CommandProcessor.cpp:121-133` | ✓ unchanged |
+| `SET_REFRESH_RATE_CMD` (0x16) | `commands.h:11`, `CommandProcessor.cpp:71-81` | ✓ generic 16-bit Hz setter |
+| `GET_ETHERNET_IP_ADDRESS_CMD` (0x66) | `commands.h:13`, `CommandProcessor.cpp:117-119` | ✓ utility command |
+| TCP framing (port 62222, `[len, cmd, ...]` binary form, `[0x32, len_lo, len_hi, …]` stream form) | `NetworkManager.cpp:50-95`, `constants.h:126,127,128` | ✓ retained |
+| Response framing `[len, status, echo_cmd, ASCII msg]` (200 B response buffer) | `NetworkManager.cpp:106-119`, `constants.h:129` | ✓ |
+| Single-client TCP server with `setNoDelay(true)`; DHCP-only IP | `NetworkManager.h:37-38`, `NetworkManager.cpp:5-18` | ✓ |
+| `IntervalTimer`-driven refresh ISR | `SpiManager.cpp:37-48` | ✓ |
+| ISR priority scheme (SPI=0, Ethernet=64, SDIO=96) | `main.cpp:74-80` | ✓ |
+| State machine `ALL_OFF`/`ALL_ON`/`PLAYING_PATTERN`/`SHOWING_PATTERN_FRAME`/`STREAMING_FRAME`/`ANALOG_CLOSED_LOOP` | `CommandProcessor.h:10-17` | ✓ extended (Mode 1 adds a state; see New) |
+| Whole-file SD caching with 32 KB heap reserve | `SdManager.cpp:96-128`, `SdManager.h:33` | ✓ |
+| Alphabetical pattern-ID sort, 1-based, in `/patterns/` | `SdManager.cpp:14-77`, `constants.h:99` | ✓ |
+| Top-level main loop: `serviceTcp / processCommand / serviceDisplay / flushResponses` | `main.cpp:34-39` | ✓ |
+| Boot Morse "OK" pattern (300/100/100 ms) | `main.cpp:48-72` | ✓ |
+
+**Modify for G6 (exists in slim, needs adjustment):**
+
+| Item | Slim source | What changes for G6 |
+|---|---|---|
+| Frame slicing: 16×16 quarter-panel layout → 20×20 G6 subframes | `SpiManager::decodePatternFrame` (`SpiManager.cpp:101-142`), `SpiManager::fillBufferFromDecoded` (`:144-168`); `[8][4]` and `[2][2]` panel-decomposition constants in `constants.h:16-19,45-48`; struct shapes in `SpiManager.h:9-23` | Re-derive geometry for G6 panels (20×20 = 400 pixels, organized as one block per panel rather than 4 quarter-panels). Touches all SPI-buffer composition. |
+| SPI framing: emit v1 panel-protocol bytes with parity | `SpiManager::transferPanelSet` (`SpiManager.cpp:70-84`) writes panel buffer raw — no parity computed | Add controller-side parity per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) v1 message format. |
+| Pattern header: G4 has 7-byte/8-byte union → G6 needs 18-byte v2 header | `PatternHeader.h:6-15`, `constants.h:100` (`pattern_header_size = 7`) | Adopt the 18-byte v2 layout from [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md): G6PT magic + version + Arena/Observer IDs + frame count + row/col counts + gs_val + panel mask + checksum. |
+| CS-line count and pin matrix | Hard-coded 5×6 GPIO map for G4.1 wiring in `panel_set_select_pins[5][6]` (`constants.h:77-83`); `region_count_per_frame=2` (`constants.h:68`) | Re-wire for G6 arena (`Generation 6/Arena/` `v1.1.7` production); count and per-row count depend on arena geometry. |
+| `fillBufferAllOn` stretch values (1 grayscale, 50 binary) | `SpiManager.cpp:170-193` | Re-derive for G6 panel-protocol v1 stretch semantics. |
+| `STREAM_FRAME_CMD` payload size | `CommandProcessor.cpp:140-190`: 7-byte header + frame data; `analog_x`/`analog_y` bytes parsed and logged but unused | G6 frame data sizes differ (binary 51 B/panel × N or grayscale 201 B/panel × N at panel level; on-disk panel block 53/203 — pick which the wire format uses). Decide whether `analog_x`/`analog_y` survive G4→G6. |
+| Refresh-rate defaults (300 Hz greenscale / 1000 Hz binary) | `constants.h:122-123` | Reconcile with G6 panel BCM/bit-plane timing budgets — currently unmeasured. |
+| `TRIAL_PARAMS_CMD` (0x08) payload (12 param bytes) | `CommandProcessor.cpp:83-115` | G6 may need an extra byte (panel-mask override or trigger config). |
+| `grayscale_value` on-disk byte encoding | Pattern header byte 4 = `0x10` greenscale, `0x02` binary (`CommandProcessor.cpp:300-310`); clashes with command parameter values `1`/`0` (`constants.h:95-96`) | G6 should pick one encoding and document. |
+
+**New for G6 (must be added; not in slim):**
+
+| Item | Why new | Notes |
+|---|---|---|
+| Panel-map data structure with regions / SPI-bus / CS | Slim has only the fixed `panel_set_select_pins` matrix + `region_count_per_frame=2`; no per-panel routing | Pending decision: arena-config sidecar vs computed from `col_count` + fixed regions. See [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) Open Question #6. |
+| Panel-set ordering for parallel transmission | Slim iterates column-major (`SpiManager.cpp:92-99`); G6 spec section 4 calls for panel-set iteration | Spec ↔ impl divergence D9 in [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) — three options to resolve. |
+| Controller-side parity computation | Not present | See Modify section above. |
+| v2 PSRAM workflow + TSI parsing for Mode 1 | Mode 1 absent (`modes.h:6-10`); no PSRAM-related code anywhere | Adds load-phase logic, `(PatternID, FrameIndex16) → PSRAMAddress24` mapping table, TSI 5-byte record parser, DO/AO output drivers (pin assignments depend on arena hardware). |
+| `g6-panel-storage-mode` host command | Not in `ArenaCommands` enum | Pick a free opcode — none of `0x00, 0x01, 0x06, 0x08, 0x16, 0x30, 0x32, 0x66, 0x70, 0xFF` are available. |
+| v3 trigger-line wiring (input GPIO) | Slim has no input pins beyond CS lines | Single trigger input to be added. Wiring depends on arena hardware. |
+| Magic / format-version field / XOR checksum in pattern header | None in `PatternHeader.h:6-15` | Adopt v2 layout per `g6_04`. |
+| Mode 1 (TSI Position Function) and Mode 5 (Streaming) top-level dispatch | Slim implements only Modes 2/3/4 (`modes.h:6-10`); Mode 5 streaming is partially built via `STREAMING_FRAME` state but no top-level mode dispatch | Add full mode dispatch for Modes 1–5. |
+
+**Drop / not needed for G6:**
+
+| Item | Slim source | Rationale |
+|---|---|---|
+| `DISPLAY_RESET_CMD` (0x01) "reset to FPGA" semantics | `CommandProcessor.cpp:53-55` (already a no-op string-only response) | No FPGA in Teensy slim path; spec § 7 explicitly says drop. |
+| `SWITCH_GRAYSCALE_CMD` (0x06) | `commands.h:9`, `CommandProcessor.cpp:57-69` | Spec § 7 explicitly says drop. May reconsider if G6 ergonomics need it. |
+| `frame_count_y` field of `PatternHeader` | `PatternHeader.h:9` (declared but never read or validated) | Dead weight; bytes reused in v2 layout. |
+| `row_signifier` byte between panel rows in pattern files | `SpiManager.cpp:113` (`++pos;` skips it) | Vestigial padding; v2 pattern files (`g6_04`) drop it. |
+
+**Ambiguous (parent decision needed):**
+
+- Mode 4 closed-loop: G4.1 slim stores `gain_` but never reads it; the closed-loop branch runs on an internal counter (`CommandProcessor.cpp:233-248`), not an actual analog input. Decide whether G6 closed-loop needs a real analog source (and where on arena hardware it lives).
+- `STREAM_FRAME_CMD` `analog_x` / `analog_y` bytes (parsed and logged at `CommandProcessor.cpp:149-151` but never used) — plumb to panels as real-time motion offsets, or drop?
+- `SWITCH_GRAYSCALE_CMD` value encoding inconsistency: command parameter values `1`/`0` (`constants.h:95-96`) but pattern-header byte uses `0x10`/`0x02` for the same concept. Unify in G6.
+- "Greenscale" naming (`README.md:32`): retain or rebrand to "grayscale" for G6?
+
+**What `timing.md` does NOT measure:** SPI clock + framing, end-of-message-to-display latency, panel BCM / bit-plane timing, all-on/all-off transitions, panel-to-panel transmission gap, mode-switch latency, Ethernet round-trip. These remain TBD for G6 and must be measured separately (likely on the prototype single-panel SPI test rig per the prior plan's Prototype Phase). The richer numbers that *do* exist in the repo are in `README.md:57-77` ("Measured performance"): SD reads ~2 µs cached / ~600 µs at FAT cluster boundaries; pattern-switch latency 1–19 ms; TCP streaming drop rate 0.27% at 300 Hz / 0% binary at ~3000 Hz.
 
 ---
 
@@ -43,6 +120,8 @@ Each stored pattern may be:
 The controller uses the frame index from G4 commands to select which arena frame to load and display.
 
 > **⚠ Flag — block size 53/203 includes header+command+pixeldata+stretch.** Section 3 below describes the same panels as "51 bytes for 2-level (1 bit/pixel) + stretch" and "201 bytes for 16-level (4 bits/pixel) + stretch", which is pixel-data + stretch only (no panel-protocol header byte and no command byte). The two are not contradictory — the on-disk panel block is 53/203 bytes (the format actually written by `maDisplayTools`, see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)) — but the spec wording in Section 3 elides the +2 (header+command) bytes. Resolve in Phase 2.
+>
+> 🟢 **Resolved (2026-05-02) vs `maDisplayTools v2` + `g6_04`:** confirmed both wordings describe the same panel — the on-disk panel block is 53 bytes (GS2) / 203 bytes (GS16) including the 1-byte panel-protocol header + 1-byte command + pixel data + 1-byte stretch (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) Confirmations table). Phase-2 cleanup will normalize the two-vs-three-component description into one canonical statement.
 
 ### 3. Frame Slicing
 
@@ -73,6 +152,8 @@ From the panel map, the controller derives:
 Panels are grouped into **panel sets**, where each set contains **one panel per region** sharing the same `panel_row` and within-region column offset. To transmit a frame, the controller iterates over panel sets: it enables the chip-select for the corresponding row, sends pattern data to all regions in parallel, then disables the chip-select.
 
 > **⚠ Flag — "to be resolved soon" is RESOLVED.** Per direction adopted in [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md), the standalone panel-map data structure has been merged into the pattern header in v2 (`maDisplayTools` writes a 6-byte panel mask + `row_count` + `col_count` directly into the 18-byte pattern header). However, **region / SPI-bus information is NOT in the v2 pattern header** — that has to come from elsewhere (arena config, sidecar file, or computed). See `g6_04` Open Question #6.
+>
+> 🟢 **Resolved (2026-05-02) vs `maDisplayTools v2`:** panel-mask + `row_count` + `col_count` in the 18-byte pattern header is the canonical form; standalone panel-map file is dropped. Region/SPI-bus assignment is the remaining gap and is now classified as **New for G6** (see Reconciliation table above).
 
 ### 5. Panel Protocol v1 Messaging
 
@@ -103,6 +184,8 @@ Mode 4 is the lowest priority, with some final details depending on arena hardwa
 - Do **not** implement `switch-grayscale` and `display-reset` in v1, as they are not required.
 
 > **⚠ Flag — drop list of commands needs sign-off against G4.1 baseline.** The slim G4.1 controller currently implements both `SWITCH_GRAYSCALE_CMD` (0x06) and `DISPLAY_RESET_CMD` (0x01). The latter is already a no-op in slim (only sends a response string "Reset Command Sent to FPGA") — so dropping it is largely a paperwork change. `switch-grayscale` is functional in slim and may be useful for G6 ergonomics; reconcile.
+>
+> 🔴 **Divergence vs slim G4.1 (2026-05-02):** both commands are present in `commands.h:8-9`. `DISPLAY_RESET_CMD` (0x01) → drop (no-op anyway, no FPGA in Teensy slim). `SWITCH_GRAYSCALE_CMD` (0x06) → drop per spec, but slim has a real implementation (`CommandProcessor.cpp:57-69`) that flips between binary and greenscale display. If user wants to retain G6 grayscale switching at runtime, opcode 0x06 carries over; otherwise drop and require pattern-header `gs_val` to be authoritative. **Both are now in the Drop classification above** pending sign-off.
 
 ---
 
@@ -120,8 +203,12 @@ This is a copy of the G4.1 commands. Possibly adjust for G6 use.
 | all-on | `0x01, 0xff` | v1 | |
 
 > **⚠ Flag — `set-frame-rate 0x12` is not in the G4.1 slim controller.** The slim controller has `SET_REFRESH_RATE_CMD = 0x16` (refresh rate, the SPI re-transmission rate) but no separate `SET_FRAME_RATE_CMD`. Frame rate is set via the `frame_rate` field in `TRIAL_PARAMS_CMD (0x08)` and is `int16_t` (negative = reverse). Decide whether G6 needs a standalone `set-frame-rate` opcode (and if so, fix `0x12` since that opcode is unused in G4.1 — no collision risk).
+>
+> 🔴 **Divergence vs slim G4.1 (2026-05-02):** confirmed — `commands.h:6-17` has no `0x12` opcode. The free-opcode list for G6 additions is anything not in `{0x00, 0x01, 0x06, 0x08, 0x16, 0x30, 0x32, 0x66, 0x70, 0xFF}`. `0x12` is available; if G6 wants a standalone `set-frame-rate`, this is the suggested slot.
 
 > **⚠ Flag — Stream-Frame "needs a different length".** The G4.1 stream-frame layout is `[0x32, len_lo, len_hi, analog_x_lo, analog_x_hi, analog_y_lo, analog_y_hi, frame_data...]` (7-byte header). G6 panels are 20×20 (vs G4 16×16), so the per-frame data length differs. The "different length" is implicitly the binary frame size (32-byte panel × N panels) or the grayscale frame size; specify exactly which.
+>
+> 🟢 **Resolved (2026-05-02) vs slim G4.1:** confirmed 7-byte header at `NetworkManager.cpp:60` (`stream_header_byte_count=7` in `constants.h:127`). G6 inherits this header layout. Frame-data bytes for G6: `frame_size = 4 + (num_panels × block_size)` where `block_size = 53` (GS2) or `203` (GS16) — see Section 2 above and [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data, plus the 7-byte stream header.
 
 > **⚠ Flag — table is incomplete.** Section 7 names `set-refresh-rate` and `get-ethernet-ip-address` as required commands, but neither appears in this table. Phase 2 should consolidate into a single command-summary table covering every command the G6 controller is expected to honor (with G4.1 opcode, G6 status: carry-over / modify / new / drop, version introduced).
 
@@ -232,6 +319,8 @@ Mode 1 is invalid in SD Mode.
 - To make this error visible — we will need to keep them displayed for a short interval, at least 500 ms. This feature is not required for protocol v1 compliance but provides a quick, hardware-level diagnostic without needing extensive debugging.
 
 > **⚠ Flag — depends on predefined-pattern flash mechanism.** The error display assumes a "small predefined pattern" can be flashed onto panels for diagnostic purposes. Per the [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) v4/v5 reconciliation, **no firmware support for predefined patterns exists** in either `iorodeo/g6_firmware_devel` (v1) or `G6_Panels_Test_Firmware` (v3 prototype). This feature is currently unbuilt anywhere; if the controller error display is desired in v2, it either needs panel-firmware support or a different display strategy (e.g., compose the error pattern client-side and send via `0x30` SetFrame).
+>
+> 🔴 **Divergence (2026-05-02):** the prerequisite v4/v5 predefined-pattern flash mechanism does not exist in any firmware today (confirmed via `g6_01` v4/v5 reconciliation). Recommendation: implement the v2 controller error display by composing the error pattern controller-side as a 20×20 subframe and sending it to all panels via the existing `0x30` SetFrame command — works on v1 firmware today, no panel-firmware changes needed.
 
 ---
 
@@ -246,20 +335,25 @@ Mode 1 is invalid in SD Mode.
 
 ## Open Questions / TBDs
 
-1. **No G6 controller firmware exists.** All controller-side behavior described in this file is aspirational. The [G4.1 slim controller](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim) is the G4 baseline. Reconciliation pass (next commit) will produce a carry-over / modify / new / drop classification.
-2. **Block size 53/203 vs 51/201** wording inconsistency between Section 2 and Section 3 (with-vs-without panel-protocol header+command bytes). Resolve in Phase 2.
-3. **Set-frame-rate opcode `0x12`** is not currently in G4.1 slim; opcode is free. Decide whether G6 introduces this as a standalone command or keeps frame rate as a `trial-params` field only.
-4. **Stream-Frame "different length"** for G6 — specify the exact frame-data byte count for both binary (GS2) and grayscale (GS16) modes given 20×20 panels and an N-row × M-col arena.
-5. **Drop list (`switch-grayscale`, `display-reset`)** — sign off on dropping these from the G6 baseline. The slim G4.1 has both; `display-reset` is already a no-op string-only response.
-6. **Mode 5 numbering** vs G4.1 slim's mode numbering (which has Mode 2/3/4 only — no Mode 5). Clarify the Mode 5 = streaming convention and update the controller-side mode dispatcher to recognize it.
-7. **Mode 1 (TSI) DO/AO pin assignments** depend on arena hardware. Coordinate with `Generation 6/Arena/docs/arena.md` (`v1.1.7` production).
-8. **TSI filename convention** (`001.TSI` vs `tsi<NNNN>_<name>.tsi`)?
-9. **`g6-panel-storage-mode` opcode assignment.**
-10. **Region / SPI-bus information missing from v2 pattern header.** Where does the controller get region info from? Cross-doc question — see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) Open Question #6.
-11. **Controller error-display feature requires predefined-pattern flash mechanism** that doesn't exist in any firmware today. Either de-scope to "compose error pattern client-side and send via `0x30` SetFrame" (works on v1/v2 today) or wait for v4/v5 predefined-pattern support to land.
-12. **Closed-loop (Mode 4) analog voltage source.** G4.1 slim has `gain_` field stored but never read; closed loop runs on an internal counter, not an actual analog input. Decide where the analog voltage signal comes from on G6 hardware.
-13. **`all-on` semantics in v2 + Local Storage Mode.** When all frames are in PSRAM, does `all-on` still build a one-shot all-on subframe (v1 behavior) or is it a new opcode? Either approach works but spec must pick.
-14. **Pattern Backend section says "Modes 2–4"** but Section 6 lists Modes 2, 3, 4, **and 5** as the v1 mode set. Mode 5 is streaming (host-supplied, no SD read). The v2 update text says "Modes 2, 3, 4, and 5 work exactly as in v1" in SD Mode. Reconcile the two-vs-four-vs-five language.
+Post-reconciliation list. Items resolved by the 2026-05-02 reconciliation pass have been moved to inline 🟢/🔴 footers under their flags above. The list below is what still needs a decision.
+
+1. **No G6 controller firmware exists.** All G6-specific behavior in this file is aspirational. The G4.1 slim baseline (`8f1029f`) is reconciled into the carry-over / modify / new / drop tables in Current state. Next phase: build the G6 controller against those tables.
+2. **`g6-panel-storage-mode` opcode assignment.** Free opcodes (not used by slim G4.1): anything outside `{0x00, 0x01, 0x06, 0x08, 0x12 [reserved for set-frame-rate if G6 adds it], 0x16, 0x30, 0x32, 0x66, 0x70, 0xFF}`. Pick one.
+3. **`set-frame-rate` opcode `0x12` — adopt or skip?** Slim has no standalone command; frame rate is a `trial-params` field. Decide whether G6 needs a runtime frame-rate adjustment without re-issuing trial-params.
+4. **`switch-grayscale` (0x06) drop sign-off.** Functional in slim (`CommandProcessor.cpp:57-69`). Spec § 7 says drop. If pattern-header `gs_val` is the canonical grayscale source, drop is correct. Confirm.
+5. **TSI filename convention** (`001.TSI` vs `tsi<NNNN>_<name>.tsi`)?
+6. **Mode 1 (TSI) DO/AO pin assignments** depend on arena hardware. Coordinate with `Generation 6/Arena/docs/arena.md` (`v1.1.7` production).
+7. **Region / SPI-bus information missing from v2 pattern header.** Cross-doc question — see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) Open Question #6. Three options: arena-config sidecar, computed from `col_count` + fixed regions, or extend the v2 pattern header.
+8. **Closed-loop (Mode 4) analog voltage source.** Slim has `gain_` stored but never read; closed loop runs on an internal counter (`CommandProcessor.cpp:233-248`), not an actual analog input. Decide where the analog signal comes from on G6 hardware (and whether closed loop is even in-scope for G6 v1).
+9. **`all-on` semantics in v2 + Local Storage Mode.** When all frames are in PSRAM, does `all-on` still build a one-shot all-on subframe (v1 behavior) or become a new opcode pointing at a pre-loaded "all-on" PSRAM index? Either works; spec must pick.
+10. **Pattern Backend section ("Modes 2–4")** vs Section 6 (Modes 2, 3, 4, **and 5**) vs v2 update ("Modes 2, 3, 4, and 5 work exactly as in v1"). Reconcile the two-vs-four-vs-five language. The G4.1 slim implements only Modes 2/3/4 as top-level dispatch (`modes.h:6-10`); Mode 5 streaming exists as a state (`STREAMING_FRAME`) but no Mode 5 enum value.
+11. **`STREAM_FRAME_CMD` `analog_x` / `analog_y` bytes** — keep, drop, or repurpose? Currently parsed and logged at `CommandProcessor.cpp:149-151` but never plumbed anywhere in slim.
+12. **"Greenscale" naming retention vs rebrand to "grayscale"** for G6 — slim keeps the legacy "greenscale" name (per `README.md:32`). Pick one for G6 and use consistently.
+13. **`SWITCH_GRAYSCALE_CMD` value encoding inconsistency**: command parameter values `1`/`0` (`constants.h:95-96`) but pattern-header byte uses `0x10`/`0x02` for the same concept. Unify in G6 (only relevant if `switch-grayscale` is retained).
+14. **TCP-only or also UDP** for G6 host link? Slim is TCP-only (`NetworkManager.h:37`, QNEthernet `EthernetServer`/`EthernetClient`); the prior plan's read priority mentions UDP. Decide before any host-protocol changes.
+15. **`SET_REFRESH_RATE_CMD` (0x16) upper bound** for G6 — slim accepts any `uint16_t` Hz. G6 panel BCM may impose a hard ceiling that the controller should enforce. Need G6-side measurement of refresh-rate ceiling.
+16. **Pattern header bit-packing fragility** in slim (`PatternHeader.h:6-15` — 56-bit union backed by `uint64_t` without `__attribute__((packed))`). G6 should switch to an explicit `uint8_t[18]` or packed struct for the v2 18-byte header.
+17. **Phase 2 cleanup of Host Command Summary table** — currently incomplete (omits `set-refresh-rate`, `get-ethernet-ip-address`, `g6-panel-storage-mode`). Phase 2 produces one canonical table with G4.1 opcode, G6 status (carry-over / modify / new / drop), version introduced.
 
 ---
 
