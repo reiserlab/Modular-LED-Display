@@ -1,7 +1,7 @@
 # G6 — Host PC Software (firmware-contract perspective)
 
 Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Host PC Matlab SW", lines 2409–2482) · Last reviewed: 2026-05-02 by mreiser
-Status: **Stub** — verbatim migration of a deliberately thin source tab, with a light reconciliation pass (2026-05-02) noting what `maDisplayTools v2` already implements and what remains a firmware-side TBD. The spec author wrote "It is premature to produce detailed specs for the host-side software until the team reviews/comments/updates the proposed Panel software (Version 1 and Version 2 teaser) and the supporting Teensy Controller SW changes" — so this file stays a high-level checklist of what the host PC must do for the firmware to work. **Today's focus is firmware-side; a deep migration of the MATLAB display tools spec is deferred** until those tools are formally migrated to G6.
+Status: **Stub** — thin source tab migrated, reconciled against `maDisplayTools v2` and slim G4.1 (firmware-contract framing). The spec author noted detailed host-side specs are premature until the panel and controller specs solidify, so this file stays a high-level checklist of what the host PC must do for the firmware to work. **Deep migration of the MATLAB display tools spec is deferred** until those tools formally migrate to G6.
 
 This file captures the firmware-side perspective on host-PC software responsibilities for G6 v1 (and anticipated v2 updates). It defines the firmware's contract with the host: what data formats, addressing schemes, and command sequences the firmware assumes the host will produce. The deep MATLAB-side spec migration (covering `Generation 6/maDisplayTools/`'s pattern-generation, arena-config, and experiment-pipeline tooling) is deferred.
 
@@ -42,9 +42,7 @@ What is **not** yet supplied host-side and remains a firmware-side TBD:
   - `flip_ud` (a flag to indicate if panels are upside down, and patterns should then be inverted)
   - the pixel indices for each panel (may not be needed, but were previously useful)
 
-> **⚠ Flag — "controller is ignorant about geometry" is the firmware contract.** This is the load-bearing claim about what the host must supply. The G6 firmware (controller + panels) does not encode arena geometry anywhere — it must be told via the pattern header / panel map. Cross-doc: this is the same gap discussed in [`g6_03-controller.md`](g6_03-controller.md) and [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) — region/SPI-bus information is not in the v2 pattern header and must come from somewhere host-side.
->
-> 🟢 **Partial (2026-05-02) vs `maDisplayTools v2`:** the *panel-presence* part of arena geometry IS supplied today — the v2 pattern header carries `row_count`, `col_count`, and the 6-byte panel mask. The *panel-orientation* (`flip_ud`) and per-panel pixel-index fields named in this section are NOT in the v2 header — they live host-side in maDisplayTools and never reach the controller. Region/SPI-bus information is the open gap (see Current state above).
+**Geometry-supply status (2026-05-02):** the *panel-presence* part is in the v2 pattern header (`row_count`, `col_count`, 6-byte panel mask — `maDisplayTools/g6/g6_save_pattern.m`). `flip_ud` and per-panel pixel-index fields stay host-only (never reach the controller). **Region/SPI-bus assignment is the open gap** — same cross-doc question as [`g6_03-controller.md`](g6_03-controller.md) and [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md).
 
 ### G4 controller target = "G6 mode"
 
@@ -53,9 +51,7 @@ Same G4 command set, but the host must know it's talking to a G6 controller (via
 - Use G6-compatible pattern sizes (20×20 per panel)
 - Avoid any legacy G4 hardware assumptions.
 
-> **⚠ Flag — controller version/ID query opcode is unspecified.** Source says "via ID/version" but no opcode or response format is defined. The G4.1 baseline (`LED-Display_G4.1_ArenaController_Slim`) has no controller-identification command in its `ArenaCommands` enum. For G6, a `get-controller-version` (or `get-capabilities`) command is implied; opcode assignment is a `g6_03` task.
->
-> 🔴 **Divergence (2026-05-02) vs slim G4.1 @ `8f1029f`:** confirmed — `commands.h:6-17` lists 10 opcodes, none of which return a controller version or capability bitmap. The same gap blocks v2 capability detection (see flag below). Consolidating into a single `get-controller-info` command (one opcode, two response shapes by version) is the most efficient resolution. Opcode TBD; tracked in `g6_03` Open Question #2.
+> **⚠ Flag — `get-controller-info` opcode is missing in slim G4.1 baseline.** Source says G6-mode detection happens "via ID/version" but no opcode or response format is defined. The slim G4.1 controller (`commands.h:6-17`) has no controller-identification command. For G6, a single `get-controller-info` command (one opcode, version-dispatched response shape) covers both v1 G6-mode detection AND v2 capability bitmap (see "Diagnostics / capability detection" below). Opcode assignment tracked in `g6_03` Open Question #2.
 
 ### Pattern and file format expectations
 
@@ -63,9 +59,7 @@ Same G4 command set, but the host must know it's talking to a G6 controller (via
 - The on-disk representation might stay similar, but the host needs to be aware of the new arena shape.
 - Implement appropriate LED mapping per panel (following G6 [LED Mappings](g6_02-led-mapping.md)).
 
-> **⚠ Flag — "G6 header (format TBD)" was ambiguous in source; the format is now defined.** The 18-byte v2 pattern header is canonical (see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)). The "TBD" wording is stale — the header is implemented today by `maDisplayTools/g6/g6_save_pattern.m`.
->
-> 🟢 **Resolved (2026-05-02) vs `maDisplayTools v2`:** 18-byte v2 header is canonical and round-trip-validated (MATLAB ↔ JS) per `g6/g6_encoding_reference.json`. Phase-2 cleanup will rewrite the source-doc "TBD" wording.
+**G6 header format (2026-05-02):** the 18-byte v2 header is canonical and round-trip-validated (MATLAB ↔ JS) per `maDisplayTools/g6/g6_encoding_reference.json`. The source-tab's "TBD" wording is stale; see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) for the byte-level layout.
 
 ### Streaming (Mode 5) to a sliced arena
 
@@ -103,7 +97,7 @@ Tools for generating and managing `.TSI` files will be needed (borrowing heavily
 
 Host should query controller version / capabilities to know whether v2 features (Local Storage Mode, Mode 1, TSI) are available, and provide appropriate error messages if not available.
 
-> **⚠ Flag — capability detection requires a controller-side response.** Same gap as the v1 "G6 mode" question above. Needs a `get-controller-capabilities` opcode and response schema (probably bitfield: `[v2_local_storage, mode_1_tsi, v3_gated, …]`). Wire-format specification belongs in [`g6_03-controller.md`](g6_03-controller.md).
+v2 capability detection shares the v1 "G6 mode" gap above — same `get-controller-info` command, version-dispatched response. Bitfield response schema (likely `[v2_local_storage, mode_1_tsi, v3_gated, …]`) belongs in [`g6_03-controller.md`](g6_03-controller.md).
 
 ---
 
