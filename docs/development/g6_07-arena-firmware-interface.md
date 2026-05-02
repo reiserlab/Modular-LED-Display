@@ -1,21 +1,69 @@
 # G6 — Arena Firmware Interface
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "G6 arena design (v1/v2)", lines 2484–2523), reconciled against the actual designed arena hardware ([`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) @ `a9ab466e`; first production run = `v1.1.7`, ordered 2026-04-28; design at `arena_10-10/arena_10-10_v1/production/v1p1r7/`) · Last reviewed: 2026-05-02 by mreiser
-Status: **Thin firmware-interface reference.** Per the prior plan's "Arena Design Tab Decision", the source-tab content is informational/historical and **superseded by the actual built arena hardware**. Rather than migrate the source tab as-is, this file pulls only the firmware-relevant facts the controller doc ([`g6_03-controller.md`](g6_03-controller.md)) and the v3 trigger work need. **Authoritative documentation lives in the `Generation 6/Arena` submodule (`docs/arena.md`); do not duplicate hardware details here.**
+Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "G6 arena design (v1/v2)", lines 2484–2523), reconciled against the actual designed arena hardware ([`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena); first production run = `v1.1.7`, ordered 2026-04-28; design at `arena_10-10/arena_10-10_v1/production/v1p1r7/`; pin assignments extracted from KiCad sources at `0a8ec33c`) · Last reviewed: 2026-05-02 by mreiser
+Status: **Thin firmware-interface reference with extracted pin assignments.** Per the prior plan's "Arena Design Tab Decision", the source-tab content is informational/historical and **superseded by the actual built arena hardware**. Rather than migrate the source tab as-is, this file pulls only the firmware-relevant facts the controller doc ([`g6_03-controller.md`](g6_03-controller.md)) and the v3 trigger work need, plus a per-peripheral Teensy 4.1 pin table extracted from the KiCad schematics. **Authoritative documentation lives in the `Generation 6/Arena` submodule (`docs/arena.md`); do not duplicate hardware details here.**
 
 ## Authoritative source
 
-- **Production arena hardware:** [`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) (in this clone as the `Generation 6/Arena` submodule, currently uninitialized — pinned at `a9ab466e`, blocked on SSH host-key trust). Repository contents read via `gh api` for this dev doc:
+- **Production arena hardware:** [`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) (in this clone as the `Generation 6/Arena` submodule, currently uninitialized — pinned at `a9ab466e`, blocked on SSH host-key trust). Repository contents read via `gh api`:
   - `README.md` — top-level summary; declares v1.1.7 as the first large production run (ordered 2026-04-28)
   - `docs/arena.md` — current arena-overview doc (rev history, what's in the design, recommended build); currently still recommends v1p1r6 for new builds — **slightly behind reality at v1.1.7**
-  - `arena_10-10/arena_10-10_v1/production/v1p1r7/` — actually-ordered revision design files (also v1p1, v1p1r2, …, v1p1r6 archived)
-  - `arena_10-10/arena_10-10_v1/assets/arena_10_of_10_v1r1.pdf` — schematic PDF (firmware-relevant pin assignments live here; not extracted into this dev doc)
+  - `arena_10-10/arena_10-10_v1/production/v1p1r7/` — actually-ordered revision design files, including `netlist.ipc` (IPC-D-356A), `bom.csv`, `positions.csv`, `designators.csv`, and the manufacturing zip
+  - `arena_10-10/arena_10-10_v1/{teensy,analog,panels,panel_column,power,fan_out,column_buffer,miso_enable}.kicad_sch` — editable KiCad sub-sheets (S-expression format) read at SHA `0a8ec33c` (the v1.1.7 bump commit) for the pin table below
+  - `arena_10-10/arena_10-10_v1/assets/arena_10_of_10_v1r1.pdf` — schematic PDF rendered from the same sources
 
 - **Test arena (historical, dev-only, not used):** [`reiserlab/LED-Display_G6_Hardware_Test_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Test_Arena) (in this clone as the `Generation 6/Hardware` submodule). Per its own `docs/test-arena.md`: "intended as a development platform for arena firmware, but it was never actually used … this test arena should not be the default starting point". Captured here only because the dev-set README's status table lists it as a sibling of the production arena; firmware work targets the production arena, not the test arena.
 
-> **⚠ Flag — pin assignments are not extracted into this dev doc.** Specific Teensy GPIO numbers for each CS line, AO/AI/DO line, and EINT input are in `arena_10_of_10_v1r1.pdf` and the `analog.kicad_sch` / `teensy.kicad_sch` / `panels.kicad_sch` schematic sheets. Pin-level extraction is required before the G6 controller firmware can be written; either add a per-pin table to this file by reading the KiCad netlist, or treat the schematic PDF as the authoritative wiring reference and link to it from `g6_03-controller.md`.
-
 > **⚠ Flag — `docs/arena.md` lags the README.** The production Arena `README.md` declares v1.1.7 as the production run; `docs/arena.md` still recommends v1p1r6. The KiCad project root `arena_10_of_10_v1r1.kicad_pro` keeps a `_v1r1` filename even at later revisions. Reconcile (probably by updating `docs/arena.md`) or note the version mapping convention here.
+
+---
+
+## Pin assignments
+
+Extracted from the KiCad sources at SHA `0a8ec33c` (last commit touching `arena_10-10/arena_10-10_v1/`, 2026-04-28 — v1.1.7 production bump). Methodology: parsed the `Teensy4.1_Ethernet_Only` symbol from `teensy.kicad_sch` for the 54 footprint pins, then BFS-traced each pin's wires + series resistors + bus entries to the nearest local-name label, then cross-referenced labels with the per-peripheral sheets (`panels.kicad_sch`, `analog.kicad_sch`, `power.kicad_sch`) and validated against the production `netlist.ipc`. **Two pin-number conventions matter:** the `Teensy pin` column uses the footprint pin number (1–48 around the perimeter, 60–65 for the magjack vias); the `GPIO label` column uses the canonical Teensy 4.1 silk-screen pin name (e.g. `D13`).
+
+| Peripheral group | Function | Teensy pin | GPIO label | Net name | Notes |
+|---|---|---|---|---|---|
+| **SPI bus B0 (P1–P5)** | MOSI | 13 | D11 | `TNY.MOSI_B0` | |
+| | MISO | 14 | D12 | `TNY.MISO_B0` | |
+| | SCK | 35 | **D13** | `TNY.SCK_B0` | ⚠ Shares pin with Teensy on-board LED — see flag below |
+| **SPI bus B1 (P6–P10)** | MOSI | 18 | D26 | `TNY.MOSI_B1` | |
+| | MISO | 3 | D1 | `TNY.MISO_B1` | |
+| | SCK | 19 | D27 | `TNY.SCK_B1` | |
+| **Panel CS lines (20 distinct Teensy GPIOs, 4 per panel column, shared across buses)** | P1 (B0) / P6 (B1) — CS0..CS3 | 2, 4, 5, 6 | D0, D2, D3, D4 | `TNY.CS_00..CS_03` | Same pins gate column 1 on B0 *and* column 6 on B1; bus separation prevents collision |
+| | P2 (B0) / P7 (B1) — CS0..CS3 | 7, 8, 9, 10 | D5, D6, D7, D8 | `TNY.CS_04..CS_07` | |
+| | P3 (B0) / P8 (B1) — CS0..CS3 | 11, 12, 16, 17 | D9, D10, D24, D25 | `TNY.CS_08..CS_11` | |
+| | P4 (B0) / P9 (B1) — CS0..CS3 | 20, 21, 22, 23 | D28, D29, D30, D31 | `TNY.CS_12..CS_15` | |
+| | P5 (B0) / P10 (B1) — CS0..CS3 | 24, 45, 44, 43 | D32, D23, D22, D21 | `TNY.CS_16..CS_19` | |
+| **Panel external interrupt** | EINT to all 10 columns | 25 | D33 | `TNY.EINT` | Single Teensy pin drives `PAN.EINT_P1..P10` for all 10 panel columns. Panel-internal IRQ; **distinct from the experimenter EINT below** |
+| **Experiment I/O — Analog Output** | AOUT 0–5 V | — (I2C-driven) | — | DAC out → BNC J27 | **No direct Teensy pin.** Generated by an MCP4725 12-bit I²C DAC; firmware writes via I²C on pins 40/41 (D18/D19). Update rate bounded by I²C clock (Wire1 at 400 kHz → ~6 kSa/s) |
+| **Experiment I/O — Analog Inputs** | AIN0 (±10 V) | 36 | D14 / A0 | `AIN.A0` | ±10 V on BNC J28 → OPA2277 scales to 0–3.3 V before reaching Teensy ADC |
+| | AIN1 (±10 V) | 37 | D15 / A1 | `AIN.A1` | ±10 V on BNC J29 → same OPA2277 scaling chain |
+| **Experiment I/O — Digital In/Out** | DIO 0–5 V (bidirectional) | 27 | D35 | `D35_0_3V3` ↔ `D35_5V` | BNC J4 "0-5V Digital In/Out". Bidirectional 5 V via SN74LVC1T45 level translator (U3); direction follows Teensy `pinMode` |
+| **Experiment I/O — External Interrupt** | EINT 0–5 V (bidirectional) | 29 | D37 | `D29_0_3V3` ↔ `D29_5V` | BNC J3 "External Interrupt". Bidirectional 5 V via SN74LVC1T45 (U2). Distinct from the panel-internal `TNY.EINT` above |
+| **I²C bus** | SDA | 40 | D18 | `I2C.SDA` | Pulled up to 3V3. Sole peripheral on bus is the MCP4725 DAC for AOUT |
+| | SCL | 41 | D19 | `I2C.SCL` | |
+| **Ethernet** | TX+ | 63 | — | `ETH_T+` | Teensy 4.1 Ethernet magjack via Cetus RJ45 |
+| | TX- | 62 | — | `ETH_T-` | |
+| | RX+ | 60 | — | `ETH_R+` | |
+| | RX- | 65 | — | `ETH_R-` | |
+| | LED | 61 | — | `ETH_LED` | Activity LED |
+| **Power** | VIN (+5 V) | 48 | — | `VIN` | Powered from board 5 V rail |
+| | GND | 1, 34, 47, 64 | — | `GND` | |
+| | +3.3 V out | 15, 46 | — | `+3.3V` | Teensy regulator output |
+| | Power switch state | — | — | — | **No firmware visibility.** SW1 (SPDT) gates 5 V from J25/J26 barrel jacks into `SW_5V`; that net is local to `power.kicad_sch` and never reaches a Teensy GPIO |
+| **Unused / future** | spare / NC | 26, 28, 30, 31, 32, 33, 38, 39, 42 | D34, D36, D38–D41, D16, D17, D20 | `Net-(U1-NN_..)` or `no_connect` | Available for future hardware revisions; firmware should not assert these |
+
+### Things firmware-relevant that the source spec didn't anticipate
+
+1. **20 distinct Teensy CS pins, not 10** (despite "10-panel arena"). Each Teensy CS pin gates one panel column on bus B0 *and* one panel column on bus B1 simultaneously — the bus separation prevents collisions. Firmware can therefore address P1 and P6 in parallel by writing to both buses concurrently with the same CS asserted. There are **4 CS lines per panel column** (CS0–CS3), presumably fanned out to 4 sub-panels per column on the column-buffer board (see `column_buffer.kicad_sch`, `fan_out_by_2x.kicad_sch`, `fan_out_by_5x.kicad_sch`).
+2. **SCK_B0 is on D13** — the same pin as the Teensy on-board LED (`LED_BUILTIN`). Asserting LED for board status will visibly flicker SCK during SPI traffic; conversely, `digitalWrite(LED_BUILTIN, ...)` while bus B0 is active will glitch the SPI clock. **Firmware must not use `LED_BUILTIN` as a generic status indicator** — pick a different GPIO or the `ETH_LED` net.
+3. **AOUT is an MCP4725 I²C DAC, not a direct Teensy DAC pin.** Teensy 4.1 has no built-in DAC; firmware needs an I²C library plus the MCP4725 address (default 0x60/0x62). This affects update rate (≪ direct DAC) and adds a one-tick I²C latency to TSI Mode 1 AO updates.
+4. **AI lines are scaled via OPA2277 op-amp.** ±10 V external (BNC J28/J29) → 0–3.3 V at the Teensy ADC pin. There is also an on-board precision **REF102AU 10 V reference** (U84) used by the scaling chain — drift in this part biases AI calibration.
+5. **DIO and EINT are bidirectional 5 V via SN74LVC1T45 level translators.** Firmware sets direction via `pinMode`; the level translator's DIR pin is wired to follow the Teensy GPIO direction signal. Verify the DIR control net before assuming this is automatic.
+6. **The on/off switch is invisible to firmware.** SW1 only gates the 5 V supply rail; if firmware needs to know "user pressed off", it can't — the Teensy will simply lose VIN. Use external watchdog / brown-out behavior instead.
+7. **Multiple SN74HCS08 / column-buffer chips exist** between the Teensy CS lines and the actual panel CS pins — firmware should be aware that the propagation delay (~5–10 ns each) accumulates, but won't matter at the 5 MHz SPI rate the slim G4.1 controller uses.
+8. **Pins 30–33 and 38, 39, 42 are explicit `no_connect` markers in the schematic.** Pins 26, 28 (D34, D36) are auto-named, also floating. All these are spare GPIO available for hardware revisions.
 
 ---
 
@@ -31,77 +79,99 @@ Status: **Thin firmware-interface reference.** Per the prior plan's "Arena Desig
 
 The 10-10 arena has **two SPI buses**, each driving five panel columns:
 
-| SPI bus | Panel columns served (hardware silk) | Equivalent (0-indexed, spec wording) |
-|---|---|---|
-| **B0** | P1, P2, P3, P4, P5 | columns 0–4 → region 0 |
-| **B1** | P6, P7, P8, P9, P10 | columns 5–9 → region 1 |
+| SPI bus | Panel columns served (hardware silk) | Equivalent (0-indexed, spec wording) | Teensy SPI peripheral |
+|---|---|---|---|
+| **B0** | P1, P2, P3, P4, P5 | columns 0–4 → region 0 | Teensy `SPI` (MOSI=D11, MISO=D12, SCK=D13) |
+| **B1** | P6, P7, P8, P9, P10 | columns 5–9 → region 1 | Teensy `SPI1` (MOSI=D26, MISO=D1, SCK=D27) |
 
-This matches the source spec exactly (the spec uses 0-indexed columns, the hardware silk uses 1-indexed P-numbers — same mapping). Each panel column has dedicated chip-select routing (10 CS lines total).
+This matches the source spec exactly (the spec uses 0-indexed columns, the hardware silk uses 1-indexed P-numbers — same mapping).
 
-External-interrupt routing is also present per panel column — see "Experiment I/O" below for the EINT line that's exposed to firmware.
+**Chip-select topology:** **20 distinct Teensy GPIOs** carry the CS lines (4 per panel column × 5 columns per bus, with the same Teensy pin gating the corresponding columns on B0 and B1 — see Pin assignments above). The slim G4.1 baseline uses a 30-pin CS matrix for a 5×6 arena; G6 needs a 4-CS-per-column × 10-column matrix instead. This is in the **Modify** section of [`g6_03-controller.md`](g6_03-controller.md)'s reconciliation.
+
+> **⚠ Flag — D13 / `LED_BUILTIN` conflict on SPI bus B0 SCK.** Firmware must NOT use `digitalWrite(LED_BUILTIN, ...)` for status — it will glitch the SCK on bus B0. Use `ETH_LED` (Teensy pin 61) or one of the spare GPIOs as a status indicator instead.
+
+External-interrupt routing is also present per panel column (panel-internal `PAN.EINT_P1..P10`, all driven by Teensy pin 25 / `D33` / `TNY.EINT`). This is the panel-side interrupt, distinct from the experimenter EINT BNC.
 
 ### Experiment I/O
 
-Per `docs/arena.md` § Experiment I/O (which paraphrases `analog.kicad_sch`):
+The arena exposes the firmware-controllable lines below. **AOUT is via an MCP4725 I²C DAC, not a direct Teensy DAC pin** — Teensy 4.1 has no DAC. **AI lines are scaled via OPA2277** (±10 V external → 0–3.3 V at the Teensy ADC). **DIO and EINT are bidirectional 5 V via SN74LVC1T45 level translators**.
 
 | Line | Type | Range | Count | Source spec asked for | As-built |
 |---|---|---|---|---|---|
-| AO | Analog output | 0–5 V | 1 | "at least one ... 0-5V, sufficient current to drive external hardware" | ✓ matches |
-| AI | Analog input | ±10 V | **2** | "at least one ... -5V to +5V" | ✓ exceeds spec on count and range |
-| DI/DO | Digital I/O | 0–5 V | 1 | "at least one digital output line ... 5V ideal" | ✓ implemented as bidirectional |
-| EINT | External interrupt | digital | 1 | not in source tab | ✓ added by hardware design |
+| AOUT | Analog output (MCP4725 I²C DAC) | 0–5 V | 1 | "at least one ... 0-5V, sufficient current to drive external hardware" | ✓ matches; via I²C DAC, not direct GPIO |
+| AIN0/AIN1 | Analog input (OPA2277-scaled) | ±10 V external → 0–3.3 V to Teensy | **2** | "at least one ... -5V to +5V" | ✓ exceeds spec on count and range |
+| DIO | Digital I/O (bidirectional, level-translated) | 0–5 V | 1 | "at least one digital output line ... 5V ideal" | ✓ implemented as bidirectional |
+| EINT | External interrupt (bidirectional, level-translated) | 0–5 V | 1 | not in source tab | ✓ added by hardware design |
 
 **I/O power supply:** [Recom RB-0515D](https://octopart.com/part/recom-power/RB-0515D) DC-DC isolated module powers the I/O sub-circuit. **Not in BOM** — solder by hand after arena receipt. Firmware does not need to manage this part; flagged here so bring-up procedures know it's a manual step.
 
 ### Connector form-factor
 
-The source spec asked for "right-angle, PCB-mounted BNC connectors for these I/O lines". The as-built connector type is **not stated in `docs/arena.md`** — verify against `arena_10_of_10_v1r1.pdf` or production photos before writing host-side cabling/breakout assumptions.
+Source spec asked for "right-angle, PCB-mounted BNC connectors for these I/O lines". Confirmed by the schematic:
+
+| BNC | Function | Refdes |
+|---|---|---|
+| J3 | External Interrupt (0–5 V bidirectional) | EINT |
+| J4 | Digital I/O (0–5 V bidirectional) | DIO |
+| J27 | Analog Output (0–5 V) | AOUT |
+| J28 | Analog Input 0 (±10 V) | AIN0 |
+| J29 | Analog Input 1 (±10 V) | AIN1 |
+
+Verify mechanical orientation (right-angle vs straight) against the rendered PDF (`arena_10_of_10_v1r1.pdf`) before committing host-side cabling assumptions, but the spec request for BNC is met.
 
 ### Power and on/off
 
 - Two DC barrel-jack connectors:
   - **J25** — main power input from supply
   - **J26** — distributes power to a separate top board (top-board design not yet published in G6 hardware repo)
-- **Power switch** — added in `v1p1r2` per `docs/arena.md` revision history. Provides Teensy power-cycle without unplugging USB/barrel-jack. Source spec requested this; ✓ implemented.
+- **Power switch (SW1, SPDT)** — added in `v1p1r2` per `docs/arena.md` revision history. Provides Teensy power-cycle without unplugging USB/barrel-jack. ✓ Source spec implemented.
+- **The switch is invisible to firmware.** The SPDT only gates the 5 V supply rail; the switched net (`SW_5V`) is local to `power.kicad_sch` and has no path to a Teensy GPIO. Firmware cannot detect "user pressed off" beyond losing VIN.
 
 ### Mode 4 / closed-loop relevance
 
 The source spec calls out the AI line specifically for "flight arena experiments (for mode 4 closed loop), so could be pushed to later version". Reconciled status:
 
 - The slim G4.1 controller has `gain_` stored but never read (`CommandProcessor.cpp:233-248`); closed loop runs on an internal counter, not a real analog input.
-- The G6 arena exposes **two ±10 V analog inputs** that the controller firmware can read.
-- Mapping decision: does Mode 4 read a single AI line (and which one), or both? Single is the spec-implied default; two would let host-supplied gain react to two independent voltages (e.g., x and y axes for a 2-axis joystick or a fly-on-ball setup). Defer to the controller doc.
+- The G6 arena exposes **two ±10 V analog inputs** (Teensy pins 36/37, GPIO D14/D15 = A0/A1) that the controller firmware can read after OPA2277 scaling.
+- Mapping decision: does Mode 4 read a single AI line (and which one), or both? Single is the spec-implied default; two would let host-supplied gain react to two independent voltages (e.g., x and y axes for a 2-axis joystick or fly-on-ball setup). Defer to the controller doc.
 
 > **⚠ Flag — closed-loop wiring contract is unspecified.** Source spec is silent on which of the two AI lines drives Mode 4; whether AI is sampled at the `analog_closed_loop_frequency_hz=200` rate (slim default) or differently for G6; whether the gain field in `trial-params` scales the AI reading, integrates it, or is unused. Resolve in [`g6_03-controller.md`](g6_03-controller.md) Open Question #8.
 
 ### v3 gated/persistent display relevance
 
-The arena exposes **one EINT line** that the firmware can use as a v3 trigger source. Cross-references:
+The arena exposes one *experimenter* EINT line (Teensy pin 29 / GPIO D37, BNC J3) and one *panel-internal* EINT line (Teensy pin 25 / GPIO D33, drives all 10 panel columns). The two are distinct.
 
-- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 documents the panel-side gated/persistent/triggered modes and flags two open issues (trigger edge polarity, sync-vs-async gating semantics) — those decisions interact with how this EINT line is driven on the arena side.
-- The slim G4.1 controller has no input pins beyond CS lines; v3 trigger wiring is **net-new for G6** and depends on this arena EINT line.
+For v3 trigger work:
 
-> **⚠ Flag — EINT availability vs trigger panel-side.** The source spec for v3 talks about a trigger line *to the panels* (gating their display mode). The arena's EINT can be wired either as (a) a host-driven input the controller reads to clock its own state machine, or (b) a controller-driven output to the panels' trigger pins. Both interpretations are consistent with current schematics; pick before the controller doc commits to a specific wiring.
+- The **experimenter EINT (BNC J3)** is the natural choice for an external trigger source clocked by experimental hardware (e.g., camera frame sync, behavior-rig trigger). Bidirectional 5 V via SN74LVC1T45 means it can be input or output depending on firmware setup.
+- The **panel-internal EINT (D33 → all columns)** is the controller-driven path to gate the panels' display mode in v3 gated/persistent operation.
+
+Cross-references:
+
+- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 documents the panel-side gated/persistent/triggered modes and flags two open issues (trigger edge polarity, sync-vs-async gating semantics) — those decisions interact with how the panel-internal EINT (D33) is driven from the controller.
+- The slim G4.1 controller has no input pins beyond CS lines; v3 trigger wiring is **net-new for G6** and depends on these arena EINT lines.
+
+> **⚠ Flag — wire the two EINT roles explicitly.** Source spec for v3 ambiguously talks about "a trigger line"; this arena has two distinct trigger paths (experimenter input via J3, and panel-internal output via D33). Pick which one drives v3 gating, and document the chosen direction (host → controller → panels) before the controller doc commits to wiring.
 
 ### v2 PSRAM / Mode 1 (TSI DO/AO) relevance
 
 The source spec for Mode 1 TSI files defines a 5-byte record `[FrameIndex16, DO, AO_lo, AO_hi]` with both DO and AO output lines' pin assignments noted as "depending on arena design". Reconciled:
 
-- The arena exposes **1 AO** (0-5V) and **1 DO** (0-5V).
+- The arena exposes **1 AO** (MCP4725 over I²C, 0–5 V, BNC J27) and **1 DO** (Teensy D35, level-translated to 5 V, BNC J4 — bidirectional, configured as output for Mode 1).
 - The TSI record's DO byte (1 byte) → encodes a single digital output state; arena has 1 DO line → straightforward mapping.
-- The TSI record's AO field (16 bits) → encodes a single analog output sample; arena has 1 AO line → single-channel.
-- **The source spec floated "2 AO lines might be interesting, depending on arena design".** As-built has 1 AO. If a future TSI variant wants 2-channel AO, the arena would need a re-spin (or repurpose one of the AI lines as bidirectional, which the schematic does not currently support).
+- The TSI record's AO field (16 bits) → encodes a single analog output sample; arena has 1 AO line → single-channel; firmware writes the upper 12 bits to MCP4725 (DAC is 12-bit, low 4 bits of AO field are ignored or rounded).
+- **The source spec floated "2 AO lines might be interesting, depending on arena design".** As-built has 1 AO — adding a second would require an arena re-spin (or repurposing one of the AI lines, which the OPA2277 chain doesn't currently support).
 
 ---
 
 ## Open Questions / TBDs
 
-1. **Per-pin Teensy GPIO assignments** for: 10 CS lines, AO line, 2× AI lines, DI/DO line, EINT line. Required before any G6 controller firmware can be written. Extract from `arena_10_of_10_v1r1.pdf` or the KiCad netlist.
-2. **Connector form-factor on I/O lines.** Source spec requested right-angle PCB-mounted BNC; as-built type not confirmed from available docs. Verify.
+1. **Mode 4 AI line selection** — which of `AIN.A0` (Teensy pin 36/D14) or `AIN.A1` (pin 37/D15) drives Mode 4 closed loop, sampling rate, gain semantics. Cross-doc with [`g6_03-controller.md`](g6_03-controller.md) Open Question #8.
+2. **EINT direction for v3 gating** — pick whether the experimenter EINT (J3) is host-clocked input or controller-driven output, and similarly clarify the panel-internal EINT (D33) usage. Picks the v3 trigger wiring contract.
 3. **`docs/arena.md` lags reality at v1.1.7.** Either update the submodule's docs or note the version-mapping convention here.
-4. **Mode 4 AI line selection** — which of the two AI lines, sampling rate, gain semantics. Cross-doc with `g6_03` Open Question #8.
-5. **EINT direction for v3 gating** — input to controller or output to panels? Picks the v3 trigger wiring contract.
-6. **Top-board design (J26 use).** Not yet published. If a future controller doc surfaces a need, this is the place.
+4. **MCP4725 I²C address.** Default is 0x60 or 0x62 depending on factory option; not visible from the schematic without checking the part footprint. Verify before writing AOUT firmware.
+5. **SN74LVC1T45 DIR control nets** for DIO (J4) and EINT (J3). Should follow the Teensy GPIO direction, but the wiring of the DIR pin was not traced — verify before assuming auto-direction.
+6. **Top-board design (J26 use).** Not yet published. If a future controller doc surfaces a need (extra DO, more DIO, additional analog), this is the place.
 7. **Multi-arena variant** (8-of-10 columns / "288° stimulated / 72° gap behind", per source spec). Production Arena `arena_10-10` is the only published variant; the 8-of-10 case is handled today via the panel mask in the v2 pattern header (see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)) without requiring a different PCB.
 8. **2-channel AO future.** If the spec ever firms up two AO lines for TSI-driven experiments, an arena re-spin is required.
 
@@ -114,6 +184,6 @@ The source spec for Mode 1 TSI files defines a 5-byte record `[FrameIndex16, DO,
 - [reiserlab/LED-Display_G6_Hardware_Arena](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) — production arena submodule remote (used to populate this doc via `gh api`)
 - [reiserlab/LED-Display_G6_Hardware_Test_Arena](https://github.com/reiserlab/LED-Display_G6_Hardware_Test_Arena) — historical/never-used dev test arena
 - [`g6_00-architecture.md`](g6_00-architecture.md) — host/controller/panel split; the arena hosts the controller
-- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — panel protocol; v3 trigger semantics interact with the EINT line on this arena
+- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — panel protocol; v3 trigger semantics interact with the EINT lines on this arena
 - [`g6_03-controller.md`](g6_03-controller.md) — controller doc; arena facts here resolve open questions about CS-line topology, AI source for Mode 4, EINT for v3 gating
 - [`g6_06-host-software.md`](g6_06-host-software.md) — host-side concerns; arena geometry must be supplied from host since controller is geometry-ignorant
