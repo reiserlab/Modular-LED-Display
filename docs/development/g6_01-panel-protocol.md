@@ -184,8 +184,6 @@ v4 is at **nothing implemented anywhere**. Both reference firmwares were checked
 
 v5 is a sketch in the source. No reconciliation possible — there are no opcodes assigned to the "interesting commands" bullets, no payload formats, no implementation references. Treat the v5 section as a roadmap rather than a specifiable protocol version. The 4-level / 256-level grayscale opcode ranges (`0x20…0x2F`, intended `0x40…0x4F`) are a parallel extension of the existing 2-level / 16-level encoding scheme; if any of those becomes implementation-ready, lift it into a proper version (v5 or whatever's next) at that point.
 
-> **⚠ Flag — file-scope status mixing:** the file is being built up version-by-version (v1 first, then v2, then v3, then v4/v5/summary), each with sign-off. While that's in progress, the status line above will mix Specified (for landed versions) with `_not yet migrated_` for the rest. This is expected during Phase-1 development.
-
 ---
 
 ## v1 — G6 Panel Protocol
@@ -249,8 +247,6 @@ The stretch value is a single byte (0-255) that scales the brightness of all pix
 
 little-endian for all multi-byte integers. Pack pixels MSB-first within each byte.
 
-> **⚠ Flag — redundancy:** this rule is already stated in [`g6_00-architecture.md`](g6_00-architecture.md). Consider removing the duplicate in Phase 2 consolidation, or keep as a per-section reminder if helpful.
-
 #### SPI framing
 
 Each message SHALL be transmitted as exactly one SPI transaction, bounded by chip-select (CS). The message begins on CS falling edge and ends on CS rising edge. The controller and panel SHALL reset their message parsers on CS rising edge.
@@ -262,8 +258,6 @@ The controller SHALL clock exactly the number of bytes required by the command f
 **Message rejection behavior:**
 
 If any validation fails (unsupported protocol version, unsupported command, incorrect message length, parity failure), the panel SHALL discard the message.
-
-> **⚠ Flag — v2 forward note:** the "at least 3 bytes" floor is encoded in firmware as `MESSAGE_MINIMUM_SIZE = HEADER_SIZE (2) + PAYLOAD_MINIMUM_SIZE (1) = 3`. v2 commands `0x02`, `0x03`, `0x0F` have zero-byte payloads in the source spec — under the firmware's current rule those would need at least 1 dummy payload byte (since `PAYLOAD_MINIMUM_SIZE = 1`), or `PAYLOAD_MINIMUM_SIZE` needs to drop to 0. Decide during v2 migration.
 
 ### Implemented Commands
 
@@ -278,8 +272,6 @@ Version 1 of the protocol supports only three commands (controller → panel):
 | 0\|1 | 1 | `0x01` | 200 | 202 | `COMM_CHECK` |
 | 0\|1 | 1 | `0x10` | 51 (50 + stretch) | 53 | `DISP_2LVL_ONESHOT` |
 | 0\|1 | 1 | `0x30` | 201 (200 + stretch) | 203 | `DISP_16LVL_ONESHOT` |
-
-> **⚠ Flag — table column structure flattened from source:** the source table had a 2-row merged header (`Header` over `parity / version`) and a stray empty 6th column. Flattened to clean Markdown above. Verify equivalence: parity column is `0|1` (parity bit can be either), version column is `1` (v1 version bits = `0b0000001` = 1).
 
 #### `0x01` — Communication check
 
@@ -331,9 +323,7 @@ The next time the CS is active for more than 3 bytes, the panel sends this messa
 
 If the panel buffer is empty, it returns `0x8100` (empty command "0").
 
-We use an 8-bit (simple additive) checksum since this is faster to calculate than CRC, SHA, or other error detecting algorithms.
-
-> **⚠ Flag — checksum algorithm naming inconsistency:** the prose says "8-bit (simple additive) checksum" but the [Pattern File Format tab](g6_04-pattern-file-format.md) uses an "XOR" checksum for the PAT-file body. Two different checksum algorithms in the same protocol family is fine if intentional, but worth noting. Confirm `g6_firmware_devel` implements additive (sum mod 256), not XOR, for panel confirmations.
+We use an 8-bit (simple additive) checksum since this is faster to calculate than CRC, SHA, or other error detecting algorithms. (Note: the panel-confirmation checksum here is **additive** (sum mod 256); the [pattern-file checksum in `g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) is **XOR**. Both are confirmed against firmware; the two algorithms intentionally differ.)
 
 > **⚠ Flag — "CS active for more than 3 bytes" trigger condition:** the rule is that the panel transmits its stored confirmation when the next CS transaction exceeds 3 bytes. But the "at least 3 bytes" rule above also says the controller clocks at least 3 bytes per message. So *every* valid message would trigger confirmation transmission — no discriminator. Question: is the trigger really `>3 bytes` (strict) so that a hypothetical 3-byte heartbeat could read empty buffer state without triggering confirmation send? Or is it `≥3 bytes`? Reconcile against `g6_firmware_devel`.
 
@@ -466,9 +456,7 @@ To make this error visible — we will need to keep them displayed for a short i
 
 This feature is not required for protocol v1 compliance but provides a quick, hardware-level diagnostic without needing serial debug output.
 
-> **⚠ Flag — `0x70` collides with v4:** the suggestion to use command `0x70` for the error display puts it in command space that v4 reserves for "Display Predefined Pattern with Stretch (Oneshot)". Either the error display uses a different command code, or the v4 spec should explicitly carve out a slot for the error glyph (e.g., `predefined pattern 0` is the error glyph, indexed via the v4 `0x70` command). Reconcile when the v4 section lands.
-
-> **⚠ Flag — error-display frame ASCII shows 2×2 chars not 5×7:** the source claims "5×7 pixel size per char is typical" but the ASCII glyphs in the example are roughly 5 columns wide × 7 rows tall arranged as 2×2 (4 chars total: P / E / digit / digit). Verify the pixel count by counting the `#` cells in the source glyph; the migration above preserved the source ASCII verbatim — note the asterisks (`\*`) in the source were Markdown escapes for `#`, which I've decoded.
+> **⚠ Flag — `0x70` collides with v4:** the suggestion to use command `0x70` for the error display puts it in command space that v4 reserves for "Display Predefined Pattern with Stretch (Oneshot)". Either the error display uses a different command code, or the v4 spec should explicitly carve out a slot for the error glyph (e.g., `predefined pattern 0` is the error glyph, indexed via the v4 `0x70` command). See also the v4 `0x70` section below.
 
 ---
 
@@ -476,7 +464,7 @@ This feature is not required for protocol v1 compliance but provides a quick, ha
 
 Version 2 of the protocol extends v1 by adding PSRAM (Pseudo-Static RAM) support, enabling panels to store multiple patterns in memory and display them on demand. While protocol version 1 is already able to emulate all the commands G4 can support, protocol version 2 should be capable of handling higher framerates and might be a first useful version to release to the community.
 
-> **⚠ Flag — version-bit value not stated in source:** v2 implies version bits `0b0000010` (giving headers `0x02` / `0x82`) — this is consistent with the example bytes used throughout v2's command examples but is never written down explicitly. Lift to normative spec text when the master command summary lands.
+For Protocol v2, the version bits are `0b0000010`, giving possible header values `0x02` (parity 0) / `0x82` (parity 1).
 
 ### Additional Commands (v2)
 
@@ -517,24 +505,18 @@ Clears all user-stored patterns from PSRAM, keeping only factory predefined patt
 
 **Example**:
 
-`[0x02] [0x0F]`
-
-> **⚠ Flag — example header `0x02` is wrong:** with v2 version bits `0b0000010` and command `0x0F = 0b00001111`, the popcount is 1 + 4 = 5 → parity = 1 → header should be `0x82`. Source says `0x02`. Fix during the next pass (same kind of transcription error as the v1 examples).
-
-> **⚠ Flag — section heading vs body inconsistency:** source section heading reads "Reset RAM"; body and command-list say "Reset PSRAM". Migrated heading uses "Reset PSRAM" for consistency with the rest of the v2 section. Confirm intent.
+`[0x82] [0x0F]`
 
 **Purpose**: Reset the panel's PSRAM to a clean state, removing all patterns stored via commands `0x1F` and `0x3F`.
 
 - Starting a new experimental session with fresh memory
 - Ensuring a known initial state before loading new patterns
 
-> **⚠ Flag — "factory predefined patterns" not yet specified:** "keeping only factory predefined patterns" implies a category of patterns that survives Reset PSRAM. v4 introduces predefined patterns explicitly (commands `0x70+`); but v2 itself does not specify them. Decide whether to drop the parenthetical here or carry it forward as a forward-reference to v4.
-
 #### `0x1F` — Write 2-Level Grayscale to PSRAM
 
 Writes a 2-level (1-bit per pixel) pattern to PSRAM for later retrieval.
 
-**Payload**: 53 bytes
+**Payload**: 54 bytes (3 idx + 50 pattern + 1 stretch)
 
 - **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
 - **Bytes 5–54**: Pattern data (50 bytes)
@@ -547,15 +529,13 @@ Writes a 2-level (1-bit per pixel) pattern to PSRAM for later retrieval.
 
 `[0x02] [0x1F] [index: 3 bytes] [pixel data: 50 bytes] [stretch]`
 
-**Purpose**: Store patterns in the panel's PSRAM instead of transmitting them every time. This reduces transmission overhead during high-speed pattern sequences and enables efficient pattern libraries.
-
-> **⚠ Flag — index endianness unspecified:** "3 bytes, 24-bit integer" — is this little-endian (consistent with [`g6_00-architecture.md`](g6_00-architecture.md) "little-endian for all multi-byte integers")? Spec it explicitly per the architecture rule. Same flag applies to commands `0x3F` and `0x50`.
+**Purpose**: Store patterns in the panel's PSRAM instead of transmitting them every time. This reduces transmission overhead during high-speed pattern sequences and enables efficient pattern libraries. (Multi-byte index follows the file-wide little-endian convention from [`g6_00-architecture.md`](g6_00-architecture.md); same applies to `0x3F` and `0x50`.)
 
 #### `0x3F` — Write 16-Level Grayscale to PSRAM
 
 Writes a 16-level (4-bit per pixel) pattern to PSRAM for later retrieval.
 
-**Payload**: 203 bytes
+**Payload**: 204 bytes (3 idx + 200 pattern + 1 stretch)
 
 - **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
 - **Bytes 5–204**: Pattern data (200 bytes)
@@ -574,7 +554,7 @@ Writes a 16-level (4-bit per pixel) pattern to PSRAM for later retrieval.
 
 Displays a pattern that was previously stored in PSRAM using command `0x1F` or `0x3F`.
 
-**Payload**: 4 bytes
+**Payload**: 3 bytes
 
 - **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
 
@@ -582,15 +562,11 @@ Displays a pattern that was previously stored in PSRAM using command `0x1F` or `
 
 `[0x02] [0x50] [index: 3 bytes]`
 
-> **⚠ Flag — payload size mismatch:** "Payload: 4 bytes" but only "Bytes 2–4" (3 bytes of index) are listed. Either the payload is 3 bytes (matching the listed fields) and the "4 bytes" claim is wrong, or there's an unspecified 4th byte. The Master Command Summary in the source ([Panel Version Summary tab, lines 1042–1110]) lists this command's payload as "3 (idx)" — so the "4 bytes" here is most likely a transcription error and the payload is actually 3 bytes.
-
 **Purpose**: Display a pre-stored pattern immediately (oneshot = display once). This provides:
 
-- **Fast pattern switching**: Only 5 bytes need to be transmitted instead of 52–202 bytes
+- **Fast pattern switching**: Only 5 bytes total (header + command + 3-byte index) need to be transmitted instead of 52–202 bytes
 - **Efficient memory usage**: Store patterns once, reference them by index
 - **Reduced bandwidth**: Critical for high-frequency pattern sequences
-
-> **⚠ Flag — "5 bytes" inconsistent with "Payload: 4 bytes":** the Purpose says total transmission is 5 bytes (header + command + 3-byte index = 5), which matches a 3-byte payload, contradicting the "Payload: 4 bytes" claim above. Resolves the same ambiguity: payload is 3 bytes, total message is 5 bytes.
 
 ### Typical v2 Workflow
 
@@ -610,13 +586,13 @@ Displays a pattern that was previously stored in PSRAM using command `0x1F` or `
    [0x02] [0x50] [0x00 0x00 0x02]
    ```
 
-> **⚠ Flag — workflow example headers can't be parity-verified:** the example bytes use `[0x02]` for every header, but parity correctness depends on the elided `pattern N data…` payloads. The headers are illustrative, not normatively-correct for arbitrary payloads. When concrete patterns are chosen for a worked example, recompute the parity bits.
+(Example headers use `[0x02]` throughout; the actual parity bit depends on the elided pattern payloads — recompute when concrete patterns are chosen for a worked example.)
 
 ## v3 — G6 Panel Protocol v3 (teaser)
 
 Version 3 adds high-performance modes to the existing protocol. This takes advantage of the PSRAM and the additional trigger line, allowing synchronized displays with imaging setups. This release will enable a whole new set of experiments, precisely controlling the timing of visual stimuli to the rest of the experimental rigs.
 
-> **⚠ Flag — version-bit value not stated in source:** v3 implies version bits `0b0000011` (giving headers `0x03` / `0x83`) — consistent with the example bytes used throughout v3 but never written down explicitly. Lift to normative spec text when the master command summary lands.
+For Protocol v3, the version bits are `0b0000011`, giving possible header values `0x03` (parity 0) / `0x83` (parity 1).
 
 ### Additional Commands (v3)
 
@@ -679,7 +655,7 @@ Displays a 2-level (1-bit per pixel) pattern continuously until a new command is
 
 Displays a 16-level (4-bit per pixel) pattern with each column activation gated by the external trigger signal.
 
-**Payload**: 201 bytes of pattern data
+**Payload**: 201 bytes (200 pattern + 1 stretch)
 
 - 20×20 pixels in row-major order
 - 4 bits per pixel (0–15 intensity levels)
@@ -691,13 +667,11 @@ Displays a 16-level (4-bit per pixel) pattern with each column activation gated 
 
 **Purpose**: Same as `0x12` but with 16-level grayscale for more complex visual stimuli.
 
-> **⚠ Flag — `0x32` payload description omits stretch:** "Payload: 201 bytes of pattern data" suggests 201 bytes are *all* pattern data, but the breakdown only describes 200 bytes of pattern, and the example explicitly includes a `[stretch]` byte. Should read "Payload: 201 bytes (200 pattern + 1 stretch)" to match the convention used by `0x12` and `0x13` ("51 bytes of pattern data & stretch"). Same flag applies to `0x33` below. The total of 201 bytes is correct; only the descriptive wording is off.
-
 #### `0x33` — Display 16-Level Grayscale (Persistent)
 
 Displays a 16-level (4-bit per pixel) pattern continuously until a new command is received.
 
-**Payload**: 201 bytes of pattern data
+**Payload**: 201 bytes (200 pattern + 1 stretch)
 
 - 20×20 pixels in row-major order
 - 4 bits per pixel (0–15 intensity levels)
@@ -767,7 +741,7 @@ Displays a pattern from PSRAM continuously until a new command is received.
 
 Version 4 introduces predefined patterns. Predefined patterns are widely used patterns such as all-on, checkerboards, etc.
 
-> **⚠ Flag — version-bit value not stated in source:** v4 implies version bits `0b0000100` (giving headers `0x04` / `0x84`) — consistent with the example bytes used throughout v4 but never written down explicitly. Lift to normative spec text when consolidated.
+For Protocol v4, the version bits are `0b0000100`, giving possible header values `0x04` (parity 0) / `0x84` (parity 1).
 
 ### Additional Commands (v4)
 
@@ -786,7 +760,7 @@ Version 4 introduces predefined patterns. Predefined patterns are widely used pa
 
 > **⚠ Flag — "Trigger" is a 4th display mode introduced in v4 with no description.** v3 defined Oneshot / Gated / Persistent and (implicitly via `0x54`) Gated-Persistent. v4 adds a "Trigger" mode (`0x61`, `0x71`) but never describes how Trigger differs from Gated. Hypothesis: Trigger fires the display once on the next trigger edge (one-shot-but-trigger-gated), while Gated continuously gates the display while the trigger line is HIGH. **Action:** add a Trigger entry to the Display Modes section of v3 (or define it here in v4) before any of `0x61`/`0x71` becomes implementable.
 
-> **⚠ Flag — "Gated-Persistent" is now the 5th mode, still not described.** The v4 command list explicitly names `0x64` and `0x74` "Gated-Persistent". v3's workflow example used the corresponding `0x54` for PSRAM-index Gated-Persistent but didn't describe the mode. Consolidate the description with the v3 flag of the same name.
+(Gated-Persistent — the 5th mode named by `0x64` / `0x74` — is the same gap flagged in v3 § Display Modes; address both together.)
 
 #### `0x70` — Display Predefined Pattern with Stretch (Oneshot)
 
@@ -801,9 +775,7 @@ Displays a predefined pattern (stored in panel flash memory) once with specified
 
 `[0x04] [0x70] [index: 3 bytes] [stretch: 1 byte]`
 
-**Purpose**: Access factory-loaded or pre-programmed patterns stored in panel flash memory. Useful for common patterns (calibration grids, test patterns, standard backgrounds) without requiring PSRAM upload. Stretch allows these base patterns to be displayed at different intensities.
-
-> **⚠ Flag — `0x70` collides with the v1 error display suggestion.** v1 § Optional Panel Error Display suggests using `0x70` for the panel error glyph ("a future-proof implementation could already use the command 0x70"). v4 here uses `0x70` for "Display Predefined Pattern with Stretch (Oneshot)". Resolve: either move the error display to a different opcode, or reserve `predefined-pattern index 0` (or some sentinel index) as the "error glyph" slot indexed via this `0x70` command. Same flag as in v1.
+**Purpose**: Access factory-loaded or pre-programmed patterns stored in panel flash memory. Useful for common patterns (calibration grids, test patterns, standard backgrounds) without requiring PSRAM upload. Stretch allows these base patterns to be displayed at different intensities. (`0x70` opcode also referenced by v1 § Optional Panel Error Display — see [v1 flag](#optional-panel-error-display) for the resolution options.)
 
 #### `0x72` — Display Predefined Pattern with Stretch (Gated)
 
@@ -888,18 +860,16 @@ Displays a predefined pattern continuously with stretch until new command receiv
 // Pattern continues displaying at new brightness
 ```
 
-> **⚠ Flag — `0x1F` write is being used through a `[0x04]` v4 header.** Same compatibility question as v3: does v4 accept v1/v2/v3 commands as a superset? The spec implies yes (the workflow examples mix versions freely) but never states it normatively. Resolve along with the same flag in v3.
-
-> **⚠ Flag — workflow uses `0x60` and `0x63` but neither has a per-command spec section.** The first three workflows above use `0x60` (PSRAM-index-with-stretch Oneshot); the fourth uses `0x63` (Persistent). Both are listed in the Additional Commands list but are missing the per-command details (payload layout, example, purpose). Add per-command sections to make these workflows reproducible.
+(The `0x1F` write through a `[0x04]` v4 header above raises the same cross-version-compatibility question as v3 — see the v3 gated-persistent example flag. Workflows here use `0x60` / `0x63` whose per-command details are tracked in the v4 spec-coverage flag earlier in this section.)
 
 ## v5 — G6 Panel Protocol v5 (sketch)
 
 Add more grayscale levels, color support, and pattern modifiers.
 
 - `0x20…0x2F` — use 4-level grayscales similar to `0x10…0x1F`
-- `0x50…0x4F` — use 256-level grayscales similar to `0x10…0x1F`
+- `0x40…0x4F` — use 256-level grayscales similar to `0x10…0x1F`
 
-> **⚠ Flag — `0x50…0x4F` is an inverted range (typo).** Almost certainly intended to be `0x40…0x4F` (256-level grayscale opcodes paralleling 2-level at `0x10…0x1F` and 16-level at `0x30…0x3F`). The pattern would be: `0x10` = 2-level, `0x20` = 4-level, `0x30` = 16-level, `0x40` = 256-level. (Skipping `0x00` and 8-level — unclear why; perhaps reserved for future or simply an artifact of the 1/2/4-bit pixel encoding choices.)
+(Pattern: `0x10` = 2-level, `0x20` = 4-level, `0x30` = 16-level, `0x40` = 256-level; the `0x00` slot and 8-level encoding are skipped, likely reserved for future use.)
 
 Other commands that might be interesting:
 
@@ -908,8 +878,6 @@ Other commands that might be interesting:
 - Get pattern from PSRAM and change contrast (either using brightest or darkest pixel as reference).
 - Increase or decrease brightness in other ways than stretch.
 - Scale pattern sizes (zoom in, zoom out).
-
-> **⚠ Flag — v5 is a pure brainstorm, not a spec.** The "interesting commands" bullets above have no opcodes assigned, no payload formats, no examples. Treat v5 as a roadmap section, not a specifiable protocol version. Delete or formalize before consolidation. The precursor [G6 message format proposal](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit) (will@iorodeo.com) raised the 4-level + LUT HDR idea explicitly — that's the closest historical reference for v5's color-LUT direction.
 
 ## Master command summary (v1–v4)
 
@@ -941,10 +909,6 @@ This table provides a complete reference of all commands across protocol version
 
 > **⚠ Flag — master summary is missing rows for several declared commands.** The v3 command list declared `0x12`/`0x13`/`0x32`/`0x33`/`0x52`/`0x53` (all present here) plus the implied `0x54` (NOT in this table). The v4 command list declared `0x60`/`0x61`/`0x62`/`0x63`/`0x64` and `0x70`/`0x71`/`0x72`/`0x73`/`0x74`, but this table only includes `0x60`/`0x62`/`0x63`/`0x70`/`0x72`/`0x73` — missing `0x61`/`0x64`/`0x71`/`0x74` (Trigger and Gated-Persistent variants). Either the table is incomplete, or those commands are aspirational and should be removed from the v4 command list. **Action:** decide which set is canonical and align the table with the per-version command lists.
 
-> **⚠ Flag — payload-size convention conflict between table and per-command sections.** The table writes `0x10` payload as "51 bytes (50 pattern + stretch)" and `0x30` as "201 bytes (200 pattern + stretch)" — clean and consistent. But the per-command sections in the source v3 use "201 bytes of pattern data" wording (omitting stretch) for `0x32`/`0x33`. Same numeric total, different wording. Standardize on the table's "N bytes (M pattern + stretch)" format throughout.
-
-> **⚠ Flag — v2 `0x1F` and `0x3F` payload counts conflict between v2 source and master summary.** v2 source said `0x1F` is "Payload: 53 bytes" (with byte ranges that actually summed to 54); master summary says "3 idx + 50 pattern + stretch" = 54. Likewise `0x3F`: v2 said 203, summary says 204. The summary's totals are correct — the v2 per-command "53"/"203" figures are off-by-one transcription errors. Decide on the canonical figures and fix the v2 sections to match.
-
 **Notes:**
 
 - **Byte 0 (Header)**: The two values shown (e.g., `0x01` / `0x81`) differ only in the MSB parity bit. The actual value depends on the parity of the entire message.
@@ -971,11 +935,9 @@ This table provides a complete reference of all commands across protocol version
 
 - **v1**: Basic oneshot display with stretch (2-level and 16-level grayscale)
 - **v2**: PSRAM storage and indexed display (storage efficiency, fast pattern switching)
-- **v3**: High-performance modes with trigger line (precise timing, synchronized display)
+- **v3**: Gated and Persistent display modes (trigger-line synchronization for two-photon microscopy; continuous display for static stimuli)
 - **v4**: Predefined patterns
 - **v5**: Additional grayscale levels, color support, pattern modifiers (future)
-
-> **⚠ Flag — v3 evolution description is partial.** "High-performance modes with trigger line" describes Gated only; v3 also adds Persistent (which doesn't use the trigger line at all). Reword as "v3: Gated and Persistent display modes (trigger-line synchronization for two-photon microscopy; continuous display for static stimuli)".
 
 ---
 
@@ -989,12 +951,11 @@ This table provides a complete reference of all commands across protocol version
 6. **`COMM_CHECK` panel-side validation policy.** With the canonical sequence pinned, decide whether the panel must verify the bytes or merely echo back the checksum.
 7. **Confirmation-message trigger: `>3` or `≥3` bytes?** As written, every valid message would trigger confirmation send (since "at least 3 bytes" applies to every message). Decide once confirmation message is implemented.
 8. **"`0x8100`" empty-buffer response endianness.** Could be ambiguous between the 16-bit value `0x8100` packed LE (on-wire `0x00 0x81`) and "header `0x81`, command `0x00`" (on-wire `0x81 0x00`). The CIPO example block strongly suggests the latter. Action: reword as two-byte description.
-9. **Checksum algorithm name conflict.** Panel-confirmation checksum is "additive" (sum mod 256); pattern-file checksum is "XOR". Confirm both intentional during [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) reconciliation.
-10. **`0x70` command code collides with v4 predefined-pattern command.** Action: pick one (move error display to a different command code, or reserve `predefined-pattern index 0` as the error glyph slot in v4). Reconcile when v4 section lands.
-11. **v2 forward note: zero-payload commands.** v2 commands `0x02`, `0x03`, `0x0F` have zero-byte payloads in the source spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration whether to drop the floor or add a dummy byte.
-12. **Worked pixel-mapping example is pinned to panel v0.1 hardware.** Production is now v0.2; v0.3 is in draft. Decide whether [`g6_02-led-mapping.md`](g6_02-led-mapping.md) carries per-revision tables and this example annotates which revision, or if the example gets refreshed for v0.2/v0.3.
-13. **Panel error display command-set decision.** The source explicitly defers to `<will@iorodeo.com>`: which errors are most relevant and what command code carries them. Action: track in `g6_firmware_devel` issues / discussions, then update spec.
-14. **SPI mode / clock not yet specified.** Firmware uses CPOL=1, CPHA=1 (Mode 3), MSB-first, 30 MHz. Lift these into normative spec text for cross-platform interop.
+9. **`0x70` command code collides with v4 predefined-pattern command.** Action: pick one (move error display to a different command code, or reserve `predefined-pattern index 0` as the error glyph slot in v4). Reconcile when v4 section lands.
+10. **v2 forward note: zero-payload commands.** v2 commands `0x02`, `0x03`, `0x0F` have zero-byte payloads in the source spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration whether to drop the floor or add a dummy byte.
+11. **Worked pixel-mapping example is pinned to panel v0.1 hardware.** Production is now v0.2; v0.3 is in draft. Decide whether [`g6_02-led-mapping.md`](g6_02-led-mapping.md) carries per-revision tables and this example annotates which revision, or if the example gets refreshed for v0.2/v0.3.
+12. **Panel error display command-set decision.** The source explicitly defers to `<will@iorodeo.com>`: which errors are most relevant and what command code carries them. Action: track in `g6_firmware_devel` issues / discussions, then update spec.
+13. **SPI mode / clock not yet specified.** Firmware uses CPOL=1, CPHA=1 (Mode 3), MSB-first, 30 MHz. Lift these into normative spec text for cross-platform interop.
 
 ## Cross-references
 
