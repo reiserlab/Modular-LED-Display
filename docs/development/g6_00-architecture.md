@@ -1,7 +1,7 @@
 # G6 — Architecture
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Introduction", lines 1–60) · Last reviewed: 2026-05-01 by mreiser
-Status: **Draft** — system architecture and assumptions are stable; a few inline flags note inconsistencies and missing details to resolve in the next pass.
+Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Introduction", lines 1–60) · Last reviewed: 2026-05-02 by mreiser
+Status: **Draft** — system architecture and assumptions are stable; minor prose-tightening items in Open Questions.
 
 This page captures the system-level architecture of the G6 modular LED display: the host / controller / panel split, the responsibilities each layer owns, and the small set of cross-cutting conventions (endianness, bit packing) that propagate into every other spec file.
 
@@ -12,7 +12,7 @@ This page captures the system-level architecture of the G6 modular LED display: 
 
 ## General Architecture
 
-The **host** is the computer running MATLAB or Python based software. It talks to the **controller** (currently a Teensy 4.1 on the arena board) via ethernet and UDP. The controller communicates to a set of **panels** via SPI, currently grouped in 2 SPI buses.
+The **host** is the computer running MATLAB or Python based software. It talks to the **controller** (currently a Teensy 4.1 on the arena board) via Ethernet (TCP, port 62222 — see [`g6_03-controller.md`](g6_03-controller.md) § 1 Host Interface). The controller communicates to a set of **panels** via SPI, currently grouped in 2 SPI buses (concrete for the production `arena_10-10`; the panel map can specify other counts).
 
 ```
    ┌──────────────────────────┐
@@ -20,7 +20,7 @@ The **host** is the computer running MATLAB or Python based software. It talks t
    │  (LED mapping, layout,   │
    │   pattern composition)   │
    └────────────┬─────────────┘
-                │  Ethernet / UDP
+                │  Ethernet / TCP
                 ▼
    ┌──────────────────────────┐
    │        Controller        │  Teensy 4.1 on the arena board
@@ -43,12 +43,10 @@ The Teensy 4.1 + 2-SPI-bus configuration is concrete for the current production 
 
 **Host owns LED mapping (pixel → physical LED)**
 
-- The PC host is responsible for per-panel LED mapping, including:
-  - corrections for rotated / flipped panels.
-  - color-LED organization (until we decide to make the panels 'color-aware' in v4/5).
+- The PC host is responsible for per-panel LED mapping, including corrections for rotated / flipped panels.
 - The G6 controller sees patterns only as sequences of 20×20 subframes, ordered by panel number already mapped by the host. Controller then packs pixels and forwards them to the appropriate panel according to the G6 panel protocol.
 
-(The "color-aware in v4/5" parenthetical from the source is a stale hand-wave — current [v4](g6_01-panel-protocol.md) (predefined patterns + stretch) and v5 (sketch) do not specify color awareness. Treat as aspirational; revisit when color support is actually specced.)
+(Note: the source spec mentioned "color-LED organization (until we decide to make the panels 'color-aware' in v4/5)" — current v4 and v5 do not specify color awareness; the parenthetical is dropped, captured in Open Q #1.)
 
 **Host owns arena / panel layout**
 
@@ -80,23 +78,24 @@ The panel receives commands via SPI and returns confirmations according to the [
 
 - Little-endian for all multi-byte integers. Pack pixels MSB-first within each byte.
 
-## Design history
-
-The v1 protocol scaffolding (1-byte header with parity bit in MSB + 1-byte command + payload) was selected over an earlier proposal from will@iorodeo.com that used a `(uint16 length)(uint16 type)` framing. The earlier framing is captured in [`G6 message format proposal`](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit) (~18 KB). Two carry-overs from that precursor:
-
-- **Pattern data is row-major, MSB-first within each byte** — this convention originated in the precursor's "Pattern data payloads" section and is normative in v1 (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format).
-- **Display modes (oneshot / persistent / trigger)** — the precursor sketched these as separate command types per pattern level (e.g., "2-level grayscale (oneshot)", "2-level grayscale (trigger)", "2-level grayscale (persistent)"); v1 starts with oneshot only and the trigger/persistent variants land in v3.
-
-> **⚠ Flag — open question carried over from precursor:** "stateless panel with mode-per-command" vs. "panel mode-flag set by separate command". The precursor explicitly asked this question. v1's oneshot-only model is consistent with the stateless approach, but v3's gated/persistent commands re-open the question (see [`g6_01-panel-protocol.md` § v3 Open Questions](g6_01-panel-protocol.md)).
-
 ## Open Questions / TBDs
 
-1. **`color-aware in v4/5` forward reference** — the v4/v5 sections do not currently specify color support. Decide whether to (a) keep the parenthetical and add concrete color-spec content to v4/v5, (b) move it to a dedicated future-version stub, or (c) drop it from the host-responsibilities text.
-2. **"Currently 2 SPI buses" coupling** — the architecture text reads as if 2 buses is normative. The actual normative source is the [Panel Map](g6_04-pattern-file-format.md#panel-map-subsumed-into-pattern-header-in-v2) (`region` field, `0..255` possible). Decide whether to replace the prose claim with "the panel map specifies the bus count" or to retain the present-tense observation as informational.
-3. **"Controller never needs to know spatial layout" overreach** — see flag in § Host responsibilities. Decide on the precise wording so Mode 4 (Closed Loop Velocity) doesn't get accidentally restricted by the architecture-doc claim.
-4. **Common-message-format claim** — see flag in § Controller responsibilities. Reword once `g6_01-panel-protocol.md` § master command summary has the v1–v4 version-bits clearly tabled.
-5. **"Endianess" typo** — fix on the next pass; not blocking.
-6. **Stateless-panel vs. mode-flag question (carried over from precursor)** — defer to the v3 reconciliation (in [`g6_01-panel-protocol.md` § v3](g6_01-panel-protocol.md)) when we cross-check what `G6_Panels_Test_Firmware` actually implements.
+1. **Color-LED organization** — original source spec referred to "color-aware in v4/v5", but neither v4 (predefined patterns + stretch) nor v5 (sketch) currently specify color support. Aspirational; revisit when color support is actually specced.
+2. **Stateless-panel vs mode-flag question** (carried over from precursor) — v1's Oneshot-only model is consistent with the stateless approach, but v3's Triggered/Gated commands re-open the question. Defer to firmware investigation against `G6_Panels_Test_Firmware`.
+3. **Architecture-prose tightening** (non-blocking) — minor items: (a) "controller never needs to know spatial layout" is overreach for Mode 4 closed-loop; (b) "Endianess" → "Endianness" typo on §; (c) common-message-format claim should be reworded once g6_01 master command summary has v1–v4 version-bits clearly tabled. Bundle for next pass.
+
+## History & Reconciliation
+
+**Design history of the v1 protocol scaffolding.** The 1-byte header with parity bit in MSB + 1-byte command + payload was selected over an earlier proposal from `<will@iorodeo.com>` that used `(uint16 length)(uint16 type)` framing. The earlier framing is captured in [`G6 message format proposal`](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit) (~18 KB). Two carry-overs from that precursor:
+
+- **Pattern data is row-major, MSB-first within each byte** — convention from precursor's "Pattern data payloads" section, normative in v1 (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format).
+- **Display modes (oneshot / triggered / gated / persistent)** — precursor sketched these as separate command types per pattern level; v1 starts with Oneshot only, with Triggered + Gated landing in v3 (Persistent reserved but deferred).
+
+### Major decisions log
+
+- **2026-05-01** — TCP-only host↔controller transport adopted (commit `46264ae`); replaces UDP from earlier draft.
+- **2026-05-02** — v3 mode set finalized: Triggered + Gated + (Persistent deferred); Gated-Persistent dropped (commit `a334004` in `g6_01`).
+- **2026-05-02** — Panel hardware reference for v0.2 + v0.3 captured in [`g6_02-led-mapping.md`](g6_02-led-mapping.md) (commits `a805e59` + `6450445`).
 
 ## Cross-references
 

@@ -15,21 +15,7 @@ The host-side MATLAB tooling already exists and is partially G6-aware: `Generati
 
 **Deep host-side spec migration is explicitly deferred.** This file's role is to capture the firmware ↔ host contract — what data formats and command sequences the firmware assumes the host will produce — not to re-document maDisplayTools. The deferral applies until either (a) the maDisplayTools tooling itself migrates further toward G6 (e.g., adds a v3 trigger workflow, Mode 1 TSI authoring, or PSRAM-mode preload management), at which point this file expands; or (b) the controller doc (`g6_03`) surfaces a host-side requirement not yet built in maDisplayTools.
 
-### Light reconciliation pass (2026-05-02)
-
-What `maDisplayTools v2` already supplies (covers the firmware contract):
-
-- 18-byte v2 pattern header with G6PT magic + version + Arena/Observer IDs + frame count + row/col counts + gs_val + 6-byte panel mask + XOR checksum (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)).
-- Per-panel GS2 (53-byte) and GS16 (203-byte) block encoding, including the 1-byte panel-protocol header byte, 1-byte command byte, pixel data (row-major from bottom-left, MSB-first packing), and 1-byte stretch (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) v1 message format and [`g6_02-led-mapping.md`](g6_02-led-mapping.md) pixel-coordinate conventions).
-- Round-trip-validated cross-platform encoding via `g6_encoding_reference.json` (identical bit-level output between MATLAB and JS encoders).
-
-What is **not** yet supplied host-side and remains a firmware-side TBD:
-
-- `get-controller-version` / `get-controller-capabilities` opcode (required by both v1 G6-mode detection and v2 feature detection). Spec belongs in [`g6_03-controller.md`](g6_03-controller.md).
-- `g6-panel-storage-mode` opcode (host-callable command to switch SD ↔ Local Storage). Spec belongs in `g6_03`.
-- Region / SPI-bus info source for the controller (the v2 pattern header dropped this; host needs to supply it from somewhere — most likely an arena-config sidecar). See [`g6_03-controller.md`](g6_03-controller.md) Open Question #7 and [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) Open Question #6.
-- TSI authoring tools and DO/AO output drivers — pin assignments depend on `Generation 6/Arena/` hardware; tooling is host-side but the firmware contract is captured in [`g6_03-controller.md`](g6_03-controller.md) § Mode 1.
-- Pattern-match check between SD and panel PSRAM — algorithm depends on v2 panel firmware features (does the panel store/return a hash?). Defer.
+**maDisplayTools v2 already supplies the firmware contract** for v1 patterns: 18-byte v2 pattern header (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)), per-panel GS2/GS16 block encoding (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) v1 message format), and round-trip-validated cross-platform encoding via `g6_encoding_reference.json`. Host-side gaps still TBD are tracked under Open Questions; reconciliation detail in History & Reconciliation at the bottom.
 
 ---
 
@@ -105,6 +91,30 @@ v2 capability detection shares the v1 "G6 mode" gap above — same `get-controll
 2. **Region / SPI-bus info source** — same cross-doc question as `g6_03` Open Question #2 and `g6_04` flag in § Panel Map. For the production `arena_10-10`, the implicit "5 cols / region" rule works; for future arenas, investigate whether `maDisplayTools` arena-config files already cover this on the host side.
 3. **`show_panel_IDs` test pattern** — host-composed visualization (each panel displays its `panel_id`); useful for verifying the panel map end-to-end. Implementation owner: maDisplayTools-side; firmware just receives a Mode 5 frame.
 4. **Deep MATLAB display-tools spec migration** — deferred until display tools are formally migrated to G6. Reference: `Generation 6/maDisplayTools/docs/*.md` in the submodule (public Jekyll site).
+
+## History & Reconciliation
+
+**Light reconciliation pass (2026-05-02)** against `maDisplayTools v2` and slim G4.1, framed from the firmware-contract perspective.
+
+What `maDisplayTools v2` already supplies:
+
+- 18-byte v2 pattern header with G6PT magic + version + Arena/Observer IDs + frame count + row/col counts + gs_val + 6-byte panel mask + XOR checksum.
+- Per-panel GS2 (53-byte) and GS16 (203-byte) block encoding (header + command + pixel data row-major from bottom-left, MSB-first packing + stretch).
+- Round-trip-validated cross-platform encoding via `g6_encoding_reference.json` (identical bit-level output between MATLAB and JS encoders).
+
+What's not yet supplied host-side and remains a firmware-side TBD (each tracked under specific Open Question above or in a sibling doc):
+
+- `get-controller-info` opcode `0x67` (v1 G6-mode detection + v2 capability bitmap) — spec in [`g6_03-controller.md`](g6_03-controller.md) Host Command Summary.
+- `g6-panel-storage-mode` opcode `0x40` (host-callable SD ↔ Local Storage switch) — spec in `g6_03`.
+- Region / SPI-bus info source — see Open Q #2.
+- TSI authoring tools and DO/AO output drivers — pin assignments resolved in [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md); host tooling is maDisplayTools-side, deferred.
+- Pattern-match check between SD and panel PSRAM — see Open Q #1.
+
+### Major decisions log
+
+- **2026-05-01** — `0x67 = get-controller-info` opcode assigned (commit `508da9e`); single command with version-dispatched response shape covers v1 G6-mode detection + v2 capability bitmap.
+- **2026-05-01** — `0x40 = g6-panel-storage-mode` opcode assigned (commit `508da9e`); switches controller from SD Mode → Local Storage Mode.
+- **2026-05-02** — v2 18-byte header confirmed canonical; source-tab "TBD" wording obsolete (commit `7b7e804`).
 
 ---
 
