@@ -1,7 +1,7 @@
 # G6 — Panel Protocol
 
 Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tabs "Panel Version 1" → "Panel Version 4 and beyond" + "Panel Version Summary"; lines 61–1110) · Last reviewed: 2026-05-01 by mreiser
-Status: **§ v1 = Specified, partially implemented** (wire format on the COPI side matches firmware; confirmation message + stretch + error display NOT yet implemented; 5 spec ↔ firmware divergences flagged below) · § v2/v3/v4/v5 + master summary = _not yet migrated, in subsequent passes_
+Status: **§ v1 = Specified, partially implemented** (5 spec ↔ firmware divergences vs `iorodeo/g6_firmware_devel`) · **§ v2 = Migrated (teaser); opcodes declared in firmware but behavior not implemented** · **§ v3 = Migrated (teaser); feasibility strongly prototyped via `G6_Panels_Test_Firmware`** (BCM, gating, persistent — see reconciliation table; 2 blockers: trigger-edge polarity, sync-vs-async gating semantics) · § v4/v5 + master summary = _not yet migrated, in subsequent passes_
 
 This file holds the SPI-level protocol between the controller and the panels — message scaffolding, header byte, parity rule, the per-version command set, payload formats, panel confirmations, and pixel data layout. Versions are staged in chronological order (v1 first because it sets all the conventions and is the only version with deployable firmware in flight).
 
@@ -79,6 +79,88 @@ v2 is at **opcodes-declared, behavior-not-implemented** in `iorodeo/g6_firmware_
 - **Zero-payload commands (`0x02`, `0x03`, `0x0F`) collide with `PAYLOAD_MINIMUM_SIZE = 1`.** The firmware's `check_length()` enforces a 1-byte minimum payload — implementing the v2 zero-payload commands needs either (a) `PAYLOAD_MINIMUM_SIZE` dropped to 0, or (b) the per-command length lookup overriding the floor for these commands. Decide before any of the v2 commands gets implemented.
 - **`0x50` payload size discrepancy unresolved by firmware.** Source spec says "Payload: 4 bytes" but lists only 3 bytes of fields, and the Master Command Summary tab independently lists "3 (idx)". With no firmware implementation, the question stays open. Recommend adopting "3 bytes" — the smaller, internally-consistent figure — when v2 implementation begins.
 - **`0x02` diagnostics return-data format still unspecified.** Spec defers to "circle back once v1 is implemented"; firmware has no diagnostic counters yet, so there's nothing to design against. Spec the diagnostic record format before this command becomes implementable.
+
+### Reconciliation: Panel Protocol v3 (run 2026-05-01)
+
+**Repo state:** [`G6_Panels_Test_Firmware @ bb26a44`](https://github.com/mbreiser/G6_Panels_Test_Firmware) ("Phase 4 PIOFULL: complete the scaffold + AD3 characterization tooling", 2026-04-24). Local clone at `/Users/reiserm/Documents/GitHub/G6_Panels_Test_Firmware/`. **This is a proof-of-concept and characterization rig on G6 panels v0.2.1 / v0.3.1 — intentionally NOT a v1 reference, NOT deployable.** It demonstrates the feasibility of v3 features (gated/persistent display, BCM grayscale, trigger-line wiring, RAM-backed frame display) through empirical measurements: DWT cycle counter, Saleae Logic, AD3 oscilloscope, Ocean Insight spectrometer. Firmware organized in Phases 0–7: single-LED pulse timing → full-panel row scanning → PIO column drivers → dual-PIO PIOFULL → BCM grayscale → external trigger integration → AD3 optical characterization.
+
+> All findings below are **test-rig observations**, not "the firmware implements v3 correctly". The rig uses serial-port commands (BCMBURST, PIOROW, PIOFULL, etc.), not the v3 binary packet protocol — that's expected, since the rig is timing/feasibility evidence, not a protocol implementation.
+
+**Capabilities prototyped (evidence that v3 features are physically achievable on G6 panels):**
+
+| v3 spec claim | Test-rig evidence | Verdict |
+|---|---|---|
+| **Gated display mode** (~15 µs scan window) | Phase 6 (`single_led/SESSION_2026-04-24_PIOFULL_AD3.md`): external trigger on GP45 via W1 wavegen at 8 kHz, dual-PIO PIOFULL architecture. Trigger-to-LED latency: **865 ± 17 ns** (Saleae + AD3, 30 captures). Zero jitter (0.000 µs std dev) over 10k triggers. | ✅ feasible — works with real external trigger; architecture supports trigger polling via PIO IRQ or GPIO wait |
+| **Persistent display mode** (continuous free-running) | BCMBURST mode (Phase 4, `single_led/PRODUCTION_ARCHITECTURE.md` § 4): simulated 8 kHz trigger, multicore lockout + `noInterrupts()` during burst, `interrupts()` during ~115 µs idle. Zero jitter (0.007 µs ≈ 1 CPU cycle) at 400 Hz frame rate. Double-buffer design (display_buf / recv_buf) supports continuous frame swaps. | ✅ feasible — BCM burst loop works at 400 Hz with zero jitter |
+| **Gated-Persistent mode** (the spec's implied `0x54`) | Not prototyped explicitly. PIOFULL architecture is compatible (e.g., per-burst gating with persistent display between bursts) but no dedicated test exists. | ❓ not prototyped — architecture is compatible but unproven |
+| **BCM 4-bit grayscale** (16 levels) | Phase 4 (`single_led/PRODUCTION_ARCHITECTURE.md` § 9, `TIMING_SUMMARY.md`, `RESULTS.md`): 4-bit BCM at T=0.5 µs base time → 16 levels, 9.42 µs per-row burst, zero jitter across 160k triggers. Standard weights `[1, 2, 4, 8]` or optimized `[1, 2, 5.02, 10.19]` for linearity correction. BCMDEMO ramp visually verified (non-linear due to per-bit-plane brightness decay; corrected via weight optimization). | ✅ fully prototyped — timing & jitter proven; intensity linearity characterized via spectrometer |
+| **Indexed pre-loaded display** (analogous to v3 PSRAM commands) | RAMBURST mode (Phase 5a): 8 test frames cycling at 400 Hz from RAM. Incremental per-row BCM precompute (38 µs/row) during 115 µs idle. Zero jitter with frame swaps. **PSRAM not used** — frames live in SRAM; PSRAM integration is a future step. | ✅ prototyped — RAM-resident `bcm_plane_data[20][8][2]`; PSRAM-backed display would be straightforward to layer on |
+| **Trigger-line wiring & behavior** | Phase 6–7: GP45 external trigger via bodge wire on `J3` pin 1. W1 wavegen drives EINT at 8 kHz with variable duty cycle. **Open issue:** firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 (`single_led/SESSION_2026-04-24_PIOFULL_AD3.md` §2). Suspected cause: ringing on falling edge (±2.5 V overshoot) triggers a transient HIGH the GPIO poll latches onto. Hypothesis documented; not yet fixed. | ⚠️ edge polarity TBD — gating timing works (0 jitter) but rising-vs-falling edge needs hardware-level investigation |
+| **Stretch byte in grayscale payload** | Not present in test rig. BCM bit-plane ON times are encoded as PIO-cycle delay counts; per-plane scaling uses float weights (BCMWEIGHTS command). | ❌ not implemented — test rig uses a different timing representation than v3 spec implies |
+
+**Concrete numbers / timing observations** (citing the report and AD3 capture):
+
+| Observation | Source | Value |
+|---|---|---|
+| BCM frame / refresh cycle | `single_led/PRODUCTION_ARCHITECTURE.md` § 3, `TIMING_SUMMARY.md` | **400 Hz frame rate** (20 rows × 8 kHz trigger = 2.5 ms / frame). Per-row burst: **9.42 µs** at T=0.5 µs, 4-bit BCM. |
+| Trigger-to-LED latency | `single_led/SESSION_2026-04-24_PIOFULL_AD3.md` § 3, `ad3_piorow_sweep.png` | **865 ± 17 ns** (range 830–910 ns, 30 captures, sch_row=4, PIOROW command). |
+| Burst width | same | **22.557 ± 4.4 ns** (zero jitter measured 0.000 µs std dev across 10k triggers). |
+| 8 kHz trigger characterization | `TIMING_SUMMARY.md` § 2; `PRODUCTION_ARCHITECTURE.md` § 4 | At 8 kHz (125 µs period), 15 µs scan window allocated. 9.42 µs burst fits with 5.6 µs margin. |
+| 12 kHz trigger characterization | — | **Not tested.** Firmware uses 8 kHz simulation; 12 kHz would require external hardware step function. Spec covers both 8 and 12 kHz — recommend testing at 12 kHz before committing v3 spec to the higher rate. |
+| Two-photon scan window budget | `CLAUDE.md` lines 12–21; `PRODUCTION_ARCHITECTURE.md` § 4 | Application requirement: **0.75 µs per-row budget within 15 µs turnaround**. Test rig achieves **0.37–0.61 µs per-row overhead** (PIOSCAN preferred for lowest jitter). Frame burst (9.42 µs) + margin (5.6 µs) compatible. External trigger polling: 0.000 µs jitter. |
+| Dual-PIO overhead (PIOFULL) | `PRODUCTION_ARCHITECTURE.md` § 5.1; `SESSION_2026-04-24_PIOFULL_AD3.md` line 6 | **Burst: 7.81 µs at 1 row** (27 % shorter than BCMBURST Mode A's 10.63 µs). Dual-PIO DMA-chained (PIO0 columns, PIO1 rows). Not yet jitter-characterized at scale; only visual validation. |
+| Trigger edge anomaly | `SESSION_2026-04-24_PIOFULL_AD3.md` §§ 2, 3 | LED fires consistently 1–5 µs **after** W1 HIGH→LOW transition, not after LOW→HIGH. Firmware code expects rising edge. Hypothesis: ringing on falling edge (±2.5 V overshoot). Documented for next session. |
+
+**The PIXEL command:**
+
+- **What it does** (`CLAUDE.md` line 252, `main.cpp` line 3082): `PIXEL row col intensity` — sets a single pixel (layout coords row 0–19, col 0–19) to an intensity value (0–255, mapped to 4-bit BCM level 0–15). Bypasses the per-frame buffer; direct `pixel_data` update.
+- **Why NOT in the protocol spec:** the v3 spec focuses on frame-level atomic updates (full PSRAM index or grayscale payload). Individual pixel updates without re-sending the entire 20×20 frame are useful for incremental updates but add protocol complexity (race conditions with frame swaps, rate-limiting questions).
+- **What it would map to if adopted:** a new opcode (e.g., `0x55` for `PIXEL_SET`) with 3-byte payload `[pixel_row][pixel_col][intensity]`.
+- **Recommendation:** keep PIXEL out of the v3 spec for now; document it as a future-version candidate for incremental-update use cases. The test rig has proved feasibility; defer adoption decision to v4 or later.
+
+**Spec ↔ test-firmware divergences (test rig diverges from v3 spec — expected, since the rig is feasibility evidence):**
+
+| # | Topic | v3 spec | Test rig | Action |
+|---|---|---|---|---|
+| 1 | Command transport | 6 binary opcodes (`0x12/13/32/33/52/53`) plus implied `0x54`; header byte = parity + version `0b0000011` (`0x03` / `0x83`) | Serial-port commands (`BCMBURST`, `PIOROW`, `PIOFULL`, `BCMWEIGHTS`, `PIXEL`, …); no binary packet parsing | ℹ️ expected divergence — test rig is firmware-only. When v3 packet protocol is implemented, command transport will differ. Not a bug. |
+| 2 | BCM bit-plane encoding | v3 spec implies bit-planes (ON time = T × 2^bit) | Test rig uses an explicit weights array `[w0, w1, w2, w3]` with ~6.67 ns float resolution; supports non-standard weights for linearity correction | ℹ️ harmonizable — v3 spec is abstract on bit-plane representation. Weight-based approach is a concrete implementation choice. Decide whether v3 spec should mandate a specific encoding. |
+| 3 | Trigger source | v3 spec: "asynchronous gating or synchronous gating tied to internal row/column update cycles — explicitly TBD" | Test rig uses simple external GPIO trigger polling; no internal row/column timing coupling | ℹ️ clarification needed — spec should resolve sync-vs-async before committing to a v3 reference architecture. The test rig demonstrates the async path works at 0-jitter; the sync path is unproven. |
+| 4 | PSRAM addressing | `0x52`/`0x53`: 3-byte payload (PSRAM index) → display from indexed frame | Test rig cycles through 8 pre-loaded frames in SRAM; no PSRAM addressing | ℹ️ expected — test rig pre-stages frames to prove timing. Full PSRAM addressing belongs in v1 firmware. |
+| 5 | `0x54` Gated-Persistent | Implied in v3 spec workflow examples; not formally listed in command list or Display Modes section | Not prototyped | ℹ️ to-do — clarify spec intent. Test-rig architecture supports a hybrid gated-then-persistent pattern but timing is not validated. |
+| 6 | Stretch byte | v3 spec includes `[stretch]` byte in 0x12 / 0x13 / 0x32 / 0x33 payloads | Test rig has no stretch byte; brightness is via float-weight calibration | ℹ️ semantics gap — what does "stretch" mean numerically? See v1's flag D3 (stretch is parsed but ignored in `g6_firmware_devel`). v3 inherits the same ambiguity. |
+
+**v3 spec questions resolved (or strongly informed) by the test rig:**
+
+| v3 open question | Test-rig answer |
+|---|---|
+| Is BCM at microsecond scale physically achievable? | **Yes.** 0.5 µs bit-plane ON times produce 16 distinguishable brightness levels with zero jitter (160k triggers, 0.000 µs std dev). Per-bit-plane brightness decay is real (Ocean Insight spectrometer: B0 = 3163 cts / µs → B3 = 2024 cts / µs, 56 % drop) but correctable via weight optimization. |
+| Can external trigger gating achieve sub-µs latency? | **Yes.** Trigger-to-LED latency: 865 ± 17 ns. Jitter: 0.000 µs (1 CPU cycle) over 10k triggers with the full lockout recipe (multicore lockout + `noInterrupts()` + warm-up). |
+| What is the minimum per-row time budget? | **~0.4 µs achievable** with PIOFULL dual-PIO DMA (7.81 µs burst for 1 row). With CPU polling (BCMBURST), 0.61–0.76 µs per-row overhead → 9.42 µs burst at 4-bit BCM. At 8 kHz, the 15 µs window fits comfortably. |
+| Is the 2P microscopy application (15 µs scan window) feasible? | **Yes.** 9.42 µs burst + 5.6 µs margin within 15 µs. Per-row time (0.4–0.76 µs) well below 0.75 µs budget. Architecture: PIO columns, CPU rows, multicore lockout during burst, `noInterrupts()` during scan. |
+| Asynchronous vs synchronous gating? | **Test rig implements asynchronous external GPIO trigger polling.** No internal row/column cycle coupling. If v3 spec intends synchronous gating, that requires a different architecture (PIO SM armed by internal counter); unproven. |
+| Can intensity be linear across BCM levels? | **Partially.** Raw bit-planes `[1, 2, 4, 8]` are non-linear at short ON times. **Optimized weights `[1, 2, 5.02, 10.19]` achieve 2.5 % max error** with 12.7 µs burst (still fits 15 µs window). Linearity fully characterized and correctable. |
+
+**v3 spec questions NOT yet answered by the test rig:**
+
+| Open question | Why unresolved | Impact |
+|---|---|---|
+| `0x54` Gated-Persistent mode timing | Not prototyped. Unclear if `0x54` is a distinct mode or a workflow option. Requires spec clarification first. | Medium — affects opcode table and Display Modes section. |
+| Synchronous gating (row / col cycle coupling) | Test rig uses simple external trigger (asynchronous). Synchronous mode would need a different PIO architecture. | High — architectural choice affects jitter and integration approach. Spec says "explicitly TBD". |
+| Stretch byte semantics | Test rig does not use stretch (uses float weights). v3 spec includes a stretch byte but its exact purpose is undefined (see v1 flag D3). | Medium — needed to finalize protocol payload format consistently across v1/v3. |
+| 12 kHz trigger validation | Test rig uses 8 kHz simulation; 12 kHz untested. | Low — would catch any rate-dependent issues before committing v3 spec to both 8 and 12 kHz. |
+| Multi-panel cascading / daisy-chain protocol | Test rig is single-panel only. | Low — out of scope for single v0.2.1/v0.3.1 panel reconciliation. |
+| Trigger edge polarity (rising vs falling) | Hardware ringing causes LED to fire on falling edge despite firmware expecting rising; cause hypothesised but not fixed. | High — spec assumes rising-edge gating; if the panel sees falling edge, that's a v3 implementation blocker. |
+
+**Bottom line for v3 spec sign-off:**
+
+The test rig **strongly validates the physical feasibility of v3's core capabilities**: 4-bit BCM grayscale at 0.5 µs base time, zero-jitter external trigger gating (~865 ns latency), persistent frame display at 400 Hz, and a 5.6 µs margin within the critical 15 µs 2P-microscopy scan window. Concrete measurements are reproducible.
+
+Two blockers for finalizing v3:
+
+1. **Trigger edge polarity** — firmware expects rising; observed behavior is falling edge (likely ringing on hardware). Resolve before deploying v3 firmware on real arenas.
+2. **Synchronous vs asynchronous gating** — spec says "TBD"; test rig only validates async. Decide before committing v3 spec to a particular gating model.
+
+Confidence: ✅ high on Gated, Persistent, BCM, trigger latency, 2P timing. ⚠️ medium on Gated-Persistent (`0x54`) and synchronous gating semantics. ⚠️ trigger edge polarity needs resolution before deployment.
 
 > **⚠ Flag — file-scope status mixing:** the file is being built up version-by-version (v1 first, then v2, then v3, then v4/v5/summary), each with sign-off. While that's in progress, the status line above will mix Specified (for landed versions) with `_not yet migrated_` for the rest. This is expected during Phase-1 development.
 
