@@ -10,19 +10,21 @@ Each file opens with a three-line plain-prose header — source tab + last-revie
 
 ## File status
 
-All seven Phase-1 files are migrated, reconciled, and signed off. Phase-2 (consolidation to public-facing docs) remains deferred until the user explicitly calls the dev set stable.
+All seven Phase-1 files are migrated, reconciled, and consolidated (2026-05-02 pass: history → bottom; v3 mode set finalized; g6_02 expanded to panel hardware reference). Phase-2 (consolidation to public-facing docs) remains deferred until the user explicitly calls the dev set stable.
 
 | File | Source tab(s) | Status | Implementation evidence |
 |---|---|---|---|
 | [`g6_00-architecture.md`](g6_00-architecture.md) | Introduction | **Draft** | — |
-| [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) | Panel Version 1 / 2 / 3 / 4 / Version Summary | **Specified (v1) + Teaser (v2/v3) + Stub (v4/v5)** | v1 ↔ [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) `@ 6944894`; v3 prototype ↔ [`mbreiser/G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) `@ bb26a44` |
-| [`g6_02-led-mapping.md`](g6_02-led-mapping.md) | Panel LED Mappings | **Specified for panel v0.1** | Hardware: `Generation 6/Panels/` (production `v0p2r0`; `v0.3.0` in draft); v0.1 mapping is canonical for the worked example today |
+| [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) | Panel Version 1 / 2 / 3 / 4 / Version Summary | **Specified (v1) + Teaser (v2/v3, v3 mode set finalized 2026-05-02: Triggered + Gated; Persistent reserved-but-deferred) + Stub (v4/v5)** | v1 ↔ [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) `@ 6944894`; v3 prototype ↔ [`mbreiser/G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware) `@ bb26a44` |
+| [`g6_02-led-mapping.md`](g6_02-led-mapping.md) + [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) | Panel LED Mappings (scope expanded to panel hardware reference) | **Specified for panel v0.2 + v0.3** (firmware-relevant pin/PIO/peripheral deltas captured) | Hardware: `iorodeo/LED-Display_G6_Hardware_Panel @ prod_v0p2r0`; v0.2 cross-checked against `g6_firmware_devel/panel/src/constants.cpp`; v0.3 from `panel_rp2354_20x20_v0.3.0.pdf` + 3 PR-review docs in `G6_Panels_Test_Firmware`. v0.1 LED designator table in CSV adjunct; v0.2/v0.3 LED designator tables pending KiCad-source extraction. |
 | [`g6_03-controller.md`](g6_03-controller.md) | Controller Teensy SW + Major updates for v2 + v3 and onwards | **Draft (v1) + Teaser (v2) + Stub (v3+)** | G4 baseline: [`floesche/LED-Display_G4.1_ArenaController_Slim`](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim) `@ 8f1029f`. No G6 controller firmware yet. |
 | [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) | Pattern Format / Panel Map (merged) | **v2 canonical** | [`Generation 6/maDisplayTools/g6/g6_save_pattern.m`](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m); JS round-trip via [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json) |
 | [`g6_06-host-software.md`](g6_06-host-software.md) | Host PC Matlab SW | **Stub (firmware-contract framing)** | Deep MATLAB-side migration deferred until display tools migrate to G6. Authoritative today: `Generation 6/maDisplayTools/docs/*.md` (in submodule, public Jekyll site). |
 | [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) | G6 arena design (v1/v2) | **Thin firmware-interface reference** | Production arena `arena_10-10` v1.1.7 (ordered 2026-04-28); pin assignments from KiCad `@ 0a8ec33c` |
 
 Status values: `Specified` (concrete enough to implement against), `Draft` (mostly there, gaps marked), `Teaser` (sketched), `Stub` (placeholder). v1 sections may upgrade to `Specified — implementation verified` once a v1 firmware implementation is widely deployed.
+
+**Doc structure (post-2026-05-02 consolidation):** every file follows `header → 1-para intro → spec body → Open Questions / TBDs → History & Reconciliation (with major decisions log) → Cross-references`. Spec content is preserved verbatim; reconciliation prose, audit tables, and source-doc anticipation quotes are aggressively trimmed and pushed to the History section with commit-link summaries. The git log is the audit trail.
 
 ## Doc-by-doc review loop
 
