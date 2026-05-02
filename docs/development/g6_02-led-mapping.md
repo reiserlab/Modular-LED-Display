@@ -41,7 +41,7 @@ The 20×20 matrix below shows the LED designators **in physical PCB layout order
  50  70 51 71 130 150 131 151 210 230 211 231 290 310 291 311 370 390 371 391
 ```
 
-> **⚠ Flag — visual orientation not stated in the source:** the spec says "we want pixel[0,0] to start at the bottom-left corner and pixel[19,19] to end at the top-right" (in the v1 worked example). That implies the grid above is shown with row 0 at the **top** of the printed matrix and row 19 at the **bottom**, but read from the *bottom* up by the host's pixel coordinate system. Document this explicitly. Confirming examples: the bottom-left LED in the grid is D50 (bottom-row, leftmost col), and the table below maps `(row=0, col=0) → 50` ✓.
+**Visual orientation:** The grid is printed with row 0 at the **bottom** of the panel (visually the **last** printed row, D50/D70/D51/...) and row 19 at the **top** (visually the **first** printed row, D1/D21/D20/...). Host pixel coordinates are read **bottom-up**: `pixel[0,0]` = bottom-left = D50; `pixel[19,19]` = top-right = D360. The table below uses this same bottom-up convention.
 
 ## Row/Column Mapping Table
 
@@ -450,7 +450,7 @@ Authoritative 400-row lookup: each row gives the LED designator for one logical 
 | 19 | 18 | 340 |
 | 19 | 19 | 360 |
 
-> **⚠ Flag — table is the v0.1 mapping only:** this 400-row table is for the v0.1 panel layout. v0.2 and v0.3 mappings need to be added (or this file refactored to per-revision sub-pages). Until then, any worked example that uses this table must explicitly note "using v0.1 LED layout".
+(Reminder: this is the v0.1 panel layout. v0.2 / v0.3 mappings need to be added — see flag at top of file.)
 
 ## Open Questions / TBDs
 

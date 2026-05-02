@@ -35,7 +35,7 @@ The **host** is the computer running MATLAB or Python based software. It talks t
      └─────┘ └─────┘ └─────┘     └─────┘
 ```
 
-> **⚠ Flag — coupling to current hardware:** the source says "currently a Teensy 4.1" and "currently grouped in 2 SPI buses". These are observations about today's arena, not contracts. The [Panel Map](g6_05-panel-map.md) is supposed to be the single source of truth for "how many regions / SPI buses" — keep the architecture description loose enough to allow other counts.
+The Teensy 4.1 + 2-SPI-bus configuration is concrete for the current production arena (`arena_10-10` v1.1.7 — see [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md)). The architecture description stays loose to allow other counts in future hardware; per-arena topology lives in `g6_07`, not in this overview.
 
 ## General assumptions
 
@@ -48,7 +48,7 @@ The **host** is the computer running MATLAB or Python based software. It talks t
   - color-LED organization (until we decide to make the panels 'color-aware' in v4/5).
 - The G6 controller sees patterns only as sequences of 20×20 subframes, ordered by panel number already mapped by the host. Controller then packs pixels and forwards them to the appropriate panel according to the G6 panel protocol.
 
-> **⚠ Flag — vague forward reference:** "color-aware in v4/5". The current [v4](g6_01-panel-protocol.md) (predefined patterns + stretch) and v5 (sketch) sections of the Google Doc do not actually specify color-awareness. This is a stale hand-wave; either replace with a concrete v-number once color support is real, or drop the parenthetical.
+(The "color-aware in v4/5" parenthetical from the source is a stale hand-wave — current [v4](g6_01-panel-protocol.md) (predefined patterns + stretch) and v5 (sketch) do not specify color awareness. Treat as aspirational; revisit when color support is actually specced.)
 
 **Host owns arena / panel layout**
 
@@ -64,7 +64,7 @@ The controller receives commands from the host, potentially reads patterns from 
 
 The mapping between panel ID and physical hardware is done through a **panelMap** structure (basically the arena-specific configuration).
 
-The controller stores a [PanelMap table](g6_05-panel-map.md) that specifies which panel IDs are assigned to which SPI bus and the chip-select information, as needed.
+The controller stores a [PanelMap data structure](g6_04-pattern-file-format.md#panel-map-subsumed-into-pattern-header-in-v2) that specifies which panel IDs are assigned to which SPI bus and the chip-select information, as needed.
 
 Panel message format is common to all protocol versions and is as specified in the other tabs of this document, e.g. for [Panel Protocol v1](g6_01-panel-protocol.md):
 
@@ -72,7 +72,7 @@ Panel message format is common to all protocol versions and is as specified in t
   - `0x01` (`0b00000001`) — when parity bit = 0
   - `0x81` (`0b10000001`) — when parity bit = 1
 
-> **⚠ Flag — "common to all protocol versions" is a soft claim:** v1/v2/v3/v4 all share the `[header byte][command byte][payload…]` scaffold and the parity-bit-in-MSB convention, but the version-bits field is exactly what changes between versions (v1 = `0b0000001`, v2 = `0b0000010`, v3 = `0b0000011`, v4 = `0b0000100`). Reword as "scaffolding is common; the version field selects which command set applies" once we lock the [protocol-version semantics in `g6_01-panel-protocol.md`](g6_01-panel-protocol.md).
+More precisely: the **scaffolding is common** (`[header byte][command byte][payload…]` shape, parity-bit-in-MSB convention) and the **version field in the header byte selects which command set applies** (v1 = `0b0000001`, v2 = `0b0000010`, v3 = `0b0000011`, v4 = `0b0000100`). See [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) for the per-version command tables.
 
 ### Panel responsibilities
 
@@ -94,7 +94,7 @@ The v1 protocol scaffolding (1-byte header with parity bit in MSB + 1-byte comma
 ## Open Questions / TBDs
 
 1. **`color-aware in v4/5` forward reference** — the v4/v5 sections do not currently specify color support. Decide whether to (a) keep the parenthetical and add concrete color-spec content to v4/v5, (b) move it to a dedicated future-version stub, or (c) drop it from the host-responsibilities text.
-2. **"Currently 2 SPI buses" coupling** — the architecture text reads as if 2 buses is normative. The actual normative source is the [Panel Map](g6_05-panel-map.md) (`region` field, `0..255` possible). Decide whether to replace the prose claim with "the panel map specifies the bus count" or to retain the present-tense observation as informational.
+2. **"Currently 2 SPI buses" coupling** — the architecture text reads as if 2 buses is normative. The actual normative source is the [Panel Map](g6_04-pattern-file-format.md#panel-map-subsumed-into-pattern-header-in-v2) (`region` field, `0..255` possible). Decide whether to replace the prose claim with "the panel map specifies the bus count" or to retain the present-tense observation as informational.
 3. **"Controller never needs to know spatial layout" overreach** — see flag in § Host responsibilities. Decide on the precise wording so Mode 4 (Closed Loop Velocity) doesn't get accidentally restricted by the architecture-doc claim.
 4. **Common-message-format claim** — see flag in § Controller responsibilities. Reword once `g6_01-panel-protocol.md` § master command summary has the v1–v4 version-bits clearly tabled.
 5. **"Endianess" typo** — fix on the next pass; not blocking.
@@ -105,6 +105,6 @@ The v1 protocol scaffolding (1-byte header with parity bit in MSB + 1-byte comma
 - [Source Google Doc, "Introduction" tab](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#) — verbatim source for this file.
 - [Precursor: G6 message format proposal](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit) — alt framing, design questions cited above.
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — header byte, command byte, parity rule, payload formats, master command summary.
-- [`g6_05-panel-map.md`](g6_05-panel-map.md) — region / row / column / chip-select definitions.
+- [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) § Panel Map — panel mask layout + region/SPI-bus open question.
 - [`g6_03-controller.md`](g6_03-controller.md) — Teensy controller responsibilities; reconciled against the G4.1 slim controller.
 - [`Generation 6/Arena/docs/arena.md`](../../Generation%206/Arena/docs/arena.md) (in submodule, currently uninitialized locally) — built arena hardware, current revision `v1.1.7`.
