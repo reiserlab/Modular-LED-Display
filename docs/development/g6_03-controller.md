@@ -172,7 +172,17 @@ The controller must support **G4 display Modes 2, 3, 4, and 5:**
 
 Mode 4 is the lowest priority, with some final details depending on arena hardware.
 
-> **⚠ Flag — Mode 1 absent.** The Modes section here is "2, 3, 4, 5" — Mode 1 is reserved and only introduced in v2 (see "Major updates for v2 § 4. Mode 1 Support via TSI Files" below). Phase 2 should add a Modes table that explicitly enumerates all five modes (1–5) with version-introduced columns.
+### Modes table (all five, with version)
+
+| Mode | Name | Version introduced | Behavior |
+| :-: | :-- | :-: | :-- |
+| **1** | Position Function (TSI) | v2 | Controller reads next 5-byte record from selected `.TSI` file at each time step; resolves `FrameIndex16 → PSRAMAddress24`; sends a panel `display-by-index` command (`0x50`); updates DO/AO outputs. Valid only in Local Storage Mode (see § Major updates for v2). |
+| **2** | Open Loop | v1 | At each frame interval: load frame from SD → slice → pack → send. |
+| **3** | Show Frame (host-commanded position) | v1 | Host gives frame index via `set-frame-position`; controller loads → slices → sends. |
+| **4** | Closed Loop Velocity | v1 | Controller reads analog voltage on AI line, integrates rate to determine frame index, then loads → slices → sends. Lowest priority for G6 v1; AI source TBD per `g6_07`. |
+| **5** | Streaming | v1 | Host sends raw arena frames; controller slices → packs → sends immediately. No SD or PSRAM access required. |
+
+> **⚠ Flag — Mode 1 not described in the v1 Modes section above.** The v1 source spec listed only Modes 2–5 since Mode 1 (TSI) was introduced in v2. The Modes table above is the unified five-mode reference; the source-tab v1 list will read as incomplete unless cross-referenced. Phase 2 consolidation can drop the per-version Modes lists in favor of this unified table.
 
 ### 7. Utility Commands
 
@@ -310,12 +320,13 @@ Mode 1 is invalid in SD Mode.
 
 ---
 
-## v3 and onwards…
+## v3 controller scope
 
-- At this stage, let's agree on v1 and v2, work on their implementation and then come back and worry about these details… but can add suggestions here.
-- v3 mainly adds more display modes to the panels (trigger, gates, persistent, gated-persistent — if we implement all of these), but controller changes will be quite minimal, but will require some new commands and testing.
+v1, v2, and v3 are being designed together. Controller changes for v3 are minimal: the v3 panel commands (Trigger / Persistent / Gated / Gated-Persistent variants — see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3, including the pending Trigger-vs-Gated terminology review) need a corresponding controller dispatcher, but most of the existing v1/v2 transport logic carries over unchanged. Specific controller-side additions:
 
-> **⚠ Flag — v3 controller scope deliberately deferred.** Spec source provides only the two bullets above. Detailed v3 controller-side work is gated on v1+v2 implementation reaching maturity. Cross-reference: [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 documents the panel-side gated/persistent/triggered modes and the prototype-only `G6_Panels_Test_Firmware` evidence; the controller side has no spec text or implementation yet.
+- Recognize v3 header byte `[0x03]`/`[0x83]` and route to v3 command handlers (alongside v1/v2 handlers per the version-superset rule).
+- Forward the EINT line state to panels — for the production `arena_10-10`, the wiring runs through the `arena_10-10` jumper J30 (default OPEN per `g6_07-arena-firmware-interface.md`), so the controller drives `TNY.EINT` (Teensy D36) based on whatever software policy the v3 trigger-mode design specifies.
+- v4 (predefined patterns + stretch) is deferred to future work — see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v4.
 
 ---
 
