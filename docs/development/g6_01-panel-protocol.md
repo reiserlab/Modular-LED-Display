@@ -1,7 +1,7 @@
 # G6 — Panel Protocol
 
 Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tabs "Panel Version 1" → "Panel Version 4 and beyond" + "Panel Version Summary"; lines 61–1110) · Last reviewed: 2026-05-01 by mreiser
-Status: **§ v1 = Specified, partially implemented** (5 spec ↔ firmware divergences vs `iorodeo/g6_firmware_devel`) · **§ v2 = Migrated (teaser); opcodes declared in firmware but behavior not implemented** · **§ v3 = Migrated (teaser); feasibility strongly prototyped via `G6_Panels_Test_Firmware`** (BCM, gating, persistent — see reconciliation table; 2 blockers: trigger-edge polarity, sync-vs-async gating semantics) · § v4/v5 + master summary = _not yet migrated, in subsequent passes_
+Status: **§ v1 = Specified, partially implemented** (5 spec ↔ firmware divergences vs `iorodeo/g6_firmware_devel`) · **§ v2 = Migrated (teaser); opcodes declared in firmware but behavior not implemented** · **§ v3 = Migrated (teaser); feasibility strongly prototyped via `G6_Panels_Test_Firmware`** (BCM, gating, persistent — see reconciliation table; 2 blockers: trigger-edge polarity, sync-vs-async gating semantics) · **§ v4 = Migrated (~30 % specified); zero firmware support anywhere; predefined-pattern flash mechanism is a prerequisite to design** · **§ v5 = Sketch only (roadmap, not implementable)** · **§ master command summary = Migrated; documents 22 commands across v1–v4 with 5 internal inconsistencies flagged**
 
 This file holds the SPI-level protocol between the controller and the panels — message scaffolding, header byte, parity rule, the per-version command set, payload formats, panel confirmations, and pixel data layout. Versions are staged in chronological order (v1 first because it sets all the conventions and is the only version with deployable firmware in flight).
 
@@ -161,6 +161,28 @@ Two blockers for finalizing v3:
 2. **Synchronous vs asynchronous gating** — spec says "TBD"; test rig only validates async. Decide before committing v3 spec to a particular gating model.
 
 Confidence: ✅ high on Gated, Persistent, BCM, trigger latency, 2P timing. ⚠️ medium on Gated-Persistent (`0x54`) and synchronous gating semantics. ⚠️ trigger edge polarity needs resolution before deployment.
+
+### Reconciliation: Panel Protocol v4 (run 2026-05-01)
+
+v4 is at **nothing implemented anywhere**. Both reference firmwares were checked:
+
+| Repo | v4 evidence | Verdict |
+|---|---|---|
+| `iorodeo/g6_firmware_devel @ 6944894` ([protocol.h:10–23](../../../g6_firmware_devel/panel/src/protocol.h)) | The `CommandId` enum declares only v1 + v2 opcodes (`0x01`, `0x10`, `0x30`, `0x02`, `0x03`, `0x0F`, `0x1F`, `0x3F`, `0x50`). **No v4 opcodes** (`0x60`, `0x61`, `0x62`, `0x63`, `0x64`, `0x70`, `0x71`, `0x72`, `0x73`, `0x74`) are declared. | ❌ not declared |
+| `mbreiser/G6_Panels_Test_Firmware @ bb26a44` | The test rig uses serial commands, not binary opcodes — and has no concept of "predefined pattern flash storage" or "PSRAM-with-stretch-multiplier". The `PIXEL` command is unrelated to v4. | ❌ no v4 capabilities |
+
+**Forward-looking constraints surfaced by v4:**
+
+- **Predefined-pattern flash mechanism is the prerequisite for v4.** No firmware currently has factory-loaded patterns in flash, no programming flow for them, no catalog. This is a green-field area: design the storage layout, programming flow (manufacturing-time? OTA? host command?), and the catalog before any of the `0x70`–`0x74` family becomes implementable.
+- **Stretch multiplier on indexed-display commands (`0x60`–`0x64`) is the v4 contribution beyond v2/v3 indexed display.** The indexed-display commands (`0x50` v2, `0x52`/`0x53` v3) take only a 3-byte index payload; v4's `0x60`/`0x62`/`0x63` add a 1-byte stretch multiplier. Decide whether v4 supersedes those v2/v3 indexed-display commands (deprecating them in favor of always-with-stretch variants) or coexists.
+- **Trigger and Gated-Persistent modes are still undefined.** v4 introduces `0x61`/`0x71` (Trigger) and `0x64`/`0x74` (Gated-Persistent) without describing them. The v3 reconciliation already noted that test-rig architecture supports a Gated-Persistent pattern but timing is unproven. **Action:** define both modes formally (under v3 § Display Modes) before v4 implementation begins.
+- **`0x70` opcode collision with v1 error display.** The v1 error display feature (currently optional, not implemented) suggests using `0x70` for the panel error glyph. v4 uses `0x70` for "Display Predefined Pattern with Stretch (Oneshot)". Resolve before either feature is implemented; the simplest fix is to reserve a specific predefined-pattern index (e.g., index `0x000000`) as the error-glyph slot, indexed via the v4 `0x70` command.
+
+**Bottom line for v4 spec sign-off:** v4 is ~30 % specified (3 of 10 commands fully detailed; the rest just listed); both reference firmwares have zero v4 capabilities; predefined-pattern flash storage is unbuilt and undesigned. Do not target v4 for near-term implementation. The v4 spec section is useful as a roadmap but needs ~7 missing per-command sections, a predefined-pattern catalog spec, Trigger/Gated-Persistent mode definitions, and resolution of the `0x70` collision before becoming implementable.
+
+### Reconciliation: Panel Protocol v5 (run 2026-05-01)
+
+v5 is a sketch in the source. No reconciliation possible — there are no opcodes assigned to the "interesting commands" bullets, no payload formats, no implementation references. Treat the v5 section as a roadmap rather than a specifiable protocol version. The 4-level / 256-level grayscale opcode ranges (`0x20…0x2F`, intended `0x40…0x4F`) are a parallel extension of the existing 2-level / 16-level encoding scheme; if any of those becomes implementation-ready, lift it into a proper version (v5 or whatever's next) at that point.
 
 > **⚠ Flag — file-scope status mixing:** the file is being built up version-by-version (v1 first, then v2, then v3, then v4/v5/summary), each with sign-off. While that's in progress, the status line above will mix Specified (for landed versions) with `_not yet migrated_` for the rest. This is expected during Phase-1 development.
 
