@@ -118,7 +118,7 @@ The polarity choice matters under multi-LED load: UCC27517 gate drivers have asy
 
 - **20 resistors**, one per column input, all populated with the same LCSC part **C851657** (0201 package)
 - **Symbolic naming** in schematic: R_T0 / R_T1 / R_T2 / R_T3 cycling across 4-LED groups (placeholder for future multi-color variants; today all 20 are the same physical part)
-- **Value:** 160 Ω (per the v0.2.0 design roadmap optimization — gives ~18.5 mA drive at worst-case V_F vs 12.4 mA for v0.1's 240 Ω; +50 % brightness, safe at 40 °C). **Confirm physically on R9 before precision work** (Open Question #6).
+- **Value:** **160 Ω** (BOM-confirmed 2026-05-02: LCSC C851657 = **Yageo RC0201FR-07160RL** = 160 Ω 0201, 1%). Matches the v0.2.0 design roadmap optimization — gives ~18.5 mA drive at worst-case V_F vs 12.4 mA for v0.1's 240 Ω; +50 % brightness, safe at 40 °C. In-circuit measurement on R9 is still recommended for final verification before precision photometric work.
 
 ### LED drivers (gate drivers between MCU and matrix)
 
@@ -258,7 +258,7 @@ Useful when moving firmware between panel revisions. Source: `PANEL_V021_V031_HW
 3. ~~CS-line routing per panel position.~~ **Resolved 2026-05-02**: panel-internal J3↔J5 wiring shifts CS lines up by one (`J3 pin 1 → MCU CS0` always; `J3 pin 2 (CS1) → J5 pin 1`, etc.); slot-position daisy-chain delivers the 4 different CS lines from the arena to the 4 panels in a column. See § Connectors above. KiCad source verified.
 4. ~~Board-id mechanism for firmware to detect v0.2 vs v0.3.~~ **Resolved 2026-05-02**: build-time `#define` (separate firmware binaries). See § Revisions in scope above.
 5. ~~Layering vs `display.cpp::sch_to_pos_index`.~~ **Resolved 2026-05-02**: two-stage model. Host owns *logical → schematic*; panel firmware owns *schematic → physical-pin*. See `g6_01` § History decisions log.
-6. **Confirm 160 Ω current-limit value physically (R9).** PR-review doc says expected 160 Ω per prior optimization. **Resistance is to be confirmed** by in-circuit measurement on R9 (or LCSC C851657 part lookup) before precision brightness work.
+6. ~~Confirm 160 Ω current-limit value physically (R9).~~ **Resolved 2026-05-02 via BOM lookup**: LCSC C851657 = Yageo RC0201FR-07160RL = 160 Ω 0201 (1%). In-circuit measurement still recommended for final verification but no longer a blocker.
 7. ~~R6 net assignment.~~ **Resolved 2026-05-02**: R6 = 33 Ω noise-isolation series resistor between +3V3 and the RP2354 `VREG_AVDD` pin. KiCad-verified.
 8. **Maximum SPI clock rate.** Firmware default is 30 MHz (`g6_firmware_devel/panel/src/constants.cpp:15`); **target is 25 MHz with margin** — but exact panel-side hardware ceiling is **TBD** (not characterized). Worth measuring on a scope before pushing past 25 MHz on production hardware.
 
@@ -274,7 +274,8 @@ Useful when moving firmware between panel revisions. Source: `PANEL_V021_V031_HW
 - **2026-05-02** — **LED-mapping layering = two-stage** (Open Q #5 resolved, D5 in `g6_01` resolved). Host: logical → schematic; panel firmware: schematic → physical-pin via `sch_to_pos_index()`. Spec text updated in `g6_00`, `g6_01`, `g6_02` (commit `add7fa6`).
 - **2026-05-02** — **CS-line routing per panel position resolved** (Open Q #3): physical slot-position via panel-internal J3↔J5 connector pin shift. KiCad wire-trace from `floesche/LED-Display_G6_Hardware_Panel @ 23dad5e` (PR #4 head) confirms: J3 pin 1 → MCU CS0 unconditionally; J3 pins 2/3/4 (CS1/CS2/CS3) → J5 pins 1/2/3 (one position up); J5 pin 4 = NC; EINT propagates straight through. Up to 4 panels per stack. Same mechanism in v0.2 and v0.3 (commit `76a78b5`).
 - **2026-05-02** — **Resistor net assignments verified via direct KiCad source trace** (`panel_mcu.kicad_sch` from PR #4 head): R6 = +3V3↔VREG_AVDD noise-isolation; R1 = XIP_CS1n pull-up (PR-review-doc inference confirmed); R4 = QSPI_SS pull-up (corrects PR-review-doc's "CS0" inference — R4 is for boot-flash CS, not panel-protocol CS0). J1 USB pinout verified (D−, D+, +5V, GND in sequence). Closes Open Q #7 (R6 net) and resolves the OQ #1 spot-checks (this commit).
-- **2026-05-02** — SPI clock target = **25 MHz** (with margin under the firmware's 30 MHz default); exact panel-side hardware ceiling TBD (Open Q #8) (this commit).
+- **2026-05-02** — SPI clock target = **25 MHz** (with margin under the firmware's 30 MHz default); exact panel-side hardware ceiling TBD (Open Q #8) (commit `9a87336`).
+- **2026-05-02** — **160 Ω current-limit value BOM-confirmed** (Open Q #6 resolved): LCSC C851657 = Yageo RC0201FR-07160RL via both panel BOMs (`v0p2r1/bom.csv`, `v0p3r1/bom.csv`). Same part across all 20 R_T0/T1/T2/T3 designators (this commit).
 
 ## Cross-references
 
