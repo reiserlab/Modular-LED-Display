@@ -87,17 +87,7 @@ The panel receives commands via SPI and returns confirmations according to the [
 
 ## History & Reconciliation
 
-**Design history of the v1 protocol scaffolding.** The 1-byte header with parity bit in MSB + 1-byte command + payload was selected over an earlier proposal from `<will@iorodeo.com>` that used `(uint16 length)(uint16 type)` framing. The earlier framing is captured in [`G6 message format proposal`](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit) (~18 KB). Two carry-overs from that precursor:
-
-- **Pattern data is row-major, MSB-first within each byte** — convention from precursor's "Pattern data payloads" section, normative in v1 (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format).
-- **Display modes (oneshot / triggered / gated / persistent)** — precursor sketched these as separate command types per pattern level; v1 starts with Oneshot only, with Triggered + Gated landing in v3 (Persistent reserved but deferred).
-
-### Major decisions log
-
-- **2026-05-01** — TCP-only host↔controller transport adopted (commit `46264ae`); replaces UDP from earlier draft.
-- **2026-05-02** — v3 mode set finalized: Triggered + Gated + (Persistent deferred); Gated-Persistent dropped (commit `a334004` in `g6_01`).
-- **2026-05-02** — Panel hardware reference for v0.2 + v0.3 captured in [`g6_02-led-mapping.md`](g6_02-led-mapping.md) (commits `a805e59` + `6450445`).
-- **2026-05-02** — LED-mapping layering decided: two-stage model (host: logical→schematic; firmware: schematic→physical-pin). Resolves D5 from `g6_01` Live Divergences.
+The v1 protocol scaffolding (1-byte header with parity in MSB + 1-byte command + payload) was selected over an earlier `(uint16 length)(uint16 type)` framing from the precursor [G6 message format proposal](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit). Two carry-overs from the precursor are normative today: row-major MSB-first pattern data, and the display-mode-per-command-type pattern (v1 = Oneshot only; Triggered + Gated added in v3). For the audit trail of decisions, see the git log.
 
 ## Cross-references
 

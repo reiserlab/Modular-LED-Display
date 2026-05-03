@@ -81,7 +81,7 @@ Tools for generating and managing `.TSI` files will be needed (borrowing heavily
 
 Host should query controller version / capabilities to know whether v2 features (Local Storage Mode, Mode 1, TSI) are available, and provide appropriate error messages if not available.
 
-v2 capability detection shares the v1 "G6 mode" gap above — same `get-controller-info` command, version-dispatched response. **Capability bitmap layout (decided 2026-05-02, 8-bit):** bit 0 = `g6_mode`, bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 reserved. Spec'd in [`g6_03-controller.md`](g6_03-controller.md) § 5 G6-specific controller commands.
+v2 capability detection shares the v1 "G6 mode" gap above — same `get-controller-info` command, version-dispatched response. **Capability bitmap (8-bit):** bit 0 = `g6_mode`, bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 reserved. Spec'd in [`g6_03-controller.md`](g6_03-controller.md) § 5 G6-specific controller commands.
 
 ---
 
@@ -94,28 +94,7 @@ v2 capability detection shares the v1 "G6 mode" gap above — same `get-controll
 
 ## History & Reconciliation
 
-**Light reconciliation pass (2026-05-02)** against `maDisplayTools v2` and slim G4.1, framed from the firmware-contract perspective.
-
-What `maDisplayTools v2` already supplies:
-
-- 18-byte v2 pattern header with G6PT magic + version + Arena/Observer IDs + frame count + row/col counts + gs_val + 6-byte panel mask + XOR checksum.
-- Per-panel GS2 (53-byte) and GS16 (203-byte) block encoding (header + command + pixel data row-major from bottom-left, MSB-first packing + stretch).
-- Round-trip-validated cross-platform encoding via `g6_encoding_reference.json` (identical bit-level output between MATLAB and JS encoders).
-
-What's not yet supplied host-side and remains a firmware-side TBD (each tracked under specific Open Question above or in a sibling doc):
-
-- `get-controller-info` opcode `0x67` (v1 G6-mode detection + v2 capability bitmap) — spec in [`g6_03-controller.md`](g6_03-controller.md) Host Command Summary.
-- `g6-panel-storage-mode` opcode `0x40` (host-callable SD ↔ Local Storage switch) — spec in `g6_03`.
-- Region / SPI-bus info source — see Open Q #2.
-- TSI authoring tools and DO/AO output drivers — pin assignments resolved in [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md); host tooling is maDisplayTools-side, deferred.
-- Pattern-match check between SD and panel PSRAM — see Open Q #1.
-
-### Major decisions log
-
-- **2026-05-01** — `0x67 = get-controller-info` opcode assigned (commit `508da9e`); single command with version-dispatched response shape covers v1 G6-mode detection + v2 capability bitmap.
-- **2026-05-01** — `0x40 = g6-panel-storage-mode` opcode assigned (commit `508da9e`); switches controller from SD Mode → Local Storage Mode.
-- **2026-05-02** — v2 18-byte header confirmed canonical; source-tab "TBD" wording obsolete (commit `7b7e804`).
-- **2026-05-02** — `get-controller-info` capability bitmap layout finalized (8-bit: `g6_mode`/`v2_local_storage`/`mode_1_tsi`/`v3_triggered`/`v3_gated` + 3 reserved). Closes the host-side capability-detection gap (this commit).
+`maDisplayTools v2` already supplies the pattern-encoding side of the firmware contract (v2 18-byte header + per-panel GS2/GS16 block encoding + round-trip-validated cross-platform encoding via `g6_encoding_reference.json`). Outstanding host-side gaps (controller-info opcode, panel-storage-mode opcode, region/SPI source, TSI tooling, PSRAM-vs-SD integrity check) are each tracked in this file's Open Questions or in sibling docs. Audit trail of decisions in the git log.
 
 ---
 

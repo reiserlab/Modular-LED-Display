@@ -5,14 +5,9 @@ Status: **§ v1 = Specified, partially implemented** (5 spec ↔ firmware diverg
 
 This file holds the SPI-level protocol between the controller and the panels — message scaffolding, header byte, parity rule, the per-version command set, payload formats, panel confirmations, and pixel data layout. Versions are staged in chronological order (v1 first because it sets all the conventions and is the only version with deployable firmware in flight).
 
-## Live Divergences (action items requiring decision)
+## Live Divergences
 
-_All five v1 spec ↔ firmware divergences (D1 checksum scope, D2 confirmation message, D3 stretch behavior, D4 COMM_CHECK visual response, D5 LED-mapping layering) **resolved 2026-05-02**. See § History & Reconciliation § Major decisions log for the resolutions. Each generated a firmware ticket where applicable._
-
-Items the firmware exposes but the spec does not yet specify (lift into spec normatively):
-
-- **SPI mode / polarity / clock**: `spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST)`, `SPI_SPEED = 30 MHz`. Lifted into § SPI framing below.
-- **`check_protocol(uint8_t protocol)`** ([message.cpp:69–71](../../../g6_firmware_devel/panel/src/message.cpp)) compares the *full header byte* (including parity bit) against `CMD_PROTOCOL_V1 = 0x01`. For a parity=1 message (header `0x81`) this returns false — would reject a valid v1 message with parity=1. Latent bug; would surface at v2 unless fixed.
+All five v1 spec ↔ firmware divergences (checksum scope, confirmation message, stretch behavior, COMM_CHECK visual response, LED-mapping layering) are now resolved; the resolutions are reflected in the spec body above and listed in § History & Reconciliation. One latent firmware bug worth flagging: `check_protocol()` in `g6_firmware_devel @ 6944894` compares the full header byte (including parity bit) against `CMD_PROTOCOL_V1 = 0x01` — it would reject a valid v1 message with parity=1 (header `0x81`) if it were ever called by `Messenger::update()` (it currently isn't, so dormant in v1; would surface at v2 unless fixed).
 
 ---
 
@@ -145,7 +140,7 @@ Displays a 16-level (4-bit per pixel) pattern once.
 
 ### Confirmation message
 
-> **💡 Note — confirmation message is specified, firmware impl pending.** `g6_firmware_devel @ 6944894` does not yet implement the panel-side MISO write logic in `messenger.cpp` or `panel_spi_custom.cpp`; SPI is currently configured slave-receive-only. Spec text below is normative; firmware ticket required to implement.
+> **💡 Note** — confirmation message is specified normatively below; firmware impl pending in `g6_firmware_devel` (panel-side MISO write logic not yet wired).
 
 On CS falling edge, a panel returns the version, command, and a checksum from the previously received command.
 
@@ -251,16 +246,7 @@ Example (or some other font library with maybe 8×8 glyphs would be better):
 ....................
 ```
 
-During implementation, `<will@iorodeo.com>` should decide which errors are most relevant, but some suggestions are:
-
-- Unknown or uninterpretable command
-- Payload length mismatch
-- Checksum/parity failure
-- Data timeout / incomplete message
-
-To make this error visible — we will need to keep them displayed for a short interval, at least 500 ms. This could be done with a dedicated error message routine that repeats the same pattern. During this time the panel should receive but ignore incoming commands so that the error can be noticed.
-
-This feature is not required for protocol v1 compliance but provides a quick, hardware-level diagnostic without needing serial debug output.
+Suggested errors to surface: unknown/uninterpretable command, payload-length mismatch, checksum/parity failure, data timeout. Keep displayed for ≥ 500 ms; receive-and-ignore incoming commands during the display window. Not required for v1 compliance.
 
 ---
 
@@ -402,153 +388,30 @@ For Protocol v3, the version bits are `0b0000011`, giving possible header values
 
 ### Display Modes
 
-Protocol v3 introduces three new display modes alongside v1's Oneshot. Mode definitions finalized 2026-05-02:
-
-**Oneshot** (v1 default): Display the pattern once immediately. Controller drives every frame. Most deterministic; canonical for G6.
-
-**Triggered**: Each rising edge on the EINT trigger line fires one unit of display (e.g., one row, one frame, or one row-bit-plane — exact semantics per command). The pattern stays loaded after the command; subsequent rising edges refire it. Validated in `G6_Panels_Test_Firmware @ bb26a44` with **865 ± 17 ns trigger-to-LED latency** and zero jitter at 8 kHz (one row per trigger, the prototype's mode). Use case: sub-frame synchronization with external scanning systems (e.g., two-photon microscope resonant scanners).
-
-**Gated**: While the EINT trigger line is HIGH, the panel internally refreshes the most recently loaded frame; while LOW, the display is off. Pattern remains loaded across HIGH↔LOW transitions until a new command. Use case: window-gated display for behavior-rig event windows.
-
-> **💡 Note — Persistent mode (`0x13`, `0x33`, `0x53`) is proposed but NOT IMPLEMENTED in initial v3.** Controller-per-frame Oneshot is the canonical deterministic approach; bandwidth savings of Persistent are not justified by current use cases. Spec entries below are kept so the opcode slots are reserved if the case emerges later.
-
-**Persistent** *(proposed; not implemented in initial v3)*: Display the pattern continuously, repeating it over and over until another command is received. Useful in principle for static backgrounds, but supplanted by Oneshot-per-frame for determinism.
-
-### Additional Commands (v3)
-
-Nine v3 display commands, three modes × three pattern types:
-
-- `0x12` — Display 2-Level Grayscale (Triggered)
-- `0x13` — Display 2-Level Grayscale (Persistent) — *proposed, not implemented*
-- `0x14` — Display 2-Level Grayscale (Gated)
-- `0x32` — Display 16-Level Grayscale (Triggered)
-- `0x33` — Display 16-Level Grayscale (Persistent) — *proposed, not implemented*
-- `0x34` — Display 16-Level Grayscale (Gated)
-- `0x52` — Display PSRAM Index (Triggered)
-- `0x53` — Display PSRAM Index (Persistent) — *proposed, not implemented*
-- `0x54` — Display PSRAM Index (Gated)
-
-#### `0x12` — Display 2-Level Grayscale (Triggered)
-
-Displays a 2-level (1-bit per pixel) pattern, fired by each rising edge on the external trigger line.
-
-**Payload**: 51 bytes (50 pattern + 1 stretch)
-
-- 20×20 pixels in row-major order, 1 bit per pixel (0=off, 1=on); 400 pixels / 8 = 50 bytes
-
-**Example**:
-
-`[0x03] [0x12] [pixel data: 50 bytes] [stretch]`
-
-**Purpose**: High-performance synchronization where individual display events are fired by external trigger edges. Critical for two-photon microscopy with resonant scanners, where visual stimuli must only be displayed during specific phases of the scan cycle.
-
-#### `0x13` — Display 2-Level Grayscale (Persistent) — *proposed, not implemented in initial v3*
-
-> **💡 Note — opcode reserved; not implemented in initial v3.** See § Display Modes above.
-
-Displays a 2-level (1-bit per pixel) pattern continuously until a new command is received.
-
-**Payload**: 51 bytes (50 pattern + 1 stretch)
-
-**Example**:
-
-`[0x03] [0x13] [pixel data: 50 bytes] [stretch]`
-
-#### `0x14` — Display 2-Level Grayscale (Gated)
-
-Displays a 2-level (1-bit per pixel) pattern, internally refreshed by the panel while the EINT trigger line is HIGH; display off while LOW. Pattern remains loaded across trigger transitions until a new command is received.
-
-**Payload**: 51 bytes (50 pattern + 1 stretch)
-
-- 20×20 pixels in row-major order, 1 bit per pixel; 400 pixels / 8 = 50 bytes
-
-**Example**:
-
-`[0x03] [0x14] [pixel data: 50 bytes] [stretch]`
-
-**Purpose**: Window-gated display for experiments where the stimulus should be visible only during specific phases of an external control signal (behavior-rig event windows, gating pulses, optogenetics interleave).
-
-#### `0x32` — Display 16-Level Grayscale (Triggered)
-
-Displays a 16-level (4-bit per pixel) pattern, fired by each rising edge on the external trigger line.
-
-**Payload**: 201 bytes (200 pattern + 1 stretch)
-
-- 20×20 pixels in row-major order, 4 bits per pixel (0–15 intensity levels); 400 pixels × 4 bits / 8 = 200 bytes
-
-**Example**:
-
-`[0x03] [0x32] [pixel data: 200 bytes] [stretch]`
-
-**Purpose**: Same as `0x12` but with 16-level grayscale for more complex visual stimuli.
-
-#### `0x33` — Display 16-Level Grayscale (Persistent) — *proposed, not implemented in initial v3*
-
-> **💡 Note — opcode reserved; not implemented in initial v3.** See § Display Modes above.
-
-Displays a 16-level (4-bit per pixel) pattern continuously until a new command is received.
-
-**Payload**: 201 bytes (200 pattern + 1 stretch)
-
-**Example**:
-
-`[0x03] [0x33] [pixel data: 200 bytes] [stretch]`
-
-#### `0x34` — Display 16-Level Grayscale (Gated)
-
-Displays a 16-level (4-bit per pixel) pattern, internally refreshed by the panel while the EINT trigger line is HIGH; display off while LOW.
-
-**Payload**: 201 bytes (200 pattern + 1 stretch)
-
-- 20×20 pixels in row-major order, 4 bits per pixel (0–15 intensity levels); 400 pixels × 4 bits / 8 = 200 bytes
-
-**Example**:
-
-`[0x03] [0x34] [pixel data: 200 bytes] [stretch]`
-
-**Purpose**: Same as `0x14` but with 16-level grayscale for more complex visual stimuli.
-
-#### `0x52` — Display PSRAM Index (Triggered)
-
-Displays a pattern from PSRAM, fired by each rising edge on the external trigger line.
-
-**Payload**: 3 bytes
-
-- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
-
-**Example**:
-
-`[0x03] [0x52] [index: 3 bytes]`
-
-**Purpose**: High-performance mode combining PSRAM efficiency with trigger-aligned firing for two-photon microscopy synchronization.
-
-#### `0x53` — Display PSRAM Index (Persistent) — *proposed, not implemented in initial v3*
-
-> **💡 Note — opcode reserved; not implemented in initial v3.** See § Display Modes above.
-
-Displays a pattern from PSRAM continuously until a new command is received.
-
-**Payload**: 3 bytes
-
-- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
-
-**Example**:
-
-`[0x03] [0x53] [index: 3 bytes]`
-
-#### `0x54` — Display PSRAM Index (Gated)
-
-Displays a pattern from PSRAM, internally refreshed by the panel while the EINT trigger line is HIGH; display off while LOW. Pattern remains loaded across trigger transitions until a new command is received.
-
-**Payload**: 3 bytes
-
-- **Bytes 2–4**: PSRAM index/location (3 bytes, 24-bit integer)
-
-**Example**:
-
-`[0x03] [0x54] [index: 3 bytes]`
-
-**Purpose**: Window-gated repeated display from PSRAM — useful for stimuli that should be visible only during specific phases of an external control signal (behavior-rig event windows) without re-issuing a display command per gating window.
+Protocol v3 introduces three new display modes alongside v1's Oneshot:
+
+- **Oneshot** (v1 default): Display the pattern once immediately. Controller drives every frame. Most deterministic; canonical for G6.
+- **Triggered**: Each rising edge on the EINT trigger line fires one unit of display (one row, one frame, or one row-bit-plane — exact granularity per command). Pattern stays loaded; subsequent rising edges refire it. Validated in `G6_Panels_Test_Firmware @ bb26a44` with 865 ± 17 ns trigger-to-LED latency at 8 kHz. Use case: sub-frame sync with external scanning systems (two-photon microscope resonant scanners, etc.).
+- **Gated**: While EINT HIGH, the panel internally refreshes the loaded frame; while LOW, display off. Pattern remains loaded across HIGH↔LOW transitions until a new command. Use case: window-gated display for behavior-rig event windows.
+- **Persistent** *(proposed; not implemented in initial v3)*: Display continuously until next command. Reserved opcodes (`0x13`/`0x33`/`0x53`) — controller-per-frame Oneshot is the canonical deterministic approach today.
+
+### v3 commands
+
+Nine display opcodes covering 3 modes × 3 pattern types:
+
+| Opcode | Pattern type | Mode | Payload | Status |
+|:-:|:--|:--|:--|:--|
+| `0x12` | 2-Level (50 B + stretch = 51 B) | Triggered | `[0x03] [0x12] [50 B pixels] [stretch]` | active |
+| `0x13` | 2-Level | Persistent | same shape as `0x12` | reserved (proposed, not implemented) |
+| `0x14` | 2-Level | Gated | same shape as `0x12` | active |
+| `0x32` | 16-Level (200 B + stretch = 201 B) | Triggered | `[0x03] [0x32] [200 B pixels] [stretch]` | active |
+| `0x33` | 16-Level | Persistent | same shape as `0x32` | reserved (proposed, not implemented) |
+| `0x34` | 16-Level | Gated | same shape as `0x32` | active |
+| `0x52` | PSRAM Index (3 B) | Triggered | `[0x03] [0x52] [3 B index]` | active |
+| `0x53` | PSRAM Index | Persistent | same shape as `0x52` | reserved (proposed, not implemented) |
+| `0x54` | PSRAM Index | Gated | same shape as `0x52` | active |
+
+Pattern-type encoding details inherit from v1 (2-Level / 16-Level) and v2 (PSRAM Index, 24-bit address). Stretch (where present) is BCM duty-cycle multiplier per v1 § Stretch Value.
 
 ### Typical v3 Workflows
 
@@ -575,143 +438,15 @@ Displays a pattern from PSRAM, internally refreshed by the panel while the EINT 
 
 (The pre-load step uses `0x1F` from v2 with the v3 header byte `[0x03]` — explicit application of the version-superset rule from v2 § Compatibility.)
 
-## v4 — G6 Panel Protocol v4 (teaser)
+## v4 — G6 Panel Protocol v4 (deferred)
 
-Version 4 introduces predefined patterns. Predefined patterns are widely used patterns such as all-on, checkerboards, etc.
+Version 4 introduces **predefined patterns** stored in panel flash (all-on, checkerboards, etc.) plus stretch on PSRAM-indexed display. Header version bits = `0b0000100` (`0x04` / `0x84`).
 
-For Protocol v4, the version bits are `0b0000100`, giving possible header values `0x04` (parity 0) / `0x84` (parity 1).
+**Deferred to future work.** v1+v2+v3 ship first. Open work for v4: per-command spec sections for 7 of 10 commands; the predefined-pattern catalog (slot count, factory vs user-installable, format, programming mechanism); alignment to the v3 mode set (current v4 list uses the older Trigger/Gated-Persistent naming; `0x64`/`0x74` slots likely deprecated since Gated-Persistent dropped). Opcodes `0x60`–`0x64` (Display PSRAM Index with Stretch, modes Oneshot/Trigger/Gated/Persistent/Gated-Persistent) and `0x70`–`0x74` (Display Predefined Pattern with Stretch, same modes) are reserved in the namespace. See Master command summary below for the 6 v4 opcodes documented today.
 
-> **⚠ Flag — v4 deferred to future work; v1–v3 prioritized.** The v4 section below is a **teaser** — content gaps are intentional and not actionable until v1+v2+v3 ship. Specifically deferred: per-command spec sections for 7 of 10 v4 commands; the predefined-pattern catalog (slot count, factory-loaded vs user-installable, format, programming mechanism); **alignment to the v3 4-mode model** (Oneshot/Triggered/Gated/Persistent — current v4 list still uses the older "Trigger" / "Gated-Persistent" naming and will need updating; `0x64` / `0x74` Gated-Persistent slots will likely be dropped or repurposed since Gated-Persistent is no longer in the mode set). Do not target v4 for near-term implementation. The list and partial spec below are a roadmap, not a buildable surface.
+## v5 — G6 Panel Protocol v5 (sketch only — no specifiable surface)
 
-### Additional Commands (v4)
-
-- `0x60` — Display PSRAM Index with Stretch (Oneshot)
-- `0x61` — Display PSRAM Index with Stretch (Trigger)
-- `0x62` — Display PSRAM Index with Stretch (Gated)
-- `0x63` — Display PSRAM Index with Stretch (Persistent)
-- `0x64` — Display PSRAM Index with Stretch (Gated-Persistent) *— mode dropped from v3; slot likely deprecated*
-- `0x70` — Display Predefined Pattern with Stretch (Oneshot)
-- `0x71` — Display Predefined Pattern with Stretch (Trigger)
-- `0x72` — Display Predefined Pattern with Stretch (Gated)
-- `0x73` — Display Predefined Pattern with Stretch (Persistent)
-- `0x74` — Display Predefined Pattern with Stretch (Gated-Persistent) *— mode dropped from v3; slot likely deprecated*
-
-#### `0x70` — Display Predefined Pattern with Stretch (Oneshot)
-
-Displays a predefined pattern (stored in panel flash memory) once with specified stretch value.
-
-**Payload**: 4 bytes
-
-- **Bytes 2–4**: Predefined pattern index (3 bytes, 24-bit integer)
-- **Byte 5**: Stretch value (1 byte, 0–255)
-
-**Example**:
-
-`[0x04] [0x70] [index: 3 bytes] [stretch: 1 byte]`
-
-**Purpose**: Access factory-loaded or pre-programmed patterns stored in panel flash memory. Useful for common patterns (calibration grids, test patterns, standard backgrounds) without requiring PSRAM upload. Stretch allows these base patterns to be displayed at different intensities. (`0x70` opcode also referenced by v1 § Optional Panel Error Display — see [v1 flag](#optional-panel-error-display) for the resolution options.)
-
-#### `0x72` — Display Predefined Pattern with Stretch (Gated)
-
-Displays a predefined pattern with stretch, gated by external trigger signal.
-
-**Payload**: 4 bytes
-
-- **Bytes 2–4**: Predefined pattern index (3 bytes, 24-bit integer)
-- **Byte 5**: Stretch value (1 byte, 0–255)
-
-**Example**:
-
-`[0x04] [0x72] [index: 3 bytes] [stretch: 1 byte]`
-
-**Purpose**: Gated display of predefined patterns. Useful for synchronized display of standard patterns during specific experimental phases.
-
-#### `0x73` — Display Predefined Pattern with Stretch (Persistent)
-
-Displays a predefined pattern continuously with stretch until new command received.
-
-**Payload**: 4 bytes
-
-- **Bytes 2–4**: Predefined pattern index (3 bytes, 24-bit integer)
-- **Byte 5**: Stretch value (1 byte, 0–255)
-
-**Example**:
-
-`[0x04] [0x73] [index: 3 bytes] [stretch: 1 byte]`
-
-**Purpose**: Persistent display of predefined patterns. Ideal for standard backgrounds or inter-trial displays that can be set once and left running.
-
-(Catalog of predefined patterns — slot count, factory-loaded vs user-installable, programming mechanism — is part of the v4 deferred work; see banner at the top of v4 § Additional Commands.)
-
-### Typical v4 Workflows
-
-**Brightness modulation experiment**:
-
-```
-// Pre-load base pattern at medium intensity
-[0x04] [0x1F] [0x00 0x00 0x00] [pattern data: 50 bytes]
-
-// Display same pattern at different brightnesses
-[0x04] [0x60] [0x00 0x00 0x00] [0x40]   // 25% brightness
-[0x04] [0x60] [0x00 0x00 0x00] [0x80]   // 50% brightness
-[0x04] [0x60] [0x00 0x00 0x00] [0xFF]   // 100% brightness
-```
-
-**High dynamic range with low-bit patterns**:
-
-```
-// Use 2-level pattern (1-bit) but achieve HDR via stretch
-[0x04] [0x1F] [0x00 0x00 0x00] [2-level pattern: 50 bytes]
-
-// Display at various intensities for effective multi-level grayscale
-[0x04] [0x60] [0x00 0x00 0x00] [0x11]   // Dim
-[0x04] [0x60] [0x00 0x00 0x00] [0x55]   // Medium-low
-[0x04] [0x60] [0x00 0x00 0x00] [0xAA]   // Medium-high
-[0x04] [0x60] [0x00 0x00 0x00] [0xFF]   // Bright
-
-// Achieves 4+ effective brightness levels with 50-byte patterns
-```
-
-**Using predefined patterns for calibration**:
-
-```
-// Display factory calibration grid at full brightness
-[0x04] [0x70] [0x00 0x00 0x00] [0xFF]
-
-// Display test pattern at 50% brightness
-[0x04] [0x70] [0x00 0x00 0x01] [0x80]
-```
-
-**Adaptive brightness during experiment**:
-
-```
-// Start with bright stimulus
-[0x04] [0x63] [0x00 0x00 0x00] [0xFF]
-
-// Adapt to subject — reduce brightness mid-experiment
-[0x04] [0x63] [0x00 0x00 0x00] [0x60]
-
-// Pattern continues displaying at new brightness
-```
-
-(The `0x1F` write through a `[0x04]` v4 header above raises the same cross-version-compatibility question as v3 — see the v3 gated example. Workflows here use `0x60` / `0x63` whose per-command details are tracked in the v4 spec-coverage flag earlier in this section.)
-
-## v5 — G6 Panel Protocol v5 (sketch)
-
-Add more grayscale levels, color support, and pattern modifiers.
-
-- `0x20…0x2F` — use 4-level grayscales similar to `0x10…0x1F`
-- `0x40…0x4F` — use 256-level grayscales similar to `0x10…0x1F`
-
-(Pattern: `0x10` = 2-level, `0x20` = 4-level, `0x30` = 16-level, `0x40` = 256-level; the `0x00` slot and 8-level encoding are skipped, likely reserved for future use.)
-
-Other commands that might be interesting:
-
-- Get pattern from PSRAM and display as 2, 4, 16, or 256 level pattern with new color lookup table. That way one could invert a 2-color pattern from memory by just sending 7 bytes payload.
-- Get pattern from PSRAM but translate by x or y pixel.
-- Get pattern from PSRAM and change contrast (either using brightest or darkest pixel as reference).
-- Increase or decrease brightness in other ways than stretch.
-- Scale pattern sizes (zoom in, zoom out).
+Future-version namespace for additional grayscale levels (`0x20…0x2F` = 4-level, `0x40…0x4F` = 256-level — extending the v1 `0x10` 2-level / `0x30` 16-level encoding pattern), color support, and pattern modifiers. No opcode-level detail today. Roadmap, not a buildable surface.
 
 ## Master command summary (v1–v4)
 
@@ -785,38 +520,7 @@ This table provides a complete reference of all commands across protocol version
 
 ## History & Reconciliation
 
-- **v1 reconciliation** against `g6_firmware_devel @ 6944894` (run 2026-05-01): 11 spec claims verified (parity rule, byte structure, opcode values `0x01`/`0x10`/`0x30`, payload sizes 200/51/201, pixel encoding row-major MSB-first, SPI rules, `PANEL_SIZE = 20`, stretch placement, message rejection, additive checksum); 3 spec open questions resolved by firmware (COMM_CHECK known sequence = `payload[i] = i`; parity rule = `popcount(version_bits ‖ command ‖ payload) mod 2`; source-spec parity examples 1–3 had errors — firmware is correct); 5 live divergences (D1–D5 above). Full reconciliation table in commit `9d36b9f`.
-- **v2 reconciliation** (run 2026-05-01): all 6 v2 opcodes (`0x02`/`0x03`/`0x0F`/`0x1F`/`0x3F`/`0x50`) declared in `protocol.h:17–22`, but no payload sizes registered, no callbacks wired, no PSRAM driver — opcodes-declared, behavior-not-implemented. Forward-looking constraints: zero-payload commands collide with `PAYLOAD_MINIMUM_SIZE = 1`; `0x50` payload size discrepancy unresolved (recommend 3 bytes); diagnostic data shape still unspec'd. Full table in commit `9d36b9f`.
-- **v3 test-rig validation** (run 2026-05-01) against `G6_Panels_Test_Firmware @ bb26a44` on G6 panels v0.2.1/v0.3.1: BCM 4-bit grayscale at 0.5 µs base time + 16 distinguishable brightness levels + 56% per-bit-plane brightness decay corrected via weight optimization `[1, 2, 5.02, 10.19]` (2.5% max error); zero-jitter external trigger gating (865 ± 17 ns latency, 0.000 µs std dev over 10k triggers); persistent BCMBURST loop at 400 Hz; 9.42 µs per-row burst within 15 µs 2P scan window with 5.6 µs margin. Full evidence in repo's `single_led/PRODUCTION_ARCHITECTURE.md`, `TIMING_SUMMARY.md`, `RESULTS.md`, `SESSION_2026-04-24_PIOFULL_AD3.md`. Two open blockers: trigger edge polarity (Open Q #14), sync-vs-async gating (Open Q #15).
-- **v4 / v5**: nothing implemented anywhere (`protocol.h:10–23` declares only v1+v2 opcodes; test rig has no v4 capabilities). v4 deferred per banner; v5 a sketch.
-
-### Major decisions log
-
-- **2026-04-29** — Drop `SWITCH_GRAYSCALE_CMD` (0x06), `DISPLAY_RESET_CMD` (0x01) for G6 (commit `46264ae`).
-- **2026-04-29** — Pattern File Format v2 (18-byte header) sole canonical; v1 historical content dropped (commit `6167e55`).
-- **2026-04-29** — Drop standalone Panel Map file; panel mask (6 bytes) + row/col counts in pattern header (commit `f2aa1e5`).
-- **2026-05-01** — TCP-only host↔controller transport (commit `46264ae`).
-- **2026-05-01** — Arena jumper J30 = OPEN by default (Teensy-mediated EINT trigger) (commit `78be9ca`).
-- **2026-05-01** — Panel-protocol opcode `0xC2` = Panel Error Display (v1 panel namespace) (commit `508da9e`).
-- **2026-05-01** — Controller opcodes assigned: `0x40` = `g6-panel-storage-mode` (v2), `0x67` = `get-controller-info` (v1, version-dispatched response) (commit `508da9e`).
-- **2026-05-01** — D9 panel ordering = row-major canonical (commit `f2aa1e5`).
-- **2026-05-01** — `all_on (0x01,0xff)` and `all_off (0x01,0x00)` carry over from slim G4.1 controller-side opcodes (commit `46264ae`).
-- **2026-05-01** — COMM_CHECK panel-side: panel MUST verify received bytes match expected sequence (commit `508da9e`).
-- **2026-05-01** — TSI filename convention: `tsi<NNNN>_<descriptive-name>.tsi` (commit `f2aa1e5`).
-- **2026-05-01** — Mode 4 AI lines exposed on Teensy D14/D15 (±10V); specific wiring still TBD (commit `78be9ca`).
-- **2026-05-01** — v4 explicitly deferred to future work; v1–v3 prioritized (commit `f3da927`).
-- **2026-05-01** — Modes table (1–5) lives in `g6_03` as the unified reference (commit `3c39a44`).
-- **2026-05-02** — **Triggered / Gated / Persistent v3 mode set finalized.** Triggered = per-edge single-shot (`0x12`/`0x32`/`0x52`); Gated = window gating (`0x14` NEW + `0x34` NEW + `0x54` reused); Persistent (`0x13`/`0x33`/`0x53`) reserved but proposed-not-implemented; Gated-Persistent dropped from mode set (commit `a334004`).
-- **2026-05-02** — **D5 LED-mapping layering RESOLVED**: two-stage model. Host owns *logical → schematic* mapping (rotation, flip, panel position in arena); panel firmware owns *schematic → physical-pin* mapping (PCB layout-driven, with `NUM_COLOR = 4` quadrant scheme per `display.cpp::sch_to_pos_index()` in `g6_firmware_devel @ 6944894`). Spec text in `g6_00`, `g6_01`, `g6_02` updated to reflect this (this commit).
-- **2026-05-02** — **D1 Checksum scope RESOLVED**: whole-message (header + command + payload, sum mod 256). Matches `g6_firmware_devel @ 6944894` (`Message::calculate_8bit_checksum()` in `message.cpp:171–177`); spec § Confirmation message updated. Worked example reads payload-only but the value happens to be the same when header + command bytes round to 0 mod 256 — spec text now explicit (this commit).
-- **2026-05-02** — **Stretch semantics RESOLVED**: BCM duty-cycle multiplier. Effective per-bit-plane ON time = `base_T × stretch / 255`; stretch = 0 → display off. Aligns with the test rig's float-weight architecture; cheap on the panel (one multiplier per frame). Firmware ticket: scale BCM weights in `Display::show()` setup (commit `add7fa6`).
-- **2026-05-02** — **D2 Confirmation message** downgraded from Live Divergence to a 💡 Note in § Confirmation message (spec correct; firmware impl pending) (this commit).
-- **2026-05-02** — **D4 COMM_CHECK visual response**: dropped aspirational "could light up" sentence; spec'd as silent validation. Visual diagnostics live in dedicated Panel Error Display (this commit).
-- **2026-05-02** — **`0x70` collision** between v1 Panel Error Display and v4 Display Predefined Pattern resolved: predefined-pattern **index 0** is reserved as the canonical error-glyph slot; v4 keeps `0x70` for the general predefined-pattern command (this commit).
-- **2026-05-02** — `0x8100` empty-buffer endianness reworded as "header `0x81` followed by command `0x00`" (this commit).
-- **2026-05-02** — PIXEL command (from `G6_Panels_Test_Firmware`) deferred to future-version slot (e.g., `0x55` PIXEL_SET in v4 or later); not in v3 (this commit).
-- **2026-05-02** — `COMM_CHECK` panel-side validation policy: panel MUST verify byte-for-byte (already in spec body; OQ closed) (this commit).
-- **2026-05-02** — **v3 sync-vs-async gating** resolved: the existing Triggered (per-edge sync) and Gated (window/level async) opcodes already cover both modes — no separate "sync vs async" decision needed; `0x12`/`0x32`/`0x52` are sync (triggered by edges), `0x14`/`0x34`/`0x54` are async (level-gated) (this commit).
+v1 spec reconciled against `iorodeo/g6_firmware_devel @ 6944894` — 11 claims verified, 3 source-spec ambiguities resolved by firmware (COMM_CHECK sequence, parity rule, parity-example errata), and 5 divergences worked through (D1–D5, all resolved). v2 opcodes are declared in firmware but behavior-not-implemented (no PSRAM driver yet). v3 feature-feasibility prototyped against `G6_Panels_Test_Firmware @ bb26a44` on G6 panels v0.2.1/v0.3.1 — full evidence in that repo's `single_led/PRODUCTION_ARCHITECTURE.md`, `TIMING_SUMMARY.md`, `RESULTS.md`. v4/v5 have zero firmware support anywhere. Audit trail of decisions in the git log.
 
 ## Cross-references
 

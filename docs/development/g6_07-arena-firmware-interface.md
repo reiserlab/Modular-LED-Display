@@ -90,7 +90,7 @@ The 4 CS lines per column are delivered to the 4 panels in that column via the *
 
 **💡 Firmware advisory — D13 / `LED_BUILTIN` conflict on SPI bus B0 SCK:** firmware must NOT use `digitalWrite(LED_BUILTIN, ...)` for status — it will glitch the SCK on bus B0. Use `ETH_LED` (Teensy pin 61) or one of the spare GPIOs as a status indicator instead.
 
-External-interrupt routing is also present per panel column (panel-internal `PAN.EINT_P1..P10`, all driven by **Teensy pin 28 / `D36` / `TNY.EINT`**, via R25 33 Ω series — see Pin assignments table at top of file for the canonical reference; commit `5d3c496` corrected an earlier `D33` typo). This is the panel-side interrupt, distinct from the experimenter EINT BNC.
+External-interrupt routing is also present per panel column (panel-internal `PAN.EINT_P1..P10`, all driven by **Teensy pin 28 / `D36` / `TNY.EINT`**, via R25 33 Ω series — see Pin assignments table at top of file for the canonical reference). This is the panel-side interrupt, distinct from the experimenter EINT BNC.
 
 ### Experiment I/O
 
@@ -132,7 +132,7 @@ Verify mechanical orientation (right-angle vs straight) against the rendered PDF
 The source spec calls out the AI line specifically for "flight arena experiments (for mode 4 closed loop), so could be pushed to later version". Reconciled status:
 
 - The slim G4.1 controller had `gain_` stored but never read; closed loop ran on an internal counter, not a real analog input.
-- **Mode 4 wiring resolved 2026-05-02:** controller samples **AIN0** (Teensy D14, BNC J28, ±10 V via OPA2277 → 0–3.3 V at ADC) at **500 Hz**; computes `fps = AI_voltage × 100 × gain / 10` where `gain` from `trial-params` is a signed-int 10× scaling factor (typical `-20` = -2.0 fps/V matches G3 flight-arena behavior). AIN1 (D15, J29) unused for Mode 4 — available for experimenter use. Full spec in [`g6_03-controller.md`](g6_03-controller.md) § 6 Mode Behavior on G6.
+- **Mode 4 wiring:** controller samples **AIN0** (Teensy D14, BNC J28, ±10 V via OPA2277 → 0–3.3 V at ADC) at **500 Hz**; computes `fps = AI_voltage × 100 × gain / 10` where `gain` from `trial-params` is a signed-int 10× scaling factor (typical `-20` = -2.0 fps/V matches G3 flight-arena behavior). AIN1 (D15, J29) unused for Mode 4 — available for experimenter use. Full spec in [`g6_03-controller.md`](g6_03-controller.md) § 6 Mode Behavior on G6.
 
 ### v3 Triggered/Gated display relevance
 
@@ -155,7 +155,7 @@ Cross-references:
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 documents the panel-side Triggered (per-edge single-shot, `0x12`/`0x32`/`0x52`) and Gated (window gating, `0x14`/`0x34`/`0x54`) modes plus two open issues (trigger edge polarity, sync-vs-async gating semantics) — both decisions are easier to manage in **J30-open** mode where firmware can reshape the trigger.
 - The slim G4.1 controller has no input pins beyond CS lines; v3 trigger wiring is **net-new for G6** and depends on these arena EINT lines.
 
-**J30 default = OPEN** (decision 2026-05-02). Shipped arenas leave J30 open by default → Teensy-mediated EINT path is the canonical v3 wiring. Direct-trigger mode (J30 shorted) is a deliberate per-experiment opt-in documented in arena bring-up notes. Firmware cannot detect the position, so the assumed-open default must be verified physically per arena.
+**J30 default = OPEN.** Shipped arenas leave J30 open by default → Teensy-mediated EINT path is the canonical v3 wiring. Direct-trigger mode (J30 shorted) is a deliberate per-experiment opt-in documented in arena bring-up notes. Firmware cannot detect the position, so the assumed-open default must be verified physically per arena.
 
 ### v2 PSRAM / Mode 1 (TSI DO/AO) relevance
 
@@ -181,31 +181,17 @@ These items were captured during the KiCad reconciliation pass at SHA `0a8ec33c`
 - **Multiple SN74HCS08 / column-buffer chips exist** between the Teensy CS lines and the actual panel CS pins — firmware should be aware that the propagation delay (~5–10 ns each) accumulates, but won't matter at the 5 MHz SPI rate the slim G4.1 controller uses.
 - **Pins 30–33 and 38, 39, 42 are explicit `no_connect` markers in the schematic.** Pins 26, 28 (D34, D36) are auto-named, also floating. All these are spare GPIO available for hardware revisions.
 
-### Major decisions log
-
-- **2026-04-29** — Production arena `arena_10-10` v1.1.7 ordered (commit `a696782` in this dev set; upstream `0a8ec33c` in `reiserlab/LED-Display_G6_Hardware_Arena`).
-- **2026-05-01** — Per-peripheral Teensy 4.1 pin assignment table extracted from KiCad (commit `a696782`).
-- **2026-05-02** — Corrected `TNY.EINT` pin from D33 to **D36** (commit `5d3c496`).
-- **2026-05-02** — Arena jumper J30 default = OPEN (Teensy-mediated EINT trigger) (commit `78be9ca`).
-- **2026-05-02** — v3 Triggered/Gated mode rename propagated through this file (commit `5c8ee7a`; tracks the v3 mode-set finalization in `g6_01`).
-- **2026-05-02** — Mode 4 wiring resolved: AIN0, 500 Hz, signed-int gain (this commit). Cross-doc with `g6_03` § Mode 4 + History.
-- **2026-05-02** — Multi-arena variant (8-of-10) confirmed handled today via the v2 pattern-header panel mask; no arena re-spin needed (this commit).
-- **2026-05-02** — BNC J3 role specified as general-purpose Teensy interrupt for experimenter use (commit `2771849`).
-- **2026-05-02** — gh-api KiCad + netlist trace (Open Qs #4, #5): MCP4725 schematic uses generic part symbol (`xxx-xCH`); BOM lookup → LCSC C144198 = MCP4725A0T-E/CH = base I²C address `0x60` (A0-pin wiring TBD from schematic). SN74LVC1T45 DIR pins resolved via direct symbol-pin wire-trace (initial netlist auto-naming was misleading): **U3 (J4 DIO) DIR = silk D35** (auto-direction with A pin); **U2 (J3 EINT) DIR = silk D33** (separate firmware-controlled GPIO; needs adding to Pin assignments table). Asymmetric design — J4 DIO uses pinMode auto-direction, J3 EINT requires explicit DIR drive. (commits `9a87336` + `34260bd` + `cd98ef0` + this commit).
+All facts above were extracted from `reiserlab/LED-Display_G6_Hardware_Arena` KiCad sources (production arena `arena_10-10` v1.1.7, ordered 2026-04-28) and corroborated against `production/v1p1r7/{bom.csv, netlist.ipc}`. Audit trail of decisions in the git log.
 
 ---
 
 ## Open Questions / TBDs
 
-1. ~~Mode 4 AI line selection.~~ **Resolved 2026-05-02**: AIN0, 500 Hz, gain as signed-int 10× scaling (1V → 100 base counts × gain/10 = signed fps). See [`g6_03-controller.md`](g6_03-controller.md) § 6 Mode 4.
-2. **BNC J3 ("External Interrupt") role** — with J4 identified as the actual panel-trigger BNC (via J30), J3 serves as a general-purpose Teensy interrupt for experimenter use (e.g. session-start signal, behavior event marker). Detailed use cases to be specced when needed.
-3. **`docs/arena.md` lags reality at v1.1.7.** Either update the submodule's docs or note the version-mapping convention here. Out-of-band item for the upstream arena repo.
-4. **MCP4725 I²C address — base address `0x60`** (BOM-confirmed 2026-05-02 from `arena_10-10_v1/production/v1p1r7/bom.csv`: U85 = LCSC **C144198** = `MCP4725A0T-E/CH`, factory address bits A2:A0 = `000`). Effective I²C 7-bit address is `0x60` (A0 pin tied LOW) or `0x61` (A0 pin tied HIGH); A0-pin wiring not yet traced from the SOT-23-6 footprint, but most G6 deployments will see **`0x60`** (default, A0 → GND). Verify A0 wiring in `analog.kicad_sch` U85 footnote before final firmware ship.
-5. **SN74LVC1T45 DIR control nets** — **resolved 2026-05-02 via wire-trace** (initial netlist auto-naming was misleading; direct symbol-pin position trace is authoritative). The two translators have **asymmetric DIR designs**:
-   - **U3 (J4 DIO translator):** A pin and DIR pin both connect to **silk D35** (Teensy footprint pin 27). **Auto-direction** — `pinMode(D35, OUTPUT)` puts U3 in A→B mode (data drives BNC); `pinMode(D35, INPUT)` allows BNC drive (with appropriate pull-up) to be sensed. Single GPIO controls both data and direction. This matches the existing "direction follows Teensy `pinMode`" wording in the Pin assignments table above.
-   - **U2 (J3 EINT translator):** A pin on **silk D37** (Teensy footprint pin 29 — the EINT BNC data line), DIR pin on **silk D33** (footprint pin 25, KiCad pin name "33_MCLK2") — **SEPARATE firmware-controlled GPIO**. Firmware must explicitly drive D33 HIGH (A→B = output mode) or LOW (B→A = input mode) before reading or writing the EINT BNC. **D33 is not in the Pin assignments table above** — should be added as `Experiment I/O — EINT direction control | 25 | D33 | (auto-named net) | Firmware drives HIGH/LOW to set U2 SN74LVC1T45 direction; not user-visible on a BNC.`
-6. **Top-board design (J26 use).** Not yet published. If a future controller doc surfaces a need (extra DO, more DIO, additional analog), this is the place.
-7. **2-channel AO future.** If the spec ever firms up two AO lines for TSI-driven experiments, an arena re-spin is required.
+1. **`docs/arena.md` lags reality at v1.1.7.** Out-of-band item for the upstream arena repo.
+2. **MCP4725 A0-pin wiring.** BOM gives base I²C address `0x60` (LCSC C144198 = MCP4725A0T-E/CH, factory bits A2:A0 = 000). Effective address is `0x60` (A0 pin tied LOW) or `0x61` (A0 pin tied HIGH). Verify A0 wiring in `analog.kicad_sch` U85 before final firmware ship; default expectation is `0x60`.
+3. **SN74LVC1T45 DIR — D33 pin needs adding to Pin assignments table.** U2 (J3 EINT translator) DIR is on silk D33 (Teensy footprint pin 25); the existing pin table doesn't list D33. Add as: `Experiment I/O — EINT direction control | 25 | D33 | Firmware drives HIGH/LOW to set U2 direction; not user-visible.`
+4. **Top-board design (J26 use).** Not yet published.
+5. **2-channel AO future.** Would require arena re-spin.
 
 ---
 

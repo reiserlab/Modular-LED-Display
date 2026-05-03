@@ -333,21 +333,7 @@ v1, v2, and v3 are being designed together. Controller changes for v3 are minima
 
 **What `timing.md` does NOT measure:** SPI clock + framing, end-of-message-to-display latency, panel BCM / bit-plane timing, all-on/all-off transitions, panel-to-panel transmission gap, mode-switch latency, Ethernet round-trip. These remain TBD for G6 and must be measured separately (likely on the prototype single-panel SPI test rig). Existing numbers in slim `README.md:57-77`: SD reads ~2 µs cached / ~600 µs at FAT cluster boundaries; pattern-switch latency 1–19 ms; TCP streaming drop rate 0.27% at 300 Hz / 0% binary at ~3000 Hz.
 
-### Major decisions log
-
-- **2026-04-29** — Drop `SWITCH_GRAYSCALE_CMD` (0x06), `DISPLAY_RESET_CMD` (0x01) for G6 (commit `46264ae`).
-- **2026-05-01** — TCP-only host↔controller transport (commit `46264ae`).
-- **2026-05-01** — Controller opcodes assigned: `0x40` = `g6-panel-storage-mode` (v2), `0x67` = `get-controller-info` (v1, version-dispatched response) (commit `508da9e`).
-- **2026-05-01** — `all_on (0x01,0xff)` and `all_off (0x01,0x00)` carry over from slim G4.1 controller-side opcodes (commit `46264ae`).
-- **2026-05-02** — Mode 4 AI lines exposed on Teensy D14/D15 (±10V); specific wiring still TBD (commit `78be9ca`).
-- **2026-05-02** — Modes table (1–5) lives in this file as the unified reference (commit `3c39a44`).
-- **2026-05-02** — Both `all-on` and `all-off` implemented as carry-overs (commit `d20836d`; reconciles spec §7 prose with Host Command Summary table).
-- **2026-05-02** — v3 controller dispatcher scoped to Triggered + Gated only (6 opcodes); Persistent reserved but deferred (commit `d20836d`; tracks the v3 mode-set finalization in `g6_01`).
-- **2026-05-02** — **Mode 4 wiring decided:** AIN0 (D14, BNC J28) sampled at 500 Hz; `fps = AI_voltage × 100 × gain / 10` with `gain` as signed-int 10× scaling factor (typical `-20` = -2.0 fps/V matches G3 flight-arena behavior). AIN1 unused for Mode 4 (this commit).
-- **2026-05-02** — `STREAM_FRAME_CMD` `analog_x` / `analog_y` bytes dropped for G6 (this commit). Stream header is now 3 bytes `[0x32, len_lo, len_hi]`; experimenters use Mode 4 closed-loop or separate AI workflow for motion offsets.
-- **2026-05-02** — "Greenscale" rebranded to "grayscale" for G6 consistency with GS2/GS16 terminology (this commit).
-- **2026-05-02** — `get-controller-info` (0x67) capability bitmap finalized: 8-bit, bit 0 = `g6_mode`, bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 reserved (this commit).
-- **2026-05-02** — `all-on` in v2 Local Storage Mode keeps v1 behavior: controller composes oneshot all-on subframe (no new opcode) (this commit).
+All G6-specific spec values above were reconciled against `floesche/LED-Display_G4.1_ArenaController_Slim @ 8f1029f` (the G4 baseline) and decided across the 2026-04-29 → 2026-05-02 doc-migration sessions. Audit trail in the git log.
 
 ---
 

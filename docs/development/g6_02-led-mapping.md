@@ -1,40 +1,29 @@
 # G6 — Panel Hardware Reference (v0.2 + v0.3) and LED Mapping
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Panel LED Mappings", lines 1112–1571) — LED mapping section · Panel hardware deltas reconciled against three test-firmware planning docs (`G6_Panels_Test_Firmware/test_firmware/single_led/PANEL_V021_V031_HW_SUMMARY.md`, `LED_ORIENTATION_AND_RESISTOR_SUMMARY.md`, `G6_V03_SCHEMATIC_REVIEW.md`) — themselves built from KiCad source reviews of `iorodeo/LED-Display_G6_Hardware_Panel @ prod_v0p2r0` (head `89960365`) · v0.2 firmware-relevant pin layout cross-checked against [`g6_firmware_devel/panel/src/constants.cpp`](https://github.com/iorodeo/g6_firmware_devel) `@ 6944894` · Last reviewed: 2026-05-02 by mreiser
-Status: **Specified for v0.2 + v0.3** — every firmware-relevant pin, peripheral, polarity, resistor value, and connector pinout captured. v0.1 LED designator mapping table extracted to [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) adjunct · v0.2 / v0.3 LED designator tables pending KiCad-source extraction (sources accessible via test firmware repo's PR review docs but not yet automated).
+Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Panel LED Mappings") — LED mapping section · Panel hardware from `iorodeo/LED-Display_G6_Hardware_Panel` (PR #4 head, branches `prod_v0p2r0`) — KiCad sources, BOMs, positions.csv, and the planning docs in `G6_Panels_Test_Firmware/test_firmware/single_led/` · v0.2 pin layout also in [`g6_firmware_devel/panel/src/constants.cpp`](https://github.com/iorodeo/g6_firmware_devel) · Last reviewed: 2026-05-02
+Status: **Specified for v0.2 + v0.3** — every firmware-relevant pin, peripheral, polarity, resistor value, and connector pinout captured. v0.1 LED designator mapping table at [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) is canonical for all three revisions (LED XY positions are byte-identical across v0.1/v0.2/v0.3; only orientation differs).
 
-This file captures the firmware ↔ panel-hardware contract for the two in-house G6 panel revisions (v0.2 production, v0.3 parallel revision), plus the LED designator mapping that lets host software compute which physical LED corresponds to each logical pixel. The major firmware-relevant deltas between v0.2 and v0.3 are **pin/column wiring, SPI peripheral location, PSRAM CS pin, and PIO viability**; the BOMs are otherwise bit-identical.
+This file captures the firmware ↔ panel-hardware contract for the two in-house G6 panel revisions (**v0.2** production, **v0.3** parallel revision in-house but not enough for full systems yet), plus the LED designator mapping. Major firmware-relevant deltas between v0.2 and v0.3: **pin/column wiring, SPI peripheral, PSRAM CS pin, PIO viability**. BOMs are otherwise bit-identical (same MCU, LEDs, current-limit resistor, drivers, connectors).
 
-## TL;DR — revision deltas in one paragraph
-
-**v0.2.1** is a minimal-change update to the v0.1 Janelia layout: same pin assignments, but with (a) LED orientation flipped to **normal polarity** (col HIGH + row LOW = ON), (b) EINT properly routed to GP45 (no more bodge wire), (c) 33 Ω MISO series-termination added (R29), (d) current-limit resistor standardized to 160 Ω uniform across all 20 columns, (e) board shrunk to 45 × 45 mm. **Firmware written for v0.1 still works with only minor pin-constant + polarity updates.** **v0.3.1** is a full pin-map redesign on top of v0.2.1: XIP_CS1n moved from GP0 → GP47 (frees GP0 for COL_00), columns now GP0–GP19 contiguous, rows now GP20–GP39 contiguous (no SPI gap), SPI moved from SPI0 (GP32–35) to SPI1 (GP40–43), EINT still GP45. **Firmware needs substantial pin-constant updates** but the new layout enables both PIO0 columns and PIO1 rows to use clean `out pins, 20` — unlocks fully-autonomous PIO scanning. **BOMs are bit-identical between the two revisions** — same MCU, LEDs, current-limit resistor, drivers, connectors. Only pin assignments, LED orientation, and PCB routing differ.
-
-## Revisions in scope
-
-- **v0.1** — legacy reference; the 20×20 LED-designator mapping at the bottom of this file is from v0.1 and is used in the [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format worked example. **Not built today.** v0.1 had reversed LED polarity and 240 Ω current-limit resistors (giving 12.4 mA drive); v0.2 fixed both.
-- **v0.2** — `panel_rp2354_20x20_v0p2`; **current production** (in-house, full systems). The `prod_v0p2r0` PR was merged 2026-04-29 in `iorodeo/LED-Display_G6_Hardware_Panel`. Pin layout cross-checked against `g6_firmware_devel @ 6944894`.
-- **v0.3** — `panel_rp2354_20x20_v0p3`; parallel revision; in-house but **not enough boards yet for full systems**. KiCad rev `29bb98e` ("fix XIP_CS1n pind"). Schematic review passed 32/32 checks (per `G6_V03_SCHEMATIC_REVIEW.md`).
-
-Firmware supports both v0.2 and v0.3 via **build-time `#define`** (decision 2026-05-02): separate firmware binaries, one per panel revision (e.g., `#ifdef G6_PANEL_V0P2` / `G6_PANEL_V0P3` selects pin tables, SPI peripheral, polarity). Simplest mechanism; matches reality (a given arena uses one panel version throughout). See § Firmware change matrix below for the per-version constants that need to flip.
+Firmware supports both v0.2 and v0.3 via **build-time `#define`** (separate binaries; arena uses one panel version throughout). See § Firmware change matrix for the per-version constants that flip.
 
 ## Mechanical
 
-- **Board size:** 45 × 45 mm (square panel). Same in both v0.2 and v0.3.
-- **Active LED area:** 20 × 20 LED matrix (400 LEDs).
+45 × 45 mm square panel, 20 × 20 LED matrix (400 LEDs). Same in both v0.2 and v0.3.
 
 ## MCU and memory subsystem
 
 | Aspect | v0.2 | v0.3 |
 |---|---|---|
-| MCU | **RP2354B** = RP2350B QFN-80 + stacked PSRAM (LCSC C39843328) | Same RP2354B |
-| Crystal | 12 MHz **ABM8-272-T3** (LCSC C20625731), SMD 3.2 × 2.5 mm, with 2× 15 pF load caps (C1, C2) | Same |
-| External PSRAM | **APS6404L-3SQR** 8 MB QSPI (LCSC C3040877), connected via QSPI with chip-select on **XIP_CS1n = GP0** | Same APS6404L-3SQR; **chip-select moved to XIP_CS1n = GP47** (one of only 4 pins supporting QMI CS1n funcsel 9 — others are GP0, GP8, GP19) |
-| 1V1 rail | RP2354B internal switching regulator (3.3 µH inductor L1; VREG_AVDD/VIN/FB/LX/PGND topology) | Same |
-| 3V3 rail | **AP2112K-3.3** LDO (LCSC C51118), SOT-23-5, powered from +5 V USB; 10 µF input + 10 µF output caps | Same |
+| MCU | **RP2354B** (RP2350B QFN-80 + on-package stacked PSRAM, LCSC C39843328) | Same |
+| Crystal | 12 MHz **ABM8-272-T3** (LCSC C20625731), 3.2×2.5 mm, with 2× 15 pF caps | Same |
+| External PSRAM | **APS6404L-3SQR** 8 MB QSPI (LCSC C3040877); chip-select on **XIP_CS1n = GP0** | Same APS6404L; **XIP_CS1n moved to GP47** (one of 4 pins supporting funcsel 9 / QMI CS1n) |
+| 1V1 rail | RP2354B internal switching regulator (3.3 µH inductor L1) | Same |
+| 3V3 rail | **AP2112K-3.3** LDO (LCSC C51118), SOT-23-5; 10 µF in + 10 µF out caps | Same |
 | 5 V input | USB | Same |
-| Decoupling | 52× 100 nF 0201, 18× 10 µF 0402 bulk, 4× 4.7 µF 0402 (for QSPI/PSRAM) | Same |
+| Decoupling | 52× 100 nF 0201, 18× 10 µF 0402 bulk, 4× 4.7 µF 0402 (QSPI) | Same |
 
-> **💡 Note — RP2354B clarification.** The RP2354B is the QFN-80 RP2350B with **on-package stacked PSRAM** in addition to the external APS6404L. Firmware can use either; the on-package stacked PSRAM is faster but smaller, while the external APS6404L is 8 MB. PSRAM index allocation strategy (which goes where) is a firmware design decision — TBD.
+(RP2354B has both on-package stacked PSRAM AND the external APS6404L; firmware can use either. PSRAM-allocation strategy is a firmware design decision.)
 
 ## Pin assignments
 
@@ -104,36 +93,28 @@ Firmware must select the correct SPI peripheral per board version. `iorodeo/g6_f
 - **Electrical limits:** I_F max 20 mA DC, I_FP 30 mA pulsed, V_F ≈ 1.95–2.30 V at operating current
 - **Quantity:** 400 LEDs per panel (designators D1–D400)
 
-### LED polarity — NORMAL (both v0.2 and v0.3)
+### LED polarity — NORMAL
 
-- **Anode** → column (through current-limit resistor)
-- **Cathode** → row (direct)
+- **Anode** → column (through current-limit resistor); **Cathode** → row (direct)
 - **Drive logic: column HIGH + row LOW = LED ON**
-
-This is **opposite to the v0.1 Janelia batch**, which was assembled with reversed LEDs (col LOW + row HIGH = ON). v0.2 restored the iorodeo convention. Firmware that was written for v0.1 needs to flip the column-pattern PIO word inversion (`~pattern` → `pattern`) and the row on/off sense (`gpio_set_mask64` ↔ `gpio_clr_mask64`).
-
-The polarity choice matters under multi-LED load: UCC27517 gate drivers have asymmetric output impedance (0.55 Ω sinking vs 1.3 Ω sourcing); the row driver carries the summed current of all lit columns (up to 20×). Normal polarity has the row sinking through low impedance — keeping brightness uniformity under 6 % at 160 Ω vs 13 % for reversed polarity.
 
 ### Current-limit resistors (R9–R28)
 
-- **20 resistors**, one per column input, all populated with the same LCSC part **C851657** (0201 package)
-- **Symbolic naming** in schematic: R_T0 / R_T1 / R_T2 / R_T3 cycling across 4-LED groups (placeholder for future multi-color variants; today all 20 are the same physical part)
-- **Value:** **160 Ω** (BOM-confirmed 2026-05-02: LCSC C851657 = **Yageo RC0201FR-07160RL** = 160 Ω 0201, 1%). Matches the v0.2.0 design roadmap optimization — gives ~18.5 mA drive at worst-case V_F vs 12.4 mA for v0.1's 240 Ω; +50 % brightness, safe at 40 °C. In-circuit measurement on R9 is still recommended for final verification before precision photometric work.
+- **20 resistors**, one per column input, all populated with LCSC **C851657** (0201) = **Yageo RC0201FR-07160RL** = **160 Ω** 1%. Schematic uses symbolic R_T0/R_T1/R_T2/R_T3 (placeholder for future multi-color variants; today all 20 are the same physical part). In-circuit measurement on R9 still recommended for final verification before precision photometric work.
 
-### LED drivers (gate drivers between MCU and matrix)
+### LED drivers
 
-- **40× UCC27517** single-channel low-side gate drivers (SOT-23-5, LCSC C99395)
-- **Topology:** 20 column drivers (U3–U22) + 20 row drivers (U23–U42), each with 100 nF decoupling cap (C19–C58), plus shared 10 µF bulk caps (C59–C76) on the +5 V driver supply
-- **Output drive:** 4 A peak, asymmetric impedance 0.55 Ω sinking / 1.3 Ω sourcing (relevant to polarity choice above)
+- **40× UCC27517** single-channel low-side gate drivers (SOT-23-5, LCSC C99395): 20 column drivers (U3–U22) + 20 row drivers (U23–U42); each with 100 nF decoupling cap, shared 10 µF bulk caps on +5 V.
+- **Output drive:** 4 A peak, asymmetric impedance 0.55 Ω sinking / 1.3 Ω sourcing.
 
 ## Signal-conditioning / pull-up resistors
 
-- **R29 = 33 Ω 0201** — MISO series-termination (v0.2 GP35 / v0.3 GP43) — improves SPI signal integrity at 30 MHz; new in v0.2+, was absent in v0.1
-- **R6 = 33 Ω 0201** — **noise-isolation series resistor between +3V3 and the RP2354 `VREG_AVDD` pin** (analog supply for the on-chip switching regulator's analog circuitry; standard practice to isolate analog VDD from digital supply via series R or ferrite). KiCad-verified 2026-05-02 from `panel_mcu.kicad_sch` wire trace.
-- **R7, R8 = 27 Ω 0201** — USB D+/D− impedance matching (placed close to RP2354)
-- **R1 = 10 kΩ 0201** — **`XIP_CS1n` pull-up to +3V3** (PSRAM chip-select default-high). KiCad-verified.
-- **R4 = 10 kΩ 0201** — **`QSPI_SS` pull-up to +3V3** (boot-flash CS default-high; SW1 USB_BOOT pulls LOW via R3 1 kΩ to enter BOOTSEL mode). KiCad-verified. (Note: PR-review doc's "likely XIP_CS1n and CS0" inference for R1/R4 was **half right** — R1 is XIP_CS1n, but R4 is QSPI_SS, not the panel-protocol CS0.)
-- **R2, R3, R5 = 1 kΩ 0201** — pull-ups for SW2 (RUN), SW1 (USB_BOOT → QSPI_SS), and one TBD
+- **R29 = 33 Ω** — MISO series-termination (v0.2 GP35 / v0.3 GP43); improves SPI signal integrity at 30 MHz
+- **R6 = 33 Ω** — noise-isolation series resistor between +3V3 and the RP2354 `VREG_AVDD` pin (standard analog-supply isolation)
+- **R7, R8 = 27 Ω** — USB D+/D− impedance matching, placed close to RP2354
+- **R1 = 10 kΩ** — `XIP_CS1n` pull-up to +3V3 (PSRAM chip-select default-high)
+- **R4 = 10 kΩ** — `QSPI_SS` pull-up to +3V3 (boot-flash CS default-high; SW1 USB_BOOT pulls LOW via R3 1 kΩ to enter BOOTSEL mode)
+- **R2, R3, R5 = 1 kΩ** — pull-ups for SW2 (RUN), SW1 (USB_BOOT → QSPI_SS), and one TBD
 
 ## v3 EINT firmware contract
 
@@ -149,10 +130,9 @@ The arena-side wiring (Teensy D36 `TNY.EINT` → R25 33 Ω → fan-out → all 1
 
 ### USB (data + power)
 
-- **J1**: JST-SH 4-pin (BM04B-SRSS-TB, LCSC C160390) — Stemma-QT/QWIIC-style
-- **Pinout** (KiCad-verified 2026-05-02 from `panel_usb_power.kicad_sch` wire trace): the four pins (in physical schematic order, top→bottom or bottom→top depending on connector orientation) carry **GND, +5 V, D+, D−** in sequence (D− and GND at the two ends; +5 V and D+ in the middle). Verify against the JST BM04B-SRSS-TB datasheet for the official pin-1 marker location.
-- **Adapter cable required:** USB-C-to-Stemma adapter (e.g., M5Stack `connector-grove-to-usb-c` + SparkFun Grove-to-JST-SH `15109` per schematic notes)
-- **USB series resistors** R7 / R8 = 27 Ω, placed close to RP2354 for impedance matching
+- **J1**: JST-SH 4-pin (BM04B-SRSS-TB, LCSC C160390) — Stemma-QT/QWIIC-style. Pinout (in schematic-physical order): **GND, +5 V, D+, D−** (D− and GND at the two ends; +5 V and D+ in the middle). Verify against JST BM04B-SRSS-TB datasheet for the official pin-1 marker.
+- **Adapter cable required:** USB-C-to-Stemma adapter (e.g., M5Stack `connector-grove-to-usb-c` + SparkFun Grove-to-JST-SH `15109`).
+- USB series resistors **R7/R8 = 27 Ω** for impedance matching.
 
 ### Inter-panel headers (4× 1×5)
 
@@ -168,14 +148,13 @@ The arena-side wiring (Teensy D36 `TNY.EINT` → R25 33 Ω → fan-out → all 1
 
 J4/J5 (top side) enable **panel daisy-chaining / vertical stacking**. The production `arena_10-10` does not use stacking; J4/J5 are unused on those panels.
 
-**CS-line selection: physical slot-position via panel-internal connector pin shift** (resolved 2026-05-02, KiCad wire-trace from `floesche/LED-Display_G6_Hardware_Panel @ 23dad5e`, PR #4 head, `panel_rp2354_20x20_v0p3/panel_header.kicad_sch`):
+**CS-line selection: physical slot-position via panel-internal connector pin shift.**
 
-- Each panel hardwires **J3 pin 1 → MCU `CS0`** unconditionally (no on-panel selection hardware — no jumper, no 0-Ω resistor, no solder bridge).
-- Inside the panel, the J3↔J5 routing **shifts CS lines up by one position** for the daisy-chain: `J3 pin 2 (CS1) → J5 pin 1`, `J3 pin 3 (CS2) → J5 pin 2`, `J3 pin 4 (CS3) → J5 pin 3`. EINT propagates straight through (`J3 pin 5 ↔ J5 pin 5`). `J5 pin 4 = NC` (the "X" in the schematic — there is no CS3 propagated up because we've reached the top of the 4-panel stack).
-- When panels stack via mating connectors (lower J5 ↔ upper J3), each successive panel's MCU CS0 receives the arena's *next* CS line in the chain. **Up to 4 panels per stack** supported (CS0/CS1/CS2/CS3 fan out to 4 sub-panels per arena column).
-- v0.2 uses the **same mechanism** (verified: `panel_rp2354_20x20_v0p2/panel_header.kicad_sch` has identical hierarchical labels and J3/J5 layout).
+- Each panel hardwires **J3 pin 1 → MCU `CS0`** unconditionally (no on-panel selection hardware).
+- Inside the panel, J3↔J5 routing **shifts CS lines up by one position** for the daisy-chain: `J3 pin 2 (CS1) → J5 pin 1`, `J3 pin 3 (CS2) → J5 pin 2`, `J3 pin 4 (CS3) → J5 pin 3`. EINT propagates straight through (`J3 pin 5 ↔ J5 pin 5`). `J5 pin 4 = NC` (the "X" — top of the 4-panel stack).
+- When panels stack (lower J5 ↔ upper J3), each successive panel's MCU CS0 receives the arena's *next* CS line. **Up to 4 panels per stack**; same mechanism in v0.2 and v0.3.
 
-This is the elegant "rotating CS" daisy-chain — slot-position is encoded in the connector pinout shift, not in any on-panel configuration. Cross-doc with [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § Chip-select topology (which describes how the arena drives 4 distinct Teensy CS pins per column to feed this 4-panel stack).
+Cross-doc with [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § Chip-select topology (arena drives 4 distinct Teensy CS pins per column).
 
 ## Programming / boot workflow
 
@@ -231,52 +210,30 @@ Authoritative full table: [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.
 
 Worked example consumers: [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format uses `pixel[0,0] → D50`, `pixel[0,1] → D70`, `pixel[19,18] → D340`, `pixel[19,19] → D360` — all four cross-check against the CSV.
 
-## Firmware change matrix (for porting between revisions)
+## Firmware change matrix — porting v0.2 → v0.3
 
-Useful when moving firmware between panel revisions. Source: `PANEL_V021_V031_HW_SUMMARY.md` § Firmware change matrix.
-
-| Change area | v0.1 → v0.2 | v0.1 → v0.3 | v0.2 → v0.3 |
-|---|---|---|---|
-| Column pin constants | Small shift if any | **Full rewrite**: COL_PIN[] = GP0–GP19 | Shift all columns down by 1 GPIO |
-| Row pin constants | Small shift if any | **Full rewrite**: ROW_PIN[] = GP20–GP39 contiguous | Move to contiguous GP20–GP39 |
-| LED polarity logic | **FLIP**: was col LOW + row HIGH, now col HIGH + row LOW | **FLIP** (same change) | No change (both NORMAL) |
-| Column pattern PIO word | **Remove the `~pattern` inversion** | Remove `~pattern` | No change |
-| Row on/off sense | Active LOW: `gpio_clr_mask64` for ON, `gpio_set_mask64` for OFF | Same swap | No change |
-| All-off row state | All rows HIGH | All rows HIGH | No change |
-| SPI peripheral | Still SPI0 on GP32–35 | **Switch to SPI1** on GP40–43 | **Switch SPI0 → SPI1** |
-| MISO termination | Add R29 handling (firmware-transparent — series R only) | Same | No change |
-| PIO0 column base | Match new pin constants (GP1) | **GP0 base** for `out pins, 20` | Shift base GP1 → GP0 |
-| PIO1 row driving | Not usable (split pins) | **New capability**: `out pins, 20` from GP20, `GPIOBASE = 16` | Newly enabled on v0.3 |
-| XIP_CS1n handling | Still GP0 | **Now GP47** | **Move GP0 → GP47** |
-| EINT handler | GP45 (no bodge wire needed) | GP45 (same) | No change |
-| Current-limit resistor | 240 Ω → 160 Ω (firmware-transparent) | Same | No change |
+| Change area | v0.2 → v0.3 |
+|---|---|
+| Column pin constants | Shift all columns down by 1 GPIO (was GP1–GP20, now GP0–GP19) |
+| Row pin constants | Move to contiguous GP20–GP39 (was split GP21–31 + GP36–44) |
+| SPI peripheral | **Switch SPI0 (GP32–35) → SPI1 (GP40–43)** |
+| PIO0 column base | Shift base GP1 → GP0 |
+| PIO1 row driving | Newly enabled on v0.3 (`out pins, 20` from GP20 with `GPIOBASE = 16`) |
+| XIP_CS1n handling | Move GP0 → **GP47** |
+| EINT, polarity, current-limit, MISO termination | No change |
 
 ## Open Questions / TBDs
 
-1. **KiCad submodule init for direct hardware audit.** Most firmware-relevant facts now verified via PR-review docs + direct gh-api KiCad trace; init the `Generation 6/Panels` submodule (blocked on SSH host-key trust per handover) when convenient for ongoing iteration.
-2. ~~Per-revision LED designator tables for v0.2 and v0.3.~~ **Resolved 2026-05-02 via positions.csv comparison**: LED physical positions in `production/*/positions.csv` are **byte-identical across v0.1, v0.2, and v0.3** for all 400 D-designators (D1 at (51.125, -51.125), D50 at (51.125, -93.875), D360 at (93.875, -51.125), D400 at (93.875, -53.375), and so on for all 400 LEDs). Only difference is the rotation field: v0.1 = 225°, v0.2/v0.3 = 45° — the 180° polarity flip noted in the design history. **The (row, col) ↔ LED designator mapping in [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) is canonical for all three revisions** (v0.2/v0.3 differ only in pin map and LED polarity, both already documented above; the geometric mapping is unchanged). No per-revision CSV needed.
-3. ~~CS-line routing per panel position.~~ **Resolved 2026-05-02**: panel-internal J3↔J5 wiring shifts CS lines up by one (`J3 pin 1 → MCU CS0` always; `J3 pin 2 (CS1) → J5 pin 1`, etc.); slot-position daisy-chain delivers the 4 different CS lines from the arena to the 4 panels in a column. See § Connectors above. KiCad source verified.
-4. ~~Board-id mechanism for firmware to detect v0.2 vs v0.3.~~ **Resolved 2026-05-02**: build-time `#define` (separate firmware binaries). See § Revisions in scope above.
-5. ~~Layering vs `display.cpp::sch_to_pos_index`.~~ **Resolved 2026-05-02**: two-stage model. Host owns *logical → schematic*; panel firmware owns *schematic → physical-pin*. See `g6_01` § History decisions log.
-6. ~~Confirm 160 Ω current-limit value physically (R9).~~ **Resolved 2026-05-02 via BOM lookup**: LCSC C851657 = Yageo RC0201FR-07160RL = 160 Ω 0201 (1%). In-circuit measurement still recommended for final verification but no longer a blocker.
-7. ~~R6 net assignment.~~ **Resolved 2026-05-02**: R6 = 33 Ω noise-isolation series resistor between +3V3 and the RP2354 `VREG_AVDD` pin. KiCad-verified.
-8. **Maximum SPI clock rate.** Firmware default is 30 MHz (`g6_firmware_devel/panel/src/constants.cpp:15`); **target is 25 MHz with margin** — but exact panel-side hardware ceiling is **TBD** (not characterized). Worth measuring on a scope before pushing past 25 MHz on production hardware.
+1. **KiCad submodule init for direct hardware audit.** Most firmware-relevant facts already verified via PR-review docs + direct gh-api KiCad trace; init the `Generation 6/Panels` submodule (blocked on SSH host-key trust per handover) when convenient for ongoing iteration.
+2. **Maximum SPI clock rate.** Firmware default is 30 MHz; **target is 25 MHz with margin**, but exact panel-side hardware ceiling is **TBD** (not characterized). Worth measuring on a scope before pushing past 25 MHz on production hardware.
+
+## Historical context (v0.1)
+
+The original v0.1 ("Janelia batch") panel had reversed LED polarity (col LOW + row HIGH = ON) due to LED placement during assembly, and used 240 Ω current-limit resistors. v0.2 fixed both: flipped to NORMAL polarity (col HIGH + row LOW = ON) and switched to 160 Ω resistors (~50 % brightness boost; better uniformity under multi-LED load due to UCC27517's asymmetric output impedance). v0.2 also added the R29 33 Ω MISO series-termination, properly routed EINT to GP45 (no more bodge wire), and shrunk the board to 45×45 mm. v0.3 then redesigned the pin map for clean dual-PIO scanning. **v0.1 is not built today** — kept here as the reference for the LED designator CSV (the geometric mapping is unchanged across all three revisions).
 
 ## History & Reconciliation
 
-- **2026-04-02** — Panel design roadmap drafted: v0.2.0 (4 minimal changes — EINT to GP45, MISO termination, normal polarity, 160 Ω resistors) + v0.3.0 (PIO pin rearrangement, SPI relocation, board shrink). Captured in `G6_Panels_Test_Firmware/test_firmware/single_led/LED_ORIENTATION_AND_RESISTOR_SUMMARY.md`.
-- **2026-04-09** — v0.3.1 schematic review: 32/32 automated checks passed, including critical XIP_CS1n on GP47 (corrected from earlier draft on GP44). Captured in `G6_Panels_Test_Firmware/test_firmware/single_led/G6_V03_SCHEMATIC_REVIEW.md` and KiCad commit `29bb98e fix XIP_CS1n pind`.
-- **2026-04-29** — v0.2 production PR `prod_v0p2r0` merged in `iorodeo/LED-Display_G6_Hardware_Panel` (head `89960365` "fix EINT note position").
-- **2026-05-02** — v0.1 LED-designator inline table extracted to `g6_02-led-mapping-v0p1.csv`; this file scope-expanded from "Panel LED Mapping (v0.1)" to "Panel Hardware Reference (v0.2 + v0.3) + LED Mapping" (commit `a805e59`).
-- **2026-05-02** — v3 Triggered/Gated panel-protocol mode set finalized (commit `a334004` in `g6_01`); EINT firmware contract added to this file.
-- **2026-05-02** — v0.2 EINT (GP45), PSRAM CS (GP0), and SPI peripheral (SPI0) resolved by reconciling against `PANEL_V021_V031_HW_SUMMARY.md`; v0.3 MISO corrected from GP44 → GP43 (R29 termination is on the SPI1 MISO output, GP43, not GP44 spare); XIP_CS1n confirmed on GP47 (commit `6450445`).
-- **2026-05-02** — **Board-id mechanism = build-time `#define`** (Open Q #4 resolved). Separate firmware binaries per panel revision; arena uses one panel version throughout (this commit).
-- **2026-05-02** — **LED-mapping layering = two-stage** (Open Q #5 resolved, D5 in `g6_01` resolved). Host: logical → schematic; panel firmware: schematic → physical-pin via `sch_to_pos_index()`. Spec text updated in `g6_00`, `g6_01`, `g6_02` (commit `add7fa6`).
-- **2026-05-02** — **CS-line routing per panel position resolved** (Open Q #3): physical slot-position via panel-internal J3↔J5 connector pin shift. KiCad wire-trace from `floesche/LED-Display_G6_Hardware_Panel @ 23dad5e` (PR #4 head) confirms: J3 pin 1 → MCU CS0 unconditionally; J3 pins 2/3/4 (CS1/CS2/CS3) → J5 pins 1/2/3 (one position up); J5 pin 4 = NC; EINT propagates straight through. Up to 4 panels per stack. Same mechanism in v0.2 and v0.3 (commit `76a78b5`).
-- **2026-05-02** — **Resistor net assignments verified via direct KiCad source trace** (`panel_mcu.kicad_sch` from PR #4 head): R6 = +3V3↔VREG_AVDD noise-isolation; R1 = XIP_CS1n pull-up (PR-review-doc inference confirmed); R4 = QSPI_SS pull-up (corrects PR-review-doc's "CS0" inference — R4 is for boot-flash CS, not panel-protocol CS0). J1 USB pinout verified (D−, D+, +5V, GND in sequence). Closes Open Q #7 (R6 net) and resolves the OQ #1 spot-checks (this commit).
-- **2026-05-02** — SPI clock target = **25 MHz** (with margin under the firmware's 30 MHz default); exact panel-side hardware ceiling TBD (Open Q #8) (commit `9a87336`).
-- **2026-05-02** — **160 Ω current-limit value BOM-confirmed** (Open Q #6 resolved): LCSC C851657 = Yageo RC0201FR-07160RL via both panel BOMs (`v0p2r1/bom.csv`, `v0p3r1/bom.csv`). Same part across all 20 R_T0/T1/T2/T3 designators (commit `34260bd`).
-- **2026-05-02** — **Per-revision LED designator tables NOT NEEDED** (Open Q #2 resolved): `production/*/positions.csv` comparison shows LED XY positions are byte-identical across v0.1/v0.2/v0.3 (400-row diff = 0). Only rotation differs (225° v0.1 vs 45° v0.2/v0.3 = the polarity flip). The v0.1 (row, col) ↔ LED-designator mapping CSV applies unchanged to v0.2 and v0.3 (this commit).
+Hardware data extracted from `iorodeo/LED-Display_G6_Hardware_Panel` PR #4 (KiCad sources, BOMs, positions.csv) and the planning docs in `G6_Panels_Test_Firmware/test_firmware/single_led/` (PANEL_V021_V031_HW_SUMMARY.md, LED_ORIENTATION_AND_RESISTOR_SUMMARY.md, G6_V03_SCHEMATIC_REVIEW.md). v0.2 firmware-relevant pin layout cross-checked against `g6_firmware_devel @ 6944894`. Direct wire-trace and BOM/positions/netlist lookups via `gh api` resolved CS routing, R6, R1/R4, J1 pinout, MCP4725 base address, SN74LVC1T45 DIR pins, and the LED-positions question (v0.1/v0.2/v0.3 LEDs at byte-identical XY coords; only rotation flipped). Audit trail in the git log.
 
 ## Cross-references
 

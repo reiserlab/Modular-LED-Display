@@ -28,7 +28,7 @@ PAT file
 | 0–3 | Magic | ASCII | `"G6PT"` | File type identifier (`0x47 0x36 0x50 0x54`) |
 | 4 | `[VVVV][AAAA]` | uint8 | V=2, A=arena_id high 4 bits | Bits 7–4 = format version (= 2); bits 3–0 = upper 4 bits of 6-bit Arena ID |
 | 5 | `[AA][OOOOOO]` | uint8 | A=arena_id low 2 bits, O=observer_id 6 bits | Bits 7–6 = lower 2 bits of Arena ID; bits 5–0 = Observer ID (0–63) |
-| 6–7 | Frame Count | uint16 LE | **1–65,535** (0 invalid; decision 2026-05-02) | Number of frames in file |
+| 6–7 | Frame Count | uint16 LE | 1–65,535 (0 invalid) | Number of frames in file |
 | 8 | Row Count | uint8 | 1–255 | Panel rows in arena |
 | 9 | Column Count | uint8 | 1–255 | **Full** grid columns in arena (subset installed via panel mask) |
 | 10 | `gs_val` | uint8 | 1 = GS2, 2 = GS16 | Pixel encoding throughout file |
@@ -93,7 +93,7 @@ The header byte includes parity bit (bit 7) and protocol version (bits 0–6). P
 
 ### Pixel Data Layout
 
-Pixel data is row-major, MSB-first, with origin at the bottom-left of the panel. **Normative pixel-encoding reference (decision 2026-05-02):** [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json) — round-trip test vectors that webDisplayTools and maDisplayTools both validate against. Implementations of any G6 pattern reader/writer SHOULD validate against this JSON (lifted from a maDisplayTools internal artifact to canonical-spec status).
+Pixel data is row-major, MSB-first, with origin at the bottom-left of the panel. **Normative pixel-encoding reference:** [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json) — round-trip test vectors that webDisplayTools and maDisplayTools both validate against. Implementations of any G6 pattern reader/writer SHOULD validate against this JSON.
 
 ```
 pixel_num    = row_from_bottom × 20 + col          # 0..399
@@ -178,9 +178,7 @@ Cross-reference: [`Generation 6/maDisplayTools/docs/patterns.md`](../../Generati
 
 ## Panel Map (subsumed into pattern header in v2)
 
-In v2 implementation the standalone panel-map file is gone — the pattern header carries `row_count`, `col_count`, and the 6-byte panel mask, which together capture everything except region/SPI-bus assignment. For the production [`arena_10-10`](g6_07-arena-firmware-interface.md) hardware the implicit rule "columns 0–4 → region 0, 5–9 → region 1" works today (region/SPI is hardware-determined, not pattern-file-determined). For future arenas with different region/bus layouts, the canonical source for region info is still TBD — see Open Question #1.
-
-(Historical context — the original Google Doc had a separate "Panel Map proposal" tab defining `[region, panel_row, panel_col]` per panel; the consolidation into the pattern header was anticipated by the source doc itself. Captured in History & Reconciliation below.)
+In v2 the pattern header carries `row_count`, `col_count`, and the 6-byte panel mask, which together capture everything except region/SPI-bus assignment. For the production [`arena_10-10`](g6_07-arena-firmware-interface.md) hardware the implicit rule "columns 0–4 → region 0, 5–9 → region 1" works today (region/SPI is hardware-determined, not pattern-file-determined). For future arenas with different region/bus layouts, the canonical source for region info is still TBD — see Open Question #1.
 
 ---
 
@@ -192,18 +190,7 @@ In v2 implementation the standalone panel-map file is gone — the pattern heade
 
 ## History & Reconciliation
 
-- **Pattern File Format v1 → v2** — v1 had a smaller header (and v1-era patterns are gone from the spec; v2 is sole canonical). Migration history captured in commit `6167e55`.
-- **Panel Map proposal merged into pattern header** — original Google Doc had a separate "Panel Map proposal" tab defining a standalone host-supplied panel map file with three-byte entries `[region, panel_row, panel_col]` per panel. The source doc anticipated the consolidation: "Now that you have specified everything so well, this entire table can be boiled down to 5 bytes: row_count, col_count, and a 3-byte bit mask. Will consider putting these bytes in a pattern header rather than storing them in a separate file." v2 does exactly this with a 6-byte mask (supports up to 48 panels). Merge captured in commit `f2aa1e5`.
-- **D9 panel ordering = row-major canonical** — chose simple row-major (panels 0, 1, …, num_panels−1) over the source spec's panel-set-interleaved proposal. Commit `f2aa1e5`.
-
-### Major decisions log
-
-- **2026-04-29** — v2 18-byte header is sole canonical layout; v1 historical content dropped (commit `6167e55`).
-- **2026-04-29** — Standalone Panel Map file dropped; panel mask (6 bytes) + row/col counts in pattern header (commit `f2aa1e5`).
-- **2026-04-29** — Panel ordering = row-major (commit `f2aa1e5`).
-- **2026-05-01** — Two checksum algorithms in protocol family clarified: pattern-file = XOR; panel-confirmation = additive sum mod 256. Both confirmed against firmware; intentional (commit `9d36b9f`).
-- **2026-05-02** — `num_frames = 0` invalid (spec pinned to 1–65,535); resolves Open Q (this commit).
-- **2026-05-02** — `g6_encoding_reference.json` lifted to canonical pixel-encoding reference; implementations SHOULD validate against it (this commit).
+The v2 18-byte header is the sole canonical layout (v1 historical content dropped). The original Google Doc had a separate "Panel Map proposal" tab defining a standalone host-supplied panel map file; v2 merged it into the pattern header (6-byte mask supports up to 48 panels). The two checksum algorithms in the protocol family — pattern-file XOR vs panel-confirmation additive — are both intentional and firmware-confirmed. Audit trail of decisions in the git log.
 
 ## Cross-references
 
