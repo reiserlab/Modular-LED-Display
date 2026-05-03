@@ -190,7 +190,8 @@ These items were captured during the KiCad reconciliation pass at SHA `0a8ec33c`
 - **2026-05-02** — v3 Triggered/Gated mode rename propagated through this file (commit `5c8ee7a`; tracks the v3 mode-set finalization in `g6_01`).
 - **2026-05-02** — Mode 4 wiring resolved: AIN0, 500 Hz, signed-int gain (this commit). Cross-doc with `g6_03` § Mode 4 + History.
 - **2026-05-02** — Multi-arena variant (8-of-10) confirmed handled today via the v2 pattern-header panel mask; no arena re-spin needed (this commit).
-- **2026-05-02** — BNC J3 role specified as general-purpose Teensy interrupt for experimenter use (this commit).
+- **2026-05-02** — BNC J3 role specified as general-purpose Teensy interrupt for experimenter use (commit `2771849`).
+- **2026-05-02** — Partial gh-api KiCad trace (Open Qs #4, #5): MCP4725 schematic uses generic part symbol (`xxx-xCH`) — address pinned by ordered part number, not schematic; SN74LVC1T45 instances confirmed at `teensy.kicad_sch` U2/U3 but DIR-net trace deferred to local KiCad inspection (this commit).
 
 ---
 
@@ -199,8 +200,8 @@ These items were captured during the KiCad reconciliation pass at SHA `0a8ec33c`
 1. ~~Mode 4 AI line selection.~~ **Resolved 2026-05-02**: AIN0, 500 Hz, gain as signed-int 10× scaling (1V → 100 base counts × gain/10 = signed fps). See [`g6_03-controller.md`](g6_03-controller.md) § 6 Mode 4.
 2. **BNC J3 ("External Interrupt") role** — with J4 identified as the actual panel-trigger BNC (via J30), J3 serves as a general-purpose Teensy interrupt for experimenter use (e.g. session-start signal, behavior event marker). Detailed use cases to be specced when needed.
 3. **`docs/arena.md` lags reality at v1.1.7.** Either update the submodule's docs or note the version-mapping convention here. Out-of-band item for the upstream arena repo.
-4. **MCP4725 I²C address.** Default is 0x60 or 0x62 depending on factory option; verify before writing AOUT firmware.
-5. **SN74LVC1T45 DIR control nets** for DIO (J4) and EINT (J3). Verify the DIR pin wiring before assuming auto-direction.
+4. **MCP4725 I²C address (0x60 vs 0x62 vs 0x64 vs 0x66)** — partial 2026-05-02 finding via `gh api` schematic trace: arena `analog.kicad_sch` uses the **generic `MCP4725xxx-xCH` symbol** (the `xxx` placeholder = A0/A1/A2 address bits), so the schematic itself does NOT pin down the address. **Resolve via BOM lookup** of the production order's MCP4725 part number (the suffix encodes A2:A0).
+5. **SN74LVC1T45 DIR control nets** for DIO (J4) and EINT (J3) — partial 2026-05-02 finding: instances confirmed at `teensy.kicad_sch` U2 (J3 EINT translator) and U3 (J4 DIO translator); pin-level DIR-net trace was not completed via gh-api (would take several more lookups). **Open KiCad locally to verify** the DIR pin connection — the design intent is to follow Teensy `pinMode` direction, but the wiring needs visual confirmation.
 6. **Top-board design (J26 use).** Not yet published. If a future controller doc surfaces a need (extra DO, more DIO, additional analog), this is the place.
 7. **2-channel AO future.** If the spec ever firms up two AO lines for TSI-driven experiments, an arena re-spin is required.
 

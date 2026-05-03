@@ -129,10 +129,11 @@ The polarity choice matters under multi-LED load: UCC27517 gate drivers have asy
 ## Signal-conditioning / pull-up resistors
 
 - **R29 = 33 Ω 0201** — MISO series-termination (v0.2 GP35 / v0.3 GP43) — improves SPI signal integrity at 30 MHz; new in v0.2+, was absent in v0.1
-- **R6 = 33 Ω 0201** — second 33 Ω resistor; specific net assignment TBD against KiCad
+- **R6 = 33 Ω 0201** — **noise-isolation series resistor between +3V3 and the RP2354 `VREG_AVDD` pin** (analog supply for the on-chip switching regulator's analog circuitry; standard practice to isolate analog VDD from digital supply via series R or ferrite). KiCad-verified 2026-05-02 from `panel_mcu.kicad_sch` wire trace.
 - **R7, R8 = 27 Ω 0201** — USB D+/D− impedance matching (placed close to RP2354)
-- **R1, R4 = 10 kΩ 0201** — pull-ups (likely XIP_CS1n and CS0)
-- **R2, R3, R5 = 1 kΩ 0201** — pull-ups for SW2 (RUN), SW1 (USB_BOOT) drives, and one TBD
+- **R1 = 10 kΩ 0201** — **`XIP_CS1n` pull-up to +3V3** (PSRAM chip-select default-high). KiCad-verified.
+- **R4 = 10 kΩ 0201** — **`QSPI_SS` pull-up to +3V3** (boot-flash CS default-high; SW1 USB_BOOT pulls LOW via R3 1 kΩ to enter BOOTSEL mode). KiCad-verified. (Note: PR-review doc's "likely XIP_CS1n and CS0" inference for R1/R4 was **half right** — R1 is XIP_CS1n, but R4 is QSPI_SS, not the panel-protocol CS0.)
+- **R2, R3, R5 = 1 kΩ 0201** — pull-ups for SW2 (RUN), SW1 (USB_BOOT → QSPI_SS), and one TBD
 
 ## v3 EINT firmware contract
 
@@ -149,7 +150,7 @@ The arena-side wiring (Teensy D36 `TNY.EINT` → R25 33 Ω → fan-out → all 1
 ### USB (data + power)
 
 - **J1**: JST-SH 4-pin (BM04B-SRSS-TB, LCSC C160390) — Stemma-QT/QWIIC-style
-- **Pinout:** 1 = GND, 2 = D−, 3 = D+, 4 = +5 V (verify against datasheet — schematic shows D+/D−/GND/+5V order)
+- **Pinout** (KiCad-verified 2026-05-02 from `panel_usb_power.kicad_sch` wire trace): the four pins (in physical schematic order, top→bottom or bottom→top depending on connector orientation) carry **GND, +5 V, D+, D−** in sequence (D− and GND at the two ends; +5 V and D+ in the middle). Verify against the JST BM04B-SRSS-TB datasheet for the official pin-1 marker location.
 - **Adapter cable required:** USB-C-to-Stemma adapter (e.g., M5Stack `connector-grove-to-usb-c` + SparkFun Grove-to-JST-SH `15109` per schematic notes)
 - **USB series resistors** R7 / R8 = 27 Ω, placed close to RP2354 for impedance matching
 
@@ -252,14 +253,14 @@ Useful when moving firmware between panel revisions. Source: `PANEL_V021_V031_HW
 
 ## Open Questions / TBDs
 
-1. **KiCad submodule init for direct hardware audit.** The PR-review docs in `G6_Panels_Test_Firmware/test_firmware/single_led/` cover most firmware-relevant facts above; the `Generation 6/Panels` submodule (blocked on SSH host-key trust per handover) gives independent verification. Initialize when convenient; spot-check a few load-bearing claims (R6 net assignment, R1/R4 pull-up targets, J1 USB pinout).
-2. **Per-revision LED designator tables for v0.2 and v0.3.** Need a KiCad-source extraction script. The v0.1 mapping is from the original Janelia v0.1 PCB; v0.2 and v0.3 may differ in physical placement (LED orientation flipped in v0.2 affects designator-to-position mapping). Once available, add `g6_02-led-mapping-v0p2.csv` and `g6_02-led-mapping-v0p3.csv` companions following the same `row,col,led` schema.
-3. ~~CS-line routing per panel position.~~ **Resolved 2026-05-02**: panel-internal J3↔J5 wiring shifts CS lines up by one (`J3 pin 1 → MCU CS0` always; `J3 pin 2 (CS1) → J5 pin 1`, etc.); slot-position daisy-chain delivers the 4 different CS lines from the arena to the 4 panels in a column. See § Connectors above for the full trace. KiCad source verified.
+1. **KiCad submodule init for direct hardware audit.** Most firmware-relevant facts now verified via PR-review docs + direct gh-api KiCad trace; init the `Generation 6/Panels` submodule (blocked on SSH host-key trust per handover) when convenient for ongoing iteration.
+2. **Per-revision LED designator tables for v0.2 and v0.3.** Need a KiCad PCB-source extraction script. The v0.1 mapping is from the original Janelia v0.1 PCB; v0.2 and v0.3 may differ in physical placement (LED orientation flipped in v0.2 affects designator-to-position mapping). Once available, add `g6_02-led-mapping-v0p2.csv` and `g6_02-led-mapping-v0p3.csv` companions following the same `row,col,led` schema.
+3. ~~CS-line routing per panel position.~~ **Resolved 2026-05-02**: panel-internal J3↔J5 wiring shifts CS lines up by one (`J3 pin 1 → MCU CS0` always; `J3 pin 2 (CS1) → J5 pin 1`, etc.); slot-position daisy-chain delivers the 4 different CS lines from the arena to the 4 panels in a column. See § Connectors above. KiCad source verified.
 4. ~~Board-id mechanism for firmware to detect v0.2 vs v0.3.~~ **Resolved 2026-05-02**: build-time `#define` (separate firmware binaries). See § Revisions in scope above.
-5. ~~Layering vs `display.cpp::sch_to_pos_index`.~~ **Resolved 2026-05-02**: two-stage model. Host owns *logical → schematic* mapping (rotation, flip, panel position); panel firmware owns *schematic → physical-pin* mapping (`display.cpp::sch_to_pos_index()` with `NUM_COLOR = 4` quadrant scheme). LED designator tables in this file describe the schematic-coordinate ↔ LED-designator layer; firmware adds the schematic ↔ physical-pin layer on top. See `g6_01` § History decisions log for the full resolution.
-6. **Confirm 160 Ω current-limit value physically.** PR-review doc says expected 160 Ω per prior optimization; recommend in-circuit measurement on R9 (or LCSC C851657 part lookup) before precision brightness work.
-7. **R6 net assignment.** Schematic has a second 33 Ω 0201 (R6) — which signal it terminates is not yet captured.
-8. **Maximum SPI clock rate.** Firmware default is 30 MHz (`g6_firmware_devel/panel/src/constants.cpp:15`); panel hardware likely supports higher with R29 termination, but not characterized. Worth measuring on a scope before pushing past 30 MHz.
+5. ~~Layering vs `display.cpp::sch_to_pos_index`.~~ **Resolved 2026-05-02**: two-stage model. Host owns *logical → schematic*; panel firmware owns *schematic → physical-pin*. See `g6_01` § History decisions log.
+6. **Confirm 160 Ω current-limit value physically (R9).** PR-review doc says expected 160 Ω per prior optimization. **Resistance is to be confirmed** by in-circuit measurement on R9 (or LCSC C851657 part lookup) before precision brightness work.
+7. ~~R6 net assignment.~~ **Resolved 2026-05-02**: R6 = 33 Ω noise-isolation series resistor between +3V3 and the RP2354 `VREG_AVDD` pin. KiCad-verified.
+8. **Maximum SPI clock rate.** Firmware default is 30 MHz (`g6_firmware_devel/panel/src/constants.cpp:15`); **target is 25 MHz with margin** — but exact panel-side hardware ceiling is **TBD** (not characterized). Worth measuring on a scope before pushing past 25 MHz on production hardware.
 
 ## History & Reconciliation
 
@@ -271,7 +272,9 @@ Useful when moving firmware between panel revisions. Source: `PANEL_V021_V031_HW
 - **2026-05-02** — v0.2 EINT (GP45), PSRAM CS (GP0), and SPI peripheral (SPI0) resolved by reconciling against `PANEL_V021_V031_HW_SUMMARY.md`; v0.3 MISO corrected from GP44 → GP43 (R29 termination is on the SPI1 MISO output, GP43, not GP44 spare); XIP_CS1n confirmed on GP47 (commit `6450445`).
 - **2026-05-02** — **Board-id mechanism = build-time `#define`** (Open Q #4 resolved). Separate firmware binaries per panel revision; arena uses one panel version throughout (this commit).
 - **2026-05-02** — **LED-mapping layering = two-stage** (Open Q #5 resolved, D5 in `g6_01` resolved). Host: logical → schematic; panel firmware: schematic → physical-pin via `sch_to_pos_index()`. Spec text updated in `g6_00`, `g6_01`, `g6_02` (commit `add7fa6`).
-- **2026-05-02** — **CS-line routing per panel position resolved** (Open Q #3): physical slot-position via panel-internal J3↔J5 connector pin shift. KiCad wire-trace from `floesche/LED-Display_G6_Hardware_Panel @ 23dad5e` (PR #4 head) confirms: J3 pin 1 → MCU CS0 unconditionally; J3 pins 2/3/4 (CS1/CS2/CS3) → J5 pins 1/2/3 (one position up); J5 pin 4 = NC; EINT propagates straight through. Up to 4 panels per stack. Same mechanism in v0.2 and v0.3 (this commit).
+- **2026-05-02** — **CS-line routing per panel position resolved** (Open Q #3): physical slot-position via panel-internal J3↔J5 connector pin shift. KiCad wire-trace from `floesche/LED-Display_G6_Hardware_Panel @ 23dad5e` (PR #4 head) confirms: J3 pin 1 → MCU CS0 unconditionally; J3 pins 2/3/4 (CS1/CS2/CS3) → J5 pins 1/2/3 (one position up); J5 pin 4 = NC; EINT propagates straight through. Up to 4 panels per stack. Same mechanism in v0.2 and v0.3 (commit `76a78b5`).
+- **2026-05-02** — **Resistor net assignments verified via direct KiCad source trace** (`panel_mcu.kicad_sch` from PR #4 head): R6 = +3V3↔VREG_AVDD noise-isolation; R1 = XIP_CS1n pull-up (PR-review-doc inference confirmed); R4 = QSPI_SS pull-up (corrects PR-review-doc's "CS0" inference — R4 is for boot-flash CS, not panel-protocol CS0). J1 USB pinout verified (D−, D+, +5V, GND in sequence). Closes Open Q #7 (R6 net) and resolves the OQ #1 spot-checks (this commit).
+- **2026-05-02** — SPI clock target = **25 MHz** (with margin under the firmware's 30 MHz default); exact panel-side hardware ceiling TBD (Open Q #8) (this commit).
 
 ## Cross-references
 
