@@ -1,12 +1,12 @@
 # G6 — Arena Firmware Interface
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "G6 arena design (v1/v2)", lines 2484–2523), reconciled against the actual designed arena hardware ([`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena); first production run = `v1.1.7`, ordered 2026-04-28; design at `arena_10-10/arena_10-10_v1/production/v1p1r7/`; pin assignments extracted from KiCad sources at `0a8ec33c`) · Last reviewed: 2026-05-02 by mreiser
-Status: **Thin firmware-interface reference with extracted pin assignments.** Per the prior plan's "Arena Design Tab Decision", the source-tab content is informational/historical and **superseded by the actual built arena hardware**. Rather than migrate the source tab as-is, this file pulls only the firmware-relevant facts the controller doc ([`g6_03-controller.md`](g6_03-controller.md)) and the v3 trigger work need, plus a per-peripheral Teensy 4.1 pin table extracted from the KiCad schematics. **Authoritative documentation lives in the `Generation 6/Arena` submodule (`docs/arena.md`); do not duplicate hardware details here.**
+Source: G6 panels protocol v1 proposal ([Google Doc `17crYq4s...`](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#), tab "G6 arena design (v1/v2)"). Hardware authority: [`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) (first production run `v1.1.7`; design at `arena_10-10/arena_10-10_v1/production/v1p1r7/`).
+Status: **Thin firmware-interface reference with extracted pin assignments.** This file pulls only the firmware-relevant facts the controller doc ([`g6_03-controller.md`](g6_03-controller.md)) and the v3 trigger work need, plus a per-peripheral Teensy 4.1 pin table extracted from the KiCad schematics. Authoritative hardware documentation lives in the `Generation 6/Arena` submodule (`docs/arena.md`); do not duplicate hardware details here.
 
 ## Authoritative source
 
 - **Production arena hardware:** [`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) (in this clone as the `Generation 6/Arena` submodule, currently uninitialized — pinned at `a9ab466e`, blocked on SSH host-key trust). Repository contents read via `gh api`:
-  - `README.md` — top-level summary; declares v1.1.7 as the first large production run (ordered 2026-04-28)
+  - `README.md` — top-level summary; declares v1.1.7 as the first large production run
   - `docs/arena.md` — current arena-overview doc (rev history, what's in the design, recommended build); currently still recommends v1p1r6 for new builds — **slightly behind reality at v1.1.7**
   - `arena_10-10/arena_10-10_v1/production/v1p1r7/` — actually-ordered revision design files, including `netlist.ipc` (IPC-D-356A), `bom.csv`, `positions.csv`, `designators.csv`, and the manufacturing zip
   - `arena_10-10/arena_10-10_v1/{teensy,analog,panels,panel_column,power,fan_out,column_buffer,miso_enable}.kicad_sch` — editable KiCad sub-sheets (S-expression format) read at SHA `0a8ec33c` (the v1.1.7 bump commit) for the pin table below
@@ -20,7 +20,7 @@ Status: **Thin firmware-interface reference with extracted pin assignments.** Pe
 
 ## Pin assignments
 
-Extracted from the KiCad sources at SHA `0a8ec33c` (last commit touching `arena_10-10/arena_10-10_v1/`, 2026-04-28 — v1.1.7 production bump). Methodology: parsed the `Teensy4.1_Ethernet_Only` symbol from `teensy.kicad_sch` for the 54 footprint pins, then BFS-traced each pin's wires + series resistors + bus entries to the nearest local-name label, then cross-referenced labels with the per-peripheral sheets (`panels.kicad_sch`, `analog.kicad_sch`, `power.kicad_sch`) and validated against the production `netlist.ipc`. **Two pin-number conventions matter:** the `Teensy pin` column uses the footprint pin number (1–48 around the perimeter, 60–65 for the magjack vias); the `GPIO label` column uses the canonical Teensy 4.1 silk-screen pin name (e.g. `D13`).
+Extracted from the `arena_10-10_v1` KiCad sources in [`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) (v1.1.7 production rev). **Two pin-number conventions matter:** the `Teensy pin` column uses the footprint pin number (1–48 around the perimeter, 60–65 for the magjack vias); the `GPIO label` column uses the canonical Teensy 4.1 silk-screen pin name (e.g. `D13`).
 
 | Peripheral group | Function | Teensy pin | GPIO label | Net name | Notes |
 |---|---|---|---|---|---|
@@ -35,7 +35,7 @@ Extracted from the KiCad sources at SHA `0a8ec33c` (last commit touching `arena_
 | | P3 (B0) / P8 (B1) — CS0..CS3 | 11, 12, 16, 17 | D9, D10, D24, D25 | `TNY.CS_08..CS_11` | |
 | | P4 (B0) / P9 (B1) — CS0..CS3 | 20, 21, 22, 23 | D28, D29, D30, D31 | `TNY.CS_12..CS_15` | |
 | | P5 (B0) / P10 (B1) — CS0..CS3 | 24, 45, 44, 43 | D32, D23, D22, D21 | `TNY.CS_16..CS_19` | |
-| **Panel external interrupt** | EINT to all 10 columns | 25 | D33 | `TNY.EINT` | Driven via R25 (33 Ω series) to fan-out distributing `PAN.EINT_P1..P10` for all 10 panel columns. **Configurable jumper J30** can short this net to BNC J4 directly — see "EINT routing jumper" below. (Verified 2026-05-15 via KiCad netlist trace at SHA `a9ab466e`: silk D33 → R25 pin 2; R25 pin 1 → `TNY.EINT`. Prior spec assigned this to D36; that was wrong.) |
+| **Panel external interrupt** | EINT to all 10 columns | 25 | D33 | `TNY.EINT` | Driven via R25 (33 Ω series) to fan-out distributing `PAN.EINT_P1..P10` for all 10 panel columns. **Configurable jumper J30** can short this net to BNC J4 directly — see "EINT routing jumper" below. |
 | **U2 DIR (BNC J3 EINT level-translator direction)** | Sets SN74LVC1T45 U2 A↔B direction | 28 | D36 | `NET-(U1-36_CS)` | Anonymous net; only U2 pin 5 is on it. Firmware drives HIGH (A→B = Teensy out to BNC) / LOW (B→A = BNC in to Teensy) to set direction for the BNC J3 5 V bidirectional path. |
 | **U3 DIR (BNC J4 DIO level-translator direction)** | Sets SN74LVC1T45 U3 A↔B direction | 26 | D34 | `NET-(U1-34_RX8)` | Anonymous net; only U3 pin 5 is on it. Same firmware-controlled-direction pattern as U2 DIR above. |
 | **EINT routing jumper** | J30 selects panel-trigger source | — | — | (J30 / R216) | When **shorted**: BNC J4 signal goes **direct to panels** (bypasses Teensy) via R216 (1 kΩ series). When **open**: Teensy-mediated only — firmware must read D35 input and drive D33 output to forward. Position not firmware-detectable. |
@@ -171,20 +171,14 @@ The source spec for Mode 1 TSI files defines a 5-byte record `[FrameIndex16, DO,
 
 ---
 
-## History & Reconciliation
+## Background facts firmware should know
 
-### Lower-priority background facts (read once, internalize)
-
-These items were captured during the KiCad reconciliation pass at SHA `0a8ec33c` but are not load-bearing for spec correctness — they're worth knowing once but don't need to live near the top of the file.
-
-- **AOUT is an MCP4725 I²C DAC, not a direct Teensy DAC pin.** Teensy 4.1 has no built-in DAC; firmware needs an I²C library. The MCP4725 (U85, MCP4725A0T-E/CH, LCSC C144198, factory bits A2:A0 = 000) has its A0 pin **tied to GND** in the production schematic (verified via netlist trace of `arena_10-10` v1.1.7 at SHA `a9ab466e`, 2026-05-15), so the effective I²C address is **`0x60`** — no alternate-address option on this board. This affects update rate (≪ direct DAC) and adds a one-tick I²C latency to TSI Mode 1 AO updates.
+- **AOUT is an MCP4725 I²C DAC, not a direct Teensy DAC pin.** Teensy 4.1 has no built-in DAC; firmware needs an I²C library. The MCP4725 (U85, MCP4725A0T-E/CH, LCSC C144198, factory bits A2:A0 = 000) has its A0 pin tied to GND in the production schematic, so the effective I²C address is **`0x60`** — no alternate-address option on this board. This affects update rate (≪ direct DAC) and adds a one-tick I²C latency to TSI Mode 1 AO updates.
 - **AI lines are scaled via OPA2277 op-amp.** ±10 V external (BNC J28/J29) → 0–3.3 V at the Teensy ADC pin. There is also an on-board precision **REF102AU 10 V reference** (U84) used by the scaling chain — drift in this part biases AI calibration.
 - **DIO and EINT are bidirectional 5 V via SN74LVC1T45 level translators.** **Firmware must explicitly drive the DIR pins**: D36 sets U2 DIR (BNC J3 EINT), D34 sets U3 DIR (BNC J4 DIO). HIGH = A→B (Teensy out to BNC), LOW = B→A (BNC in to Teensy). `pinMode` on the data pin alone is NOT sufficient — the level translator's DIR is a separate GPIO. Pair every direction change on the data pin with the matching DIR drive.
 - **The on/off switch is invisible to firmware.** SW1 only gates the 5 V supply rail; if firmware needs to know "user pressed off", it can't — the Teensy will simply lose VIN. Use external watchdog / brown-out behavior instead.
 - **Multiple SN74HCS08 / column-buffer chips exist** between the Teensy CS lines and the actual panel CS pins — firmware should be aware that the propagation delay (~5–10 ns each) accumulates, but won't matter at the 5 MHz SPI rate the slim G4.1 controller uses.
-- **Pins 30–32 and 38, 39, 42 are explicit `no_connect` markers in the schematic.** Pins 25 / D33 (`TNY.EINT`), 26 / D34 (U3 DIR), and 28 / D36 (U2 DIR) are all in use — see Pin assignments table at the top of the file (corrected 2026-05-15 against KiCad netlist).
-
-All facts above were extracted from `reiserlab/LED-Display_G6_Hardware_Arena` KiCad sources (production arena `arena_10-10` v1.1.7, ordered 2026-04-28) and corroborated against `production/v1p1r7/{bom.csv, netlist.ipc}`. Audit trail of decisions in the git log.
+- **Pins 30–32 and 38, 39, 42 are explicit `no_connect` markers in the schematic.** Pins 25 / D33 (`TNY.EINT`), 26 / D34 (U3 DIR), and 28 / D36 (U2 DIR) are all in use — see Pin assignments table at the top of the file.
 
 ---
 

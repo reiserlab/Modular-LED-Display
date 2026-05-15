@@ -1,7 +1,7 @@
 # G6 — Panel Protocol
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tabs "Panel Version 1" → "Panel Version 4 and beyond" + "Panel Version Summary"; lines 61–1110) · Last reviewed: 2026-05-02 by mreiser
-Status: **§ v1 = Specified, partially implemented** (5 spec ↔ firmware divergences vs `iorodeo/g6_firmware_devel`) · **§ v2 = Migrated (teaser); opcodes declared in firmware but behavior not implemented** · **§ v3 = Migrated (teaser) with Triggered/Gated/Persistent mode set finalized 2026-05-02; feasibility strongly prototyped via `G6_Panels_Test_Firmware`** (BCM, gating, trigger latency) · **§ v4 = Migrated (~30 % specified); zero firmware support anywhere; predefined-pattern flash mechanism is a prerequisite to design** · **§ v5 = Sketch only (roadmap, not implementable)** · **§ master command summary = Migrated; documents 24 commands across v1–v4**
+Source: G6 panels protocol v1 proposal ([Google Doc `17crYq4s...`](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#), tabs "Panel Version 1" → "Panel Version 4 and beyond" + "Panel Version Summary").
+Status: **§ v1 = Specified, partially implemented** (firmware: [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel)) · **§ v2 = Teaser; opcodes declared in firmware but behavior not implemented** · **§ v3 = Teaser; Triggered + Gated modes prototyped in [`G6_Panels_Test_Firmware`](https://github.com/mbreiser/G6_Panels_Test_Firmware), Persistent reserved-but-deferred** · **§ v4 = ~30 % specified; zero firmware support; predefined-pattern flash mechanism is prerequisite to design** · **§ v5 = Sketch only**.
 
 This file holds the SPI-level protocol between the controller and the panels — message scaffolding, header byte, parity rule, the per-version command set, payload formats, panel confirmations, and pixel data layout. Versions are staged in chronological order (v1 first because it sets all the conventions and is the only version with deployable firmware in flight).
 
@@ -217,7 +217,7 @@ For the full v0.1 mapping table (400 rows), see [`g6_02-led-mapping-v0p1.csv`](g
 
 ### Optional: Panel Error Display
 
-While not essential for implementing the v1 commands described here, we expect it will be useful for G6 Panels to implement simple visual error indicators, similar to G3 implementation, to aid troubleshooting during development (and usage). When an error is detected, the panel displays a small predefined pattern representing an error index. The dedicated v1-namespace opcode for this is **`0xC2`** (alongside the existing panel-utility opcodes `0xC0` COMM_CHECK and `0xC1` Diagnostic — though the diagnostic-spec opcodes are tentative; see v2 § Query diagnostics). The error glyph itself can be a panel-firmware-baked predefined pattern, or composed by the controller and sent via `0x30` SetFrame as a v1-firmware-only fallback. **(2026-05-02 decision)** When v4 ships, **predefined-pattern index 0 is reserved as the canonical error-glyph slot**, accessed via the v4 `0x70` Display Predefined Pattern command — resolves the v1 `0xC2`/v4 `0x70` namespace pressure and avoids a second opcode dedicated to error display.
+While not essential for implementing the v1 commands described here, we expect it will be useful for G6 Panels to implement simple visual error indicators, similar to G3 implementation, to aid troubleshooting during development (and usage). When an error is detected, the panel displays a small predefined pattern representing an error index. The dedicated v1-namespace opcode for this is **`0xC2`** (alongside the existing panel-utility opcodes `0xC0` COMM_CHECK and `0xC1` Diagnostic — though the diagnostic-spec opcodes are tentative; see v2 § Query diagnostics). The error glyph itself can be a panel-firmware-baked predefined pattern, or composed by the controller and sent via `0x30` SetFrame as a v1-firmware-only fallback. When v4 ships, **predefined-pattern index 0 is reserved as the canonical error-glyph slot**, accessed via the v4 `0x70` Display Predefined Pattern command — resolves the v1 `0xC2`/v4 `0x70` namespace pressure and avoids a second opcode dedicated to error display.
 
 Suggested error message format: with 20×20 pixels, have plenty of space for 2×2 characters (5×7 pixel size per char is typical), so suggested messages would be: "PE / 01 - 99" — `PE` = panel error on the top row, and the error code would be displayed on the lower row.
 
@@ -567,10 +567,6 @@ This table provides a complete reference of all commands across protocol version
 3. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
 4. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
 5. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
-
-## History & Reconciliation
-
-v1 spec reconciled against `iorodeo/g6_firmware_devel @ 6944894` — 11 claims verified, 3 source-spec ambiguities resolved by firmware (COMM_CHECK sequence, parity rule, parity-example errata), and 5 divergences worked through (D1–D5, all resolved). v2 opcodes are declared in firmware but behavior-not-implemented (no PSRAM driver yet). v3 feature-feasibility prototyped against `G6_Panels_Test_Firmware @ bb26a44` on G6 panels v0.2.1/v0.3.1 — full evidence in that repo's `single_led/PRODUCTION_ARCHITECTURE.md`, `TIMING_SUMMARY.md`, `RESULTS.md`. v4/v5 have zero firmware support anywhere. Audit trail of decisions in the git log.
 
 ## Cross-references
 

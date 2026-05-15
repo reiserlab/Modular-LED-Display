@@ -1,7 +1,7 @@
 # G6 — Host PC Software (firmware-contract perspective)
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Host PC Matlab SW", lines 2409–2482) · Last reviewed: 2026-05-02 by mreiser
-Status: **Stub** — thin source tab migrated, reconciled against `maDisplayTools v2` and slim G4.1 (firmware-contract framing). The spec author noted detailed host-side specs are premature until the panel and controller specs solidify, so this file stays a high-level checklist of what the host PC must do for the firmware to work. **Deep migration of the MATLAB display tools spec is deferred** until those tools formally migrate to G6.
+Source: G6 panels protocol v1 proposal ([Google Doc `17crYq4s...`](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#), tab "Host PC Matlab SW").
+Status: **Stub** — high-level checklist of what the host PC must do for the firmware to work. Deep migration of the MATLAB display tools spec is deferred until those tools formally migrate to G6.
 
 This file captures the firmware-side perspective on host-PC software responsibilities for G6 v1 (and anticipated v2 updates). It defines the firmware's contract with the host: what data formats, addressing schemes, and command sequences the firmware assumes the host will produce. The deep MATLAB-side spec migration (covering `Generation 6/maDisplayTools/`'s pattern-generation, arena-config, and experiment-pipeline tooling) is deferred.
 
@@ -45,7 +45,7 @@ G6 adds opcode `0x67 = get-controller-info` (single command with version-dispatc
 - The on-disk representation might stay similar, but the host needs to be aware of the new arena shape.
 - Implement appropriate LED mapping per panel (following G6 [LED Mappings](g6_02-led-mapping.md)).
 
-**G6 header format (2026-05-02):** the 18-byte v2 header is canonical and round-trip-validated (MATLAB ↔ JS) per `maDisplayTools/g6/g6_encoding_reference.json`. The source-tab's "TBD" wording is stale; see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) for the byte-level layout.
+**G6 header format:** the 18-byte v2 header is canonical and round-trip-validated (MATLAB ↔ JS) per `maDisplayTools/g6/g6_encoding_reference.json`. See [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) for the byte-level layout.
 
 ### Streaming (Mode 5) to a sliced arena
 
@@ -90,12 +90,6 @@ v2 capability detection shares the v1 "G6 mode" gap above — same `get-controll
 1. **PSRAM-vs-SD pattern integrity check** — algorithm and host/panel responsibility split. Open until v2 panel firmware exists.
 2. **`show_panel_IDs` test pattern** — host-composed visualization (each panel displays its `panel_id`); useful for verifying the panel map end-to-end. Implementation owner: maDisplayTools-side; firmware just receives a Mode 5 frame.
 3. **Deep MATLAB display-tools spec migration** — deferred until display tools are formally migrated to G6. Reference: `Generation 6/maDisplayTools/docs/*.md` in the submodule (public Jekyll site).
-
-## History & Reconciliation
-
-`maDisplayTools v2` already supplies the pattern-encoding side of the firmware contract (v2 18-byte header + per-panel GS2/GS16 block encoding + round-trip-validated cross-platform encoding via `g6_encoding_reference.json`). Outstanding host-side gaps (controller-info opcode, panel-storage-mode opcode, region/SPI source, TSI tooling, PSRAM-vs-SD integrity check) are each tracked in this file's Open Questions or in sibling docs. Audit trail of decisions in the git log.
-
----
 
 ## Cross-references
 

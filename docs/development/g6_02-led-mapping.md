@@ -1,6 +1,6 @@
 # G6 — Panel Hardware Reference (v0.2 + v0.3) and LED Mapping
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Panel LED Mappings") — LED mapping section · Panel hardware from `iorodeo/LED-Display_G6_Hardware_Panel` (PR #4 head, branches `prod_v0p2r0`) — KiCad sources, BOMs, positions.csv, and the planning docs in `G6_Panels_Test_Firmware/test_firmware/single_led/` · v0.2 pin layout also in [`g6_firmware_devel/panel/src/constants.cpp`](https://github.com/iorodeo/g6_firmware_devel) · Last reviewed: 2026-05-02
+Source: G6 panels protocol v1 proposal ([Google Doc `17crYq4s...`](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#), tab "Panel LED Mappings"). Hardware authority: [`reiserlab/LED-Display_G6_Hardware_Panel`](https://github.com/reiserlab/LED-Display_G6_Hardware_Panel) (v0.2 + v0.3 KiCad). v0.2 pin layout also in [`g6_firmware_devel/panel/src/constants.cpp`](https://github.com/iorodeo/g6_firmware_devel).
 Status: **Specified for v0.2 + v0.3** — every firmware-relevant pin, peripheral, polarity, resistor value, and connector pinout captured. v0.1 LED designator mapping table at [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) is canonical for all three revisions (LED XY positions are byte-identical across v0.1/v0.2/v0.3; only orientation differs).
 
 This file captures the firmware ↔ panel-hardware contract for the two in-house G6 panel revisions (**v0.2** production, **v0.3** parallel revision in-house but not enough for full systems yet), plus the LED designator mapping. Major firmware-relevant deltas between v0.2 and v0.3: **pin/column wiring, SPI peripheral, PSRAM CS pin, PIO viability**. BOMs are otherwise bit-identical (same MCU, LEDs, current-limit resistor, drivers, connectors).
@@ -120,7 +120,7 @@ Firmware must select the correct SPI peripheral per board version. `iorodeo/g6_f
 
 With the v3 mode set finalized in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) (Triggered + Gated, Persistent reserved-but-deferred), the panel firmware needs to handle GP45 EINT:
 
-- **Triggered modes** (`0x12`, `0x32`, `0x52`): each rising edge on GP45 fires **one row of the loaded pattern across all 4 BCM bit-planes** (resolved 2026-05-15 against panel scan architecture: 20 row drivers + 20 col drivers, scan is row-by-row). Recommended: PIO `wait pin` (since GP45 is in PIO1's range with `GPIOBASE = 16` on v0.3) or GPIO IRQ on rising edge for v0.2. Validated 865 ± 17 ns trigger-to-LED latency in `G6_Panels_Test_Firmware @ bb26a44`.
+- **Triggered modes** (`0x12`, `0x32`, `0x52`): each rising edge on GP45 fires **one row of the loaded pattern across all 4 BCM bit-planes** (the panel scans row-by-row — 20 row drivers + 20 col drivers). Recommended: PIO `wait pin` (since GP45 is in PIO1's range with `GPIOBASE = 16` on v0.3) or GPIO IRQ on rising edge for v0.2. Validated 865 ± 17 ns trigger-to-LED latency in `G6_Panels_Test_Firmware @ bb26a44`.
 - **Gated modes** (`0x14`, `0x34`, `0x54`): while GP45 HIGH, panel internally refreshes the loaded pattern at its BCM rate; while LOW, display off. Recommended: GPIO level-watch + scan-loop gate.
 - **EINT pin is GP45 on both v0.2 and v0.3** — the only firmware-visible pin shared identically across the two revisions. Same firmware handler works on both.
 
@@ -142,8 +142,6 @@ The arena-side wiring (Teensy D33 `TNY.EINT` → R25 33 Ω → fan-out → all 1
 | **J3** | bottom | male right-angle | EINT | CS3 | CS2 | CS1 | CS0 |
 | **J4** | top | female receptacle | MISO | MOSI | SCK | GND | +5 V |
 | **J5** | top | female receptacle | EINT | NC ("X" in schematic) | CS3 | CS2 | CS1 |
-
-(Pin map verified 2026-05-15 against `reiserlab/LED-Display_G6_Hardware_Panel` v0p3 production via `kicad-design-review` skill — netlist+BOM+schematic agreement on all 20 pins.)
 
 - **Bottom (J2/J3) parts:** Harwin M20-8890545R, LCSC C46061678; Digikey 952-M20-8890545RCT-ND or 952-3266-ND
 - **Top (J4/J5) parts:** Samtec SMH-105-02-X-S, LCSC C5142238
@@ -233,14 +231,10 @@ Worked example consumers: [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) �
 
 The original v0.1 ("Janelia batch") panel had reversed LED polarity (col LOW + row HIGH = ON) due to LED placement during assembly, and used 240 Ω current-limit resistors. v0.2 fixed both: flipped to NORMAL polarity (col HIGH + row LOW = ON) and switched to 160 Ω resistors (~50 % brightness boost; better uniformity under multi-LED load due to UCC27517's asymmetric output impedance). v0.2 also added the R29 33 Ω MISO series-termination, properly routed EINT to GP45 (no more bodge wire), and shrunk the board to 45×45 mm. v0.3 then redesigned the pin map for clean dual-PIO scanning. **v0.1 is not built today** — kept here as the reference for the LED designator CSV (the geometric mapping is unchanged across all three revisions).
 
-## History & Reconciliation
-
-Hardware data extracted from `iorodeo/LED-Display_G6_Hardware_Panel` PR #4 (KiCad sources, BOMs, positions.csv) and the planning docs in `G6_Panels_Test_Firmware/test_firmware/single_led/` (PANEL_V021_V031_HW_SUMMARY.md, LED_ORIENTATION_AND_RESISTOR_SUMMARY.md, G6_V03_SCHEMATIC_REVIEW.md). v0.2 firmware-relevant pin layout cross-checked against `g6_firmware_devel @ 6944894`. Direct wire-trace and BOM/positions/netlist lookups via `gh api` resolved CS routing, R6, R1/R4, J1 pinout, MCP4725 base address, SN74LVC1T45 DIR pins, and the LED-positions question (v0.1/v0.2/v0.3 LEDs at byte-identical XY coords; only rotation flipped). Audit trail in the git log.
-
 ## Cross-references
 
 - [Source Google Doc, "Panel LED Mappings" tab](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#) — v0.1 LED mapping verbatim source.
-- [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) — full 400-row v0.1 LED designator mapping (extracted from this file 2026-05-02).
+- [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) — full 400-row v0.1 LED designator mapping.
 - [`G6_Panels_Test_Firmware/test_firmware/single_led/PANEL_V021_V031_HW_SUMMARY.md`](https://github.com/mbreiser/G6_Panels_Test_Firmware) — comprehensive v0.2.1 vs v0.3.1 hardware comparison (KiCad source review of `iorodeo/LED-Display_G6_Hardware_Panel @ prod_v0p2r0`).
 - [`G6_Panels_Test_Firmware/test_firmware/single_led/LED_ORIENTATION_AND_RESISTOR_SUMMARY.md`](https://github.com/mbreiser/G6_Panels_Test_Firmware) — LED polarity + 160 Ω resistor optimization rationale.
 - [`G6_Panels_Test_Firmware/test_firmware/single_led/G6_V03_SCHEMATIC_REVIEW.md`](https://github.com/mbreiser/G6_Panels_Test_Firmware) — v0.3.1 schematic review (32/32 checks passed).

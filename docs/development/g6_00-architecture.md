@@ -1,13 +1,13 @@
 # G6 — Architecture
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tab "Introduction", lines 1–60) · Last reviewed: 2026-05-02 by mreiser
+Source: G6 panels protocol v1 proposal ([Google Doc `17crYq4s...`](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#), tab "Introduction").
 Status: **Draft** — system architecture and assumptions are stable; minor prose-tightening items in Open Questions.
 
 This page captures the system-level architecture of the G6 modular LED display: the host / controller / panel split, the responsibilities each layer owns, and the small set of cross-cutting conventions (endianness, bit packing) that propagate into every other spec file.
 
 ## Current state
 
-- **Architecture is stable enough to drive development.** Hardware is in production (Arena `v1.1.7`, Panels `v0p2r0` with `v0.3.0` in draft); panel firmware is being written in [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) (last push 2026-02-12); the G4-baseline controller is in [`floesche/LED-Display_G4.1_ArenaController_Slim`](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim).
+- **Architecture is stable enough to drive development.** Hardware is in production (Arena `v1.1.7`, Panels `v0p2r0` with `v0.3.0` in draft); panel firmware is being written in [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel); the G4-baseline controller is in [`floesche/LED-Display_G4.1_ArenaController_Slim`](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim).
 - The cross-cutting conventions in this file (little-endian, MSB-first pixel packing, common panel-message-format scaffolding across protocol versions) are referenced from every other file in this dev set.
 
 ## General Architecture
@@ -41,7 +41,7 @@ The Teensy 4.1 + 2-SPI-bus configuration is concrete for the current production 
 
 ### Host responsibilities
 
-**LED mapping is two-stage** (decision 2026-05-02):
+**LED mapping is two-stage:**
 
 - **Host** owns the *logical → schematic* mapping: handles per-panel rotation/flip and panel position in the arena, producing 20×20 subframes in the panel's own "schematic pixel" coordinate system.
 - **Panel firmware** owns the *schematic → physical-pin* mapping: applies the PCB-layout-driven remap (e.g., `display.cpp::sch_to_pos_index()` in `g6_firmware_devel @ 6944894`, with the `NUM_COLOR = 4` quadrant scheme) to convert schematic-pixel index to actual COL/ROW drive pins.
@@ -84,10 +84,6 @@ The panel receives commands via SPI and returns confirmations according to the [
 1. **Color-LED organization** — original source spec referred to "color-aware in v4/v5", but neither v4 (predefined patterns + stretch) nor v5 (sketch) currently specify color support. Aspirational; revisit when color support is actually specced.
 2. **Stateless-panel vs mode-flag question** (carried over from precursor) — v1's Oneshot-only model is consistent with the stateless approach, but v3's Triggered/Gated commands re-open the question. Defer to firmware investigation against `G6_Panels_Test_Firmware`.
 3. **Architecture-prose tightening** (non-blocking) — minor items: (a) "controller never needs to know spatial layout" is overreach for Mode 4 closed-loop; (b) "Endianess" → "Endianness" typo on §; (c) common-message-format claim should be reworded once g6_01 master command summary has v1–v4 version-bits clearly tabled. Bundle for next pass.
-
-## History & Reconciliation
-
-The v1 protocol scaffolding (1-byte header with parity in MSB + 1-byte command + payload) was selected over an earlier `(uint16 length)(uint16 type)` framing from the precursor [G6 message format proposal](https://docs.google.com/document/d/1PTZqUxw04CUFtpy8vCtdnMF04zJVquuUo61HCXcoizs/edit). Two carry-overs from the precursor are normative today: row-major MSB-first pattern data, and the display-mode-per-command-type pattern (v1 = Oneshot only; Triggered + Gated added in v3). For the audit trail of decisions, see the git log.
 
 ## Cross-references
 

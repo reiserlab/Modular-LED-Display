@@ -1,7 +1,7 @@
 # G6 — Pattern File Format & Panel Map
 
-Source: G6 panels protocol v1 proposal (Google Doc `17crYq4s...`, tabs "Pattern Format / Panel Map" lines 1865–2162 + "Panel Map proposal" lines 2169–2407, merged) · Last reviewed: 2026-05-02 by mreiser
-Status: **v2 is canonical** — 18-byte header, written by [`maDisplayTools/g6/g6_save_pattern.m`](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m), round-trip-validated against `webDisplayTools` via [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json). The standalone Panel Map proposal from the source Google Doc has been merged in — panel layout lives entirely in the pattern header in v2.
+Source: G6 panels protocol v1 proposal ([Google Doc `17crYq4s...`](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#), tabs "Pattern Format / Panel Map" + "Panel Map proposal", merged).
+Status: **v2 canonical** — 18-byte header, written by [`maDisplayTools/g6/g6_save_pattern.m`](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m), round-trip-validated against `webDisplayTools` via [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json). Panel layout lives entirely in the pattern header in v2.
 
 ## Current state
 
@@ -134,8 +134,6 @@ Four independent validation mechanisms (all **optional** in v1 — present in th
 3. **Frame magic** (per frame): `"FR"` + index validates frame boundaries.
 4. **Panel parity** (per block): header byte bit 7 detects transmission errors.
 
-(Maintenance note: the in-memory `pattern.version` field in `g6_save_pattern.m` is unused by the binary writer and should be removed in a future maDisplayTools cleanup commit.)
-
 ## Controller Operation (aspirational; no G6 controller firmware exists yet)
 
 This section describes how a G6 controller will read pattern files when one is built. The G4.1 slim controller (`floesche/LED-Display_G4.1_ArenaController_Slim`) reads G4 patterns, not G6 `.pat` files. The controller-spec work continues in [`g6_03-controller.md`](g6_03-controller.md).
@@ -187,10 +185,6 @@ In v2 the pattern header carries `row_count`, `col_count`, and the 6-byte panel 
 1. **No G6 controller firmware exists.** All Controller Operation steps above are aspirational; G4.1 slim is a G4 baseline only. G6 controller scoping happens in [`g6_03-controller.md`](g6_03-controller.md).
 
 (Arena ID and Observer ID semantics are resolved by the [maDisplayTools arena registry](../../Generation%206/maDisplayTools/configs/arena_registry/README.md): both are 6-bit, per-generation namespaces. Arena ID: 1–10 lab / 11–50 community / 51–62 user / 63 reserved. Observer ID: 1–20 lab / 21–50 community / 51–62 user / 63 reserved. **Observer ID is host-side metadata only — the controller does not interpret it**; it identifies the observer perspective a pattern was rendered for, supporting one pattern × many perspectives in a library.)
-
-## History & Reconciliation
-
-The v2 18-byte header is the sole canonical layout (v1 historical content dropped). The original Google Doc had a separate "Panel Map proposal" tab defining a standalone host-supplied panel map file; v2 merged it into the pattern header (6-byte mask supports up to 48 panels). The two checksum algorithms in the protocol family — pattern-file XOR vs panel-confirmation additive — are both intentional and firmware-confirmed. Audit trail of decisions in the git log.
 
 ## Cross-references
 
