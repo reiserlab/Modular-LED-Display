@@ -45,7 +45,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 |---|---|---|
 | Frame slicing: 16×16 quarter-panel layout → 20×20 G6 subframes | `SpiManager::decodePatternFrame` (`SpiManager.cpp:101-142`), `SpiManager::fillBufferFromDecoded` (`:144-168`); `[8][4]` and `[2][2]` panel-decomposition constants in `constants.h:16-19,45-48`; struct shapes in `SpiManager.h:9-23` | Re-derive geometry for G6 panels (20×20 = 400 pixels, organized as one block per panel rather than 4 quarter-panels). Touches all SPI-buffer composition. |
 | SPI framing: emit v1 panel-protocol bytes with parity | `SpiManager::transferPanelSet` (`SpiManager.cpp:70-84`) writes panel buffer raw — no parity computed | Add controller-side parity per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) v1 message format. |
-| Pattern header: G4 has 7-byte/8-byte union → G6 needs 18-byte v2 header | `PatternHeader.h:6-15`, `constants.h:100` (`pattern_header_size = 7`) | Adopt the 18-byte v2 layout from [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md): G6PT magic + version + Arena/Observer IDs + frame count + row/col counts + gs_val + panel mask + checksum. |
+| Pattern header: G4 has 7-byte/8-byte union → G6 needs 18-byte v2 header | `PatternHeader.h:6-15`, `constants.h:100` (`pattern_header_size = 7`) | Adopt the 18-byte v2 layout from [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md): G6PT magic + version + Arena/Observer IDs + frame count + row/col counts + gs_val + panel mask + checksum. **Use a plain `uint8_t[18]` array with explicit byte-by-byte access** rather than a bit-packed struct/union — the G4.1 slim baseline's `uint64_t` union without `__attribute__((packed))` is fragile across compilers. Parsing should be one explicit `if/switch` per field, not pointer-casting. |
 | CS-line count and pin matrix | Hard-coded 5×6 GPIO map for G4.1 wiring in `panel_set_select_pins[5][6]` (`constants.h:77-83`); `region_count_per_frame=2` (`constants.h:68`) | Re-wire for G6 arena (`Generation 6/Arena/` `v1.1.7` production); count and per-row count depend on arena geometry. |
 | `fillBufferAllOn` stretch values (1 grayscale, 50 binary) | `SpiManager.cpp:170-193` | Re-derive for G6 panel-protocol v1 stretch semantics. |
 | `STREAM_FRAME_CMD` payload size | `CommandProcessor.cpp:140-190`: 7-byte header + frame data; `analog_x`/`analog_y` bytes parsed and logged but unused | G6 frame data sizes differ (binary 51 B/panel × N or grayscale 201 B/panel × N at panel level; on-disk panel block 53/203 — pick which the wire format uses). Decide whether `analog_x`/`analog_y` survive G4→G6. |
@@ -57,7 +57,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 
 | Item | Why new | Notes |
 |---|---|---|
-| Panel-map data structure with regions / SPI-bus / CS | Slim has only the fixed `panel_set_select_pins` matrix + `region_count_per_frame=2`; no per-panel routing | Pending decision: arena-config sidecar vs computed from `col_count` + fixed regions. See [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) Open Question #6. |
+| Panel-map data structure with regions / SPI-bus / CS | Slim has only the fixed `panel_set_select_pins` matrix + `region_count_per_frame=2`; no per-panel routing | Controller `#include`s [`g6_arena_configs.h`](g6_arena_configs.h) and indexes by Arena ID from the pattern header. No runtime config. |
 | Panel-set ordering for parallel transmission | Slim iterates column-major (`SpiManager.cpp:92-99`); G6 spec section 4 calls for panel-set iteration | Spec ↔ impl divergence D9 in [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) — three options to resolve. |
 | Controller-side parity computation | Not present | See Modify section above. |
 | v2 PSRAM workflow + TSI parsing for Mode 1 | Mode 1 absent (`modes.h:6-10`); no PSRAM-related code anywhere | Adds load-phase logic, `(PatternID, FrameIndex16) → PSRAMAddress24` mapping table, TSI 5-byte record parser, DO/AO output drivers (pin assignments depend on arena hardware). |
@@ -133,18 +133,11 @@ For each frame update, the controller must:
 
 ### 4. Panel Routing (Panel Map)
 
-The controller loads a **static panel map** that defines panel routing and arena geometry. Each panel map entry specifies (region, panel_row, panel_col), with panel IDs implicit from row-major order. There is an alternative suggestion to store the minimal version of this in the pattern header (to be resolved soon).
+The panel map is the entry from [`g6_arena_configs.h`](g6_arena_configs.h) selected by Arena ID (pattern-header bytes 4–5). Each entry specifies per-panel `(panel_row, panel_col, spi_bus, cs_gpio, cs_sub_index)` plus per-arena `row_count`, `col_count`, and `num_spi_buses`. The header is currently hand-maintained against the [maDisplayTools arena registry](../../Generation%206/maDisplayTools/configs/arena_registry/README.md) (host-canonical YAML — registered IDs, geometry, panel-mask defaults); an eventual Python codegen under `maDisplayTools/tools/` will emit the header from registry YAML + a sibling hardware-topology YAML (SPI bus + CS GPIO per column). No runtime config, no sidecar file at deploy time.
 
-From the panel map, the controller derives:
+From the panel map the controller derives the number of panels, SPI chip-select lines, columns, and regions (SPI buses). Panels are grouped into **panel sets**, where each set contains one panel per region sharing the same `panel_row` and within-region column offset. To transmit a frame, the controller iterates over panel sets: enables the chip-select for the row, sends pattern data to all regions in parallel, then disables the chip-select.
 
-- the number of panels (and therefore "subframes" in the arena frame)
-- the number of rows (SPI chip-select lines)
-- the number of columns
-- the number of regions (SPI buses)
-
-Panels are grouped into **panel sets**, where each set contains **one panel per region** sharing the same `panel_row` and within-region column offset. To transmit a frame, the controller iterates over panel sets: it enables the chip-select for the corresponding row, sends pattern data to all regions in parallel, then disables the chip-select.
-
-**Panel-map storage:** standalone panel-map file is dropped — `maDisplayTools v2` writes the 6-byte panel mask + `row_count` + `col_count` directly into the 18-byte pattern header (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)). **Region / SPI-bus assignment is NOT carried in the pattern header** and remains the open gap (classified as New for G6 in the Reconciliation table above).
+The 18-byte pattern header carries the 6-byte panel mask + `row_count` + `col_count` (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)); region/SPI-bus assignment comes from the Arena-ID lookup, not the header.
 
 ### 5. Panel Protocol v1 Messaging
 
@@ -201,6 +194,7 @@ This is a copy of the G4.1 commands. Possibly adjust for G6 use.
 | Get-ethernet-ip-address | `0x01, 0x66` | v1 | Returns DHCP-resolved IP as ASCII (matches slim G4.1) |
 | Get-controller-info | `0x01, 0x67` | v1 (G6-new) | Returns `{version, capability_bitmap}` with version-dispatched payload — covers v1 G6-mode detection AND v2 capability detection (Local Storage, Mode 1 TSI, v3 triggered/gated, …). |
 | g6-panel-storage-mode | `0x02, 0x40, mode_byte` | v2 (G6-new) | Switches controller from SD Mode (`mode_byte = 0`) to Local Storage Mode (`mode_byte = 1`); triggers the load phase that copies SD patterns into panel PSRAM. |
+| g6-program-panel | `0x02, 0x41, panel_index, filename[32]` | v1 (G6-new) | Reflash panel `panel_index` from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). |
 
 **Stream-Frame for G6:** uses a **3-byte stream header** `[0x32, len_lo, len_hi, ...]`. The slim G4.1's `analog_x` / `analog_y` bytes (4 bytes after `len`) are **dropped for G6** (parsed and logged in slim but never plumbed; experimenters with motion-offset needs use Mode 4 closed-loop or a separate AI-driven workflow). Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 3-byte stream header.
 
@@ -315,8 +309,30 @@ Mode 1 is invalid in SD Mode.
 v1, v2, and v3 are being designed together. Controller changes for v3 are minimal: the v3 panel commands (Triggered / Gated variants for 2-Level / 16-Level / PSRAM-Index pattern types — see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3) need a corresponding controller dispatcher, but most of the existing v1/v2 transport logic carries over unchanged. Persistent-mode opcodes (`0x13`, `0x33`, `0x53`) are reserved in the spec but not implemented in initial v3 — controller doesn't need to dispatch them yet. Specific controller-side additions:
 
 - Recognize v3 header byte `[0x03]`/`[0x83]` and route to v3 command handlers (alongside v1/v2 handlers per the version-superset rule). Active opcodes: `0x12`/`0x14`/`0x32`/`0x34`/`0x52`/`0x54` (Triggered + Gated, 6 commands).
-- Forward the EINT line state to panels — for the production `arena_10-10`, the wiring runs through the `arena_10-10` jumper J30 (default OPEN per `g6_07-arena-firmware-interface.md`), so the controller drives `TNY.EINT` (Teensy D36) based on whatever software policy the v3 trigger-mode design specifies.
+- Forward the EINT line state to panels — for the production `arena_10-10`, the wiring runs through the `arena_10-10` jumper J30 (default OPEN per `g6_07-arena-firmware-interface.md`), so the controller drives `TNY.EINT` (Teensy D33) based on whatever software policy the v3 trigger-mode design specifies.
 - v4 (predefined patterns + stretch) is deferred to future work — see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v4.
+
+---
+
+## Panel firmware update (ISP)
+
+The controller reflashes panel firmware over SPI one panel at a time. Panel-side protocol surface is in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § In-System Programming (ISP).
+
+**SD layout:** `/firmware/panel_<semver>.bin` — multiple versions coexist; the host names which `.bin` to flash via `g6-program-panel`. Each image ends with a 32-byte footer `{magic, version, image_crc32, image_size}`; the controller validates the footer before any SPI traffic.
+
+**Per-panel workflow** (target panel selected by `panel_index`, which the controller resolves to a row in [`g6_arena_configs.h`](g6_arena_configs.h)):
+
+1. Assert the targeted panel's CS only; all other CS lines inactive.
+2. `ISP_ENTER` → record session nonce.
+3. `ISP_ERASE_SECTOR` over the affected flash range.
+4. Stream `ISP_WRITE_PAGE` page-by-page with per-page CRC.
+5. `ISP_VERIFY_CRC` over the full programmed range, using the footer's `image_crc32`.
+6. `ISP_EXIT_REBOOT` (mode `0x00`).
+7. Wait for panel boot, then `COMM_CHECK` to confirm.
+
+Sequential, one panel at a time — no parallel ISP across buses. On any failure the controller aborts, reports the failed `panel_index` and the last successful step; remaining panels are not auto-attempted.
+
+ISP primitives may be reused for v4's deferred predefined-pattern programming mechanism (separate flash region).
 
 ---
 
@@ -340,11 +356,9 @@ All G6-specific spec values above were reconciled against `floesche/LED-Display_
 ## Open Questions / TBDs
 
 1. **No G6 controller firmware exists.** All G6-specific behavior here is aspirational. Slim G4.1 baseline (`8f1029f`) is reconciled into the carry-over / modify / new / drop tables in Current state. Next phase: build G6 controller against those tables.
-2. **Region / SPI-bus information missing from v2 pattern header.** Cross-doc with [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md). Three options: arena-config sidecar, computed from `col_count` + fixed regions, or extend the v2 header. Hardware-future; arena_10-10 has implicit rule that works.
-3. **`all-on` semantics in v2 + Local Storage Mode.** Decision 2026-05-02: still build a one-shot all-on subframe controller-side (matches v1 behavior); no separate "all-on" PSRAM index opcode in v2. Keep this as a status note for firmware bring-up.
-4. **`SET_REFRESH_RATE_CMD` (0x16) upper bound** for G6 — slim accepts any `uint16_t` Hz. G6 panel BCM may impose a hard ceiling the controller should enforce. Needs G6-side measurement.
-5. **Pattern header bit-packing fragility** in slim (`PatternHeader.h:6-15` — 56-bit union backed by `uint64_t` without `__attribute__((packed))`). G6 should switch to an explicit `uint8_t[18]` or packed struct for the v2 header.
-6. **Per-version command-carry-over scope** — the v2/v3 superset rule (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md)) implies higher-version panels accept lower-version commands. Reviewing whether all of slim G4.1's carry-over candidates truly need to be supported in G6 v2/v3 panels (vs. left for the controller alone). Defer until v2 panel firmware exists.
+2. **`all-on` semantics in v2 + Local Storage Mode.** Decision 2026-05-02: still build a one-shot all-on subframe controller-side (matches v1 behavior); no separate "all-on" PSRAM index opcode in v2. Keep this as a status note for firmware bring-up.
+3. **`SET_REFRESH_RATE_CMD` (0x16) upper bound** for G6 — slim accepts any `uint16_t` Hz. G6 panel BCM may impose a hard ceiling the controller should enforce. Needs G6-side measurement.
+4. **Per-version command-carry-over scope** — the v2/v3 superset rule (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md)) implies higher-version panels accept lower-version commands. Reviewing whether all of slim G4.1's carry-over candidates truly need to be supported in G6 v2/v3 panels (vs. left for the controller alone). Defer until v2 panel firmware exists.
 
 ---
 

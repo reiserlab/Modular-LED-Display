@@ -178,15 +178,15 @@ Cross-reference: [`Generation 6/maDisplayTools/docs/patterns.md`](../../Generati
 
 ## Panel Map (subsumed into pattern header in v2)
 
-In v2 the pattern header carries `row_count`, `col_count`, and the 6-byte panel mask, which together capture everything except region/SPI-bus assignment. For the production [`arena_10-10`](g6_07-arena-firmware-interface.md) hardware the implicit rule "columns 0–4 → region 0, 5–9 → region 1" works today (region/SPI is hardware-determined, not pattern-file-determined). For future arenas with different region/bus layouts, the canonical source for region info is still TBD — see Open Question #1.
+In v2 the pattern header carries `row_count`, `col_count`, and the 6-byte panel mask. Region and SPI-bus assignment are looked up by Arena ID from the compiled-in [`g6_arena_configs.h`](g6_arena_configs.h) table; the pattern header carries no region/SPI-bus info.
 
 ---
 
 ## Open Questions / TBDs
 
-1. **Region / SPI-bus information for non-`arena_10-10` arenas.** Three candidate sources: (a) computed from `col_count` + a fixed regions-per-arena setting (fragile for asymmetric arenas); (b) sidecar arena-config file alongside `.pat` files (more flexible, more files); (c) embed per-panel region in a future header rev (would push past 18 bytes). Keep flag live; resolve before a non-`arena_10-10` G6 arena is built.
-2. **Arena ID + Observer ID semantics.** Spec out: 6-bit ranges, what they mean to the controller, defaults. Without firmware that reads them, they're metadata only today (defaults 0/0 in impl).
-3. **No G6 controller firmware exists.** All Controller Operation steps above are aspirational; G4.1 slim is a G4 baseline only. G6 controller scoping happens in [`g6_03-controller.md`](g6_03-controller.md).
+1. **No G6 controller firmware exists.** All Controller Operation steps above are aspirational; G4.1 slim is a G4 baseline only. G6 controller scoping happens in [`g6_03-controller.md`](g6_03-controller.md).
+
+(Arena ID and Observer ID semantics are resolved by the [maDisplayTools arena registry](../../Generation%206/maDisplayTools/configs/arena_registry/README.md): both are 6-bit, per-generation namespaces. Arena ID: 1–10 lab / 11–50 community / 51–62 user / 63 reserved. Observer ID: 1–20 lab / 21–50 community / 51–62 user / 63 reserved. **Observer ID is host-side metadata only — the controller does not interpret it**; it identifies the observer perspective a pattern was rendered for, supporting one pattern × many perspectives in a library.)
 
 ## History & Reconciliation
 

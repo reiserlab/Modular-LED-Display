@@ -208,10 +208,10 @@ pixel[19,0], pixel[19,1], …, pixel[19,19]
 
 The G6 v0.1 panel hardware has LED designators in a 20×20 matrix; `pixel[0,0]` corresponds to D50 (bottom-left corner) and `pixel[19,19]` corresponds to D360 (top-right). Worked-example pixels:
 
-- `pixel[0,0]` corresponds to LED D50 — 2-level: byte_index=0, bit_in_byte=7, bit 0; 16-level: byte_index=0, even, bits 0…3
-- `pixel[0,1]` to LED D70 — 2-level: byte_index=0, bit_in_byte=6, bit 1; 16-level: byte_index=0, odd, bits 4…7
-- `pixel[19,18]` to LED D340 — 2-level: byte_index=49, bit_in_byte=1, bit 398; 16-level: byte_index=199, even, bits 0…3
-- `pixel[19,19]` to LED D360 — 2-level: byte_index=49, bit_in_byte=0, bit 399; 16-level: byte_index=199, odd, bits 4…7
+- `pixel[0,0]` corresponds to LED D50 — 2-level: byte_index=0, bit_in_byte=7, bit 0; 16-level: byte_index=0, even, bits 4…7
+- `pixel[0,1]` to LED D70 — 2-level: byte_index=0, bit_in_byte=6, bit 1; 16-level: byte_index=0, odd, bits 0…3
+- `pixel[19,18]` to LED D340 — 2-level: byte_index=49, bit_in_byte=1, bit 398; 16-level: byte_index=199, even, bits 4…7
+- `pixel[19,19]` to LED D360 — 2-level: byte_index=49, bit_in_byte=0, bit 399; 16-level: byte_index=199, odd, bits 0…3
 
 For the full v0.1 mapping table (400 rows), see [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv); v0.2 / v0.3 mappings pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Questions).
 
@@ -365,17 +365,17 @@ Displays a pattern that was previously stored in PSRAM using command `0x1F` or `
 1. **Pre-load patterns into PSRAM**:
 
    ```
-   [0x02] [0x1F] [0x00 0x00 0x00] [pattern 0 data…] [0xC0]   // stretch 192
-   [0x02] [0x1F] [0x00 0x00 0x01] [pattern 1 data…] [0x05]   // stretch 5
-   [0x02] [0x3F] [0x00 0x00 0x02] [pattern 2 data…] [0x20]   // stretch 32
+   [0x02] [0x1F] [0x00 0x00 0x00] [pattern 0 data…] [0xC0]   // stretch 192, index 0
+   [0x02] [0x1F] [0x01 0x00 0x00] [pattern 1 data…] [0x05]   // stretch 5, index 1 (little-endian)
+   [0x02] [0x3F] [0x02 0x00 0x00] [pattern 2 data…] [0x20]   // stretch 32, index 2 (little-endian)
    ```
 
 2. **Display patterns by index during experiment**:
 
    ```
-   [0x02] [0x50] [0x00 0x00 0x00]
-   [0x02] [0x50] [0x00 0x00 0x01]
-   [0x02] [0x50] [0x00 0x00 0x02]
+   [0x02] [0x50] [0x00 0x00 0x00]                              // index 0
+   [0x02] [0x50] [0x01 0x00 0x00]                              // index 1 (little-endian)
+   [0x02] [0x50] [0x02 0x00 0x00]                              // index 2 (little-endian)
    ```
 
 (Example headers use `[0x02]` throughout; the actual parity bit depends on the elided pattern payloads — recompute when concrete patterns are chosen for a worked example.)
@@ -391,7 +391,7 @@ For Protocol v3, the version bits are `0b0000011`, giving possible header values
 Protocol v3 introduces three new display modes alongside v1's Oneshot:
 
 - **Oneshot** (v1 default): Display the pattern once immediately. Controller drives every frame. Most deterministic; canonical for G6.
-- **Triggered**: Each rising edge on the EINT trigger line fires one unit of display (one row, one frame, or one row-bit-plane — exact granularity per command). Pattern stays loaded; subsequent rising edges refire it. Validated in `G6_Panels_Test_Firmware @ bb26a44` with 865 ± 17 ns trigger-to-LED latency at 8 kHz. Use case: sub-frame sync with external scanning systems (two-photon microscope resonant scanners, etc.).
+- **Triggered**: Each rising edge on the EINT trigger line fires **one row of the loaded pattern, displayed across all 4 BCM bit-planes for that row** (the panel scans row-by-row; 20 row drivers, 20 column drivers — see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) § Hardware Reference). Pattern stays loaded; subsequent rising edges advance through the remaining rows of the frame, then wrap. Validated in `G6_Panels_Test_Firmware @ bb26a44` with 865 ± 17 ns trigger-to-LED latency at 8 kHz. Use case: sub-frame sync with external scanning systems (two-photon microscope resonant scanners, etc.).
 - **Gated**: While EINT HIGH, the panel internally refreshes the loaded frame; while LOW, display off. Pattern remains loaded across HIGH↔LOW transitions until a new command. Use case: window-gated display for behavior-rig event windows.
 - **Persistent** *(proposed; not implemented in initial v3)*: Display continuously until next command. Reserved opcodes (`0x13`/`0x33`/`0x53`) — controller-per-frame Oneshot is the canonical deterministic approach today.
 
@@ -442,7 +442,23 @@ Pattern-type encoding details inherit from v1 (2-Level / 16-Level) and v2 (PSRAM
 
 Version 4 introduces **predefined patterns** stored in panel flash (all-on, checkerboards, etc.) plus stretch on PSRAM-indexed display. Header version bits = `0b0000100` (`0x04` / `0x84`).
 
-**Deferred to future work.** v1+v2+v3 ship first. Open work for v4: per-command spec sections for 7 of 10 commands; the predefined-pattern catalog (slot count, factory vs user-installable, format, programming mechanism); alignment to the v3 mode set (current v4 list uses the older Trigger/Gated-Persistent naming; `0x64`/`0x74` slots likely deprecated since Gated-Persistent dropped). Opcodes `0x60`–`0x64` (Display PSRAM Index with Stretch, modes Oneshot/Trigger/Gated/Persistent/Gated-Persistent) and `0x70`–`0x74` (Display Predefined Pattern with Stretch, same modes) are reserved in the namespace. See Master command summary below for the 6 v4 opcodes documented today.
+**Deferred to future work.** v1+v2+v3 ship first. Open work for v4: per-command spec sections for 7 of 10 commands; the predefined-pattern catalog (slot count, factory vs user-installable, format, programming mechanism — likely reuses the ISP primitives below over a different flash region); alignment to the v3 mode set (current v4 list uses the older Trigger/Gated-Persistent naming; `0x64`/`0x74` slots likely deprecated since Gated-Persistent dropped). Opcodes `0x60`–`0x64` (Display PSRAM Index with Stretch, modes Oneshot/Trigger/Gated/Persistent/Gated-Persistent) and `0x70`–`0x74` (Display Predefined Pattern with Stretch, same modes) are reserved in the namespace. See Master command summary below for the 6 v4 opcodes documented today.
+
+## In-System Programming (ISP)
+
+ISP commands live in the v1 namespace (header `0x01`/`0x81`); they reflash the running panel image one panel at a time via SPI, selected by chip-select. Reserved opcode block `0xE0–0xEF`.
+
+| Cmd | Payload | Name | Notes |
+| :-: | :-- | :-- | :-- |
+| `0xE0` | 16-byte sentinel `"G6PANELISPENTER\0"` + 4-byte unlock token | `ISP_ENTER` | Halts display, disables flash-touching IRQs; returns `{session_nonce, flash_size, page_size, sector_size, app_crc32}` via the standard confirmation slot. |
+| `0xE1` | 3-byte sector index + 4-byte session nonce | `ISP_ERASE_SECTOR` | Wraps RP2350 `flash_range_erase`. |
+| `0xE2` | 3-byte page index + 4-byte session nonce + 256-byte page data + 4-byte page CRC32 | `ISP_WRITE_PAGE` | Wraps `flash_range_program`; panel verifies per-page CRC before write. |
+| `0xE3` | 3-byte start address + 3-byte length + 4-byte expected CRC32 | `ISP_VERIFY_CRC` | Pass/fail via confirmation slot. |
+| `0xE4` | 4-byte session nonce + 1-byte mode (`0x00` = boot new app; `0x01` = stay in factory bootrom) | `ISP_EXIT_REBOOT` | Watchdog-reset. |
+
+**State machine:** Idle → `ISP_ENTER` → ISP-armed → (`ERASE_SECTOR` × N → `WRITE_PAGE` × N → `VERIFY_CRC` → `EXIT_REBOOT`) → reset. Any non-ISP message in ISP-armed aborts ISP and re-enables normal display. The session nonce returned by `ISP_ENTER` is required on every subsequent ISP opcode — replay protection against bus noise re-presenting an earlier write payload. Validation is two-layered: per-page CRC32 (catches bus errors mid-upload) and whole-image CRC32 via `ISP_VERIFY_CRC` (catches state-machine bugs).
+
+**Brick recovery:** Single firmware image, no bootloader split. If in-firmware ISP gets corrupted mid-flash, recovery is out of band via BOOTSEL-on-USB at the panel (see [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md)). Controller-side workflow + SD layout in [`g6_03-controller.md`](g6_03-controller.md) § Panel firmware update (ISP).
 
 ## v5 — G6 Panel Protocol v5 (sketch only — no specifiable surface)
 

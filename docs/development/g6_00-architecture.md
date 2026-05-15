@@ -61,7 +61,7 @@ The controller receives commands from the host, potentially reads patterns from 
 
 The mapping between panel ID and physical hardware is done through a **panelMap** structure (basically the arena-specific configuration).
 
-The controller stores a [PanelMap data structure](g6_04-pattern-file-format.md#panel-map-subsumed-into-pattern-header-in-v2) that specifies which panel IDs are assigned to which SPI bus and the chip-select information, as needed.
+The controller looks up the panel map by Arena ID (from the pattern header) in the compiled-in [`g6_arena_configs.h`](g6_arena_configs.h) table — single source of truth shared with `maDisplayTools`. The table specifies, per panel, which SPI bus and chip-select line to use.
 
 Panel message format is common to all protocol versions and is as specified in the other tabs of this document, e.g. for [Panel Protocol v1](g6_01-panel-protocol.md):
 

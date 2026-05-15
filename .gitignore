@@ -23,3 +23,4 @@ Gemfile.lock
 
 # Codex cross-review working directory (codex-plan-review / codex-diff-review skills)
 .codex-review/
+.kicad-review/

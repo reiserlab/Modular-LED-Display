@@ -28,7 +28,7 @@ The host-side MATLAB tooling already exists and is partially G6-aware: `Generati
   - `flip_ud` (a flag to indicate if panels are upside down, and patterns should then be inverted)
   - the pixel indices for each panel (may not be needed, but were previously useful)
 
-**Geometry-supply status (2026-05-02):** the *panel-presence* part is in the v2 pattern header (`row_count`, `col_count`, 6-byte panel mask — `maDisplayTools/g6/g6_save_pattern.m`). `flip_ud` and per-panel pixel-index fields stay host-only (never reach the controller). **Region/SPI-bus assignment is the open gap** — same cross-doc question as [`g6_03-controller.md`](g6_03-controller.md) and [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md).
+**Geometry-supply status:** the *panel-presence* part is in the v2 pattern header (`row_count`, `col_count`, 6-byte panel mask — `maDisplayTools/g6/g6_save_pattern.m`). Per-arena geometry and registered Arena IDs live in the [maDisplayTools arena registry](../../Generation%206/maDisplayTools/configs/arena_registry/README.md) (host-canonical YAML; per-generation 6-bit ID namespace). The controller-side [`g6_arena_configs.h`](g6_arena_configs.h) is currently hand-maintained from that registry plus a sibling hardware-topology YAML (SPI bus + CS GPIO per column, TBD); a small Python codegen under `maDisplayTools/tools/` will replace the hand-sync once it lands. `flip_ud` and per-panel pixel-index fields stay host-only (never reach the controller).
 
 ### G4 controller target = "G6 mode"
 
@@ -88,9 +88,8 @@ v2 capability detection shares the v1 "G6 mode" gap above — same `get-controll
 ## Open Questions / TBDs
 
 1. **PSRAM-vs-SD pattern integrity check** — algorithm and host/panel responsibility split. Open until v2 panel firmware exists.
-2. **Region / SPI-bus info source** — same cross-doc question as `g6_03` Open Question #2 and `g6_04` flag in § Panel Map. For the production `arena_10-10`, the implicit "5 cols / region" rule works; for future arenas, investigate whether `maDisplayTools` arena-config files already cover this on the host side.
-3. **`show_panel_IDs` test pattern** — host-composed visualization (each panel displays its `panel_id`); useful for verifying the panel map end-to-end. Implementation owner: maDisplayTools-side; firmware just receives a Mode 5 frame.
-4. **Deep MATLAB display-tools spec migration** — deferred until display tools are formally migrated to G6. Reference: `Generation 6/maDisplayTools/docs/*.md` in the submodule (public Jekyll site).
+2. **`show_panel_IDs` test pattern** — host-composed visualization (each panel displays its `panel_id`); useful for verifying the panel map end-to-end. Implementation owner: maDisplayTools-side; firmware just receives a Mode 5 frame.
+3. **Deep MATLAB display-tools spec migration** — deferred until display tools are formally migrated to G6. Reference: `Generation 6/maDisplayTools/docs/*.md` in the submodule (public Jekyll site).
 
 ## History & Reconciliation
 

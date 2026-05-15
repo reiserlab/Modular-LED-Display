@@ -120,11 +120,11 @@ Firmware must select the correct SPI peripheral per board version. `iorodeo/g6_f
 
 With the v3 mode set finalized in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) (Triggered + Gated, Persistent reserved-but-deferred), the panel firmware needs to handle GP45 EINT:
 
-- **Triggered modes** (`0x12`, `0x32`, `0x52`): each rising edge on GP45 fires one display unit (a row, frame, or row-bit-plane — exact granularity is implementation choice). Recommended: PIO `wait pin` (since GP45 is in PIO1's range with `GPIOBASE = 16` on v0.3) or GPIO IRQ on rising edge for v0.2. Validated 865 ± 17 ns trigger-to-LED latency in `G6_Panels_Test_Firmware @ bb26a44`.
+- **Triggered modes** (`0x12`, `0x32`, `0x52`): each rising edge on GP45 fires **one row of the loaded pattern across all 4 BCM bit-planes** (resolved 2026-05-15 against panel scan architecture: 20 row drivers + 20 col drivers, scan is row-by-row). Recommended: PIO `wait pin` (since GP45 is in PIO1's range with `GPIOBASE = 16` on v0.3) or GPIO IRQ on rising edge for v0.2. Validated 865 ± 17 ns trigger-to-LED latency in `G6_Panels_Test_Firmware @ bb26a44`.
 - **Gated modes** (`0x14`, `0x34`, `0x54`): while GP45 HIGH, panel internally refreshes the loaded pattern at its BCM rate; while LOW, display off. Recommended: GPIO level-watch + scan-loop gate.
 - **EINT pin is GP45 on both v0.2 and v0.3** — the only firmware-visible pin shared identically across the two revisions. Same firmware handler works on both.
 
-The arena-side wiring (Teensy D36 `TNY.EINT` → R25 33 Ω → fan-out → all 10 panel columns) and the J30 jumper (Teensy-mediated vs direct-from-J4-BNC) are documented in [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § v3 Triggered/Gated display relevance.
+The arena-side wiring (Teensy D33 `TNY.EINT` → R25 33 Ω → fan-out → all 10 panel columns) and the J30 jumper (Teensy-mediated vs direct-from-J4-BNC) are documented in [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § v3 Triggered/Gated display relevance.
 
 ## Connectors
 
@@ -139,9 +139,11 @@ The arena-side wiring (Teensy D36 `TNY.EINT` → R25 33 Ω → fan-out → all 1
 | Header | Position | Form | Pin 1 | Pin 2 | Pin 3 | Pin 4 | Pin 5 |
 |---|---|---|---|---|---|---|---|
 | **J2** | bottom | male right-angle | MISO | MOSI | SCK | GND | +5 V |
-| **J3** | bottom | male right-angle | EINT | CS3 | CS2 | CS1 | +5 V |
+| **J3** | bottom | male right-angle | EINT | CS3 | CS2 | CS1 | CS0 |
 | **J4** | top | female receptacle | MISO | MOSI | SCK | GND | +5 V |
-| **J5** | top | female receptacle | EINT | NC ("X" in schematic) | CS2 | CS1 | +5 V |
+| **J5** | top | female receptacle | EINT | NC ("X" in schematic) | CS3 | CS2 | CS1 |
+
+(Pin map verified 2026-05-15 against `reiserlab/LED-Display_G6_Hardware_Panel` v0p3 production via `kicad-design-review` skill — netlist+BOM+schematic agreement on all 20 pins.)
 
 - **Bottom (J2/J3) parts:** Harwin M20-8890545R, LCSC C46061678; Digikey 952-M20-8890545RCT-ND or 952-3266-ND
 - **Top (J4/J5) parts:** Samtec SMH-105-02-X-S, LCSC C5142238
@@ -150,9 +152,9 @@ J4/J5 (top side) enable **panel daisy-chaining / vertical stacking**. The produc
 
 **CS-line selection: physical slot-position via panel-internal connector pin shift.**
 
-- Each panel hardwires **J3 pin 1 → MCU `CS0`** unconditionally (no on-panel selection hardware).
-- Inside the panel, J3↔J5 routing **shifts CS lines up by one position** for the daisy-chain: `J3 pin 2 (CS1) → J5 pin 1`, `J3 pin 3 (CS2) → J5 pin 2`, `J3 pin 4 (CS3) → J5 pin 3`. EINT propagates straight through (`J3 pin 5 ↔ J5 pin 5`). `J5 pin 4 = NC` (the "X" — top of the 4-panel stack).
-- When panels stack (lower J5 ↔ upper J3), each successive panel's MCU CS0 receives the arena's *next* CS line. **Up to 4 panels per stack**; same mechanism in v0.2 and v0.3.
+- Each panel hardwires **J3 pin 5 → MCU `CS0`** unconditionally (no on-panel selection hardware).
+- Inside the panel, J3↔J5 routes each remaining CS signal to **a one-higher pin number in J5**: `J3 pin 4 (CS1) → J5 pin 5`, `J3 pin 3 (CS2) → J5 pin 4`, `J3 pin 2 (CS3) → J5 pin 3`. EINT passes straight through (`J3 pin 1 ↔ J5 pin 1`). `J5 pin 2 = NC` — would have carried this panel's CS0 onward, but CS0 stops here.
+- When panels stack (lower J5 ↔ upper J3 in 1:1 pin alignment), each panel up the stack reads the *next* arena CS line as its own CS0: lower J5 pin 5 (CS1) → upper J3 pin 5 (which the upper panel hardwires to MCU CS0). **Up to 4 panels per stack** (4 arena CS lines); same mechanism in v0.2 and v0.3.
 
 Cross-doc with [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § Chip-select topology (arena drives 4 distinct Teensy CS pins per column).
 
@@ -249,7 +251,7 @@ Hardware data extracted from `iorodeo/LED-Display_G6_Hardware_Panel` PR #4 (KiCa
 - `panel_rp2354_20x20_v0.3.0.pdf` (in `G6_Panels_Test_Firmware/`) — v0.3 schematic PDF.
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format — uses the v0.1 mapping for the four worked-example pixels (`pixel[0,0]` → D50, `pixel[0,1]` → D70, `pixel[19,18]` → D340, `pixel[19,19]` → D360).
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 Display Modes — defines Triggered + Gated semantics that this file's § v3 EINT firmware contract implements.
-- [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § v3 Triggered/Gated display relevance — arena-side EINT wiring (Teensy D36 → R25 → all panels' GP45).
+- [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § v3 Triggered/Gated display relevance — arena-side EINT wiring (Teensy D33 → R25 → all panels' GP45).
 - [`g6_00-architecture.md`](g6_00-architecture.md) § Host responsibilities — host owns LED mapping; this file is the data the host uses.
 - `Generation 6/Panels/panel_rp2354_20x20_v0p2/` (in submodule, currently uninitialized) — current production panel KiCad source.
 - `Generation 6/Panels/panel_rp2354_20x20_v0p3/` (in submodule, currently uninitialized) — parallel revision panel KiCad source.
