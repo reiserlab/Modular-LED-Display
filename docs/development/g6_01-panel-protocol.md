@@ -146,13 +146,11 @@ On CS falling edge, a panel returns the version, command, and a checksum from th
 
 When the panel receives a command, it stores the header, version, and calculates an 8-bit checksum **over the whole message** (header byte + command byte + payload bytes, sum mod 256). For invalid commands no information is stored, since they are ignored. This happens, for example, when the parity bit does not match the content, or when the message length does not match the command definition.
 
-The next time the CS is active for more than 3 bytes, the panel sends this message (recalculating the parity bit). After sending it successfully, the temporary buffer is deleted: each confirmation message is only sent once.
+The next time CS is active for **at least 3 bytes** (`≥3`), the panel sends this confirmation message (recalculating the parity bit). After sending it successfully, the temporary buffer is deleted: each confirmation message is sent only once. Since every valid v1 message is at least 3 bytes (header + cmd + ≥1 payload byte), every valid incoming message triggers the previous message's confirmation.
 
 If the panel buffer is empty, it returns header `0x81` followed by command `0x00` (i.e., on-wire bytes `[0x81] [0x00]`, signaling "empty command 0").
 
 We use an 8-bit (simple additive) checksum over the whole message since this is faster to calculate than CRC, SHA, or other error-detecting algorithms (one loop over the receive buffer). Matches `Message::calculate_8bit_checksum()` in `g6_firmware_devel @ 6944894` ([message.cpp:171–177](../../../g6_firmware_devel/panel/src/message.cpp)). (Note: the panel-confirmation checksum here is **additive** (sum mod 256); the [pattern-file checksum in `g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) is **XOR**. Both are confirmed against firmware; the two algorithms intentionally differ.)
-
-> **⚠ Flag — "CS active for more than 3 bytes" trigger condition.** Strict `>3` (so 3-byte heartbeat reads empty state) or `≥3` (every valid message triggers)? Reconcile against firmware.
 
 **Example:**
 
@@ -562,11 +560,10 @@ This table provides a complete reference of all commands across protocol version
 
 ## Open Questions / TBDs
 
-1. **Confirmation-message trigger: `>3` or `≥3` bytes?** As written, every valid message would trigger confirmation send. Resolve when D2 (confirmation message firmware impl) lands.
-2. **v2 zero-payload commands.** `0x02`, `0x03`, `0x0F` have zero-byte payloads in spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration: drop the floor or add a dummy byte.
-3. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
-4. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
-5. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
+1. **v2 zero-payload commands.** `0x02`, `0x03`, `0x0F` have zero-byte payloads in spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration: drop the floor or add a dummy byte.
+2. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
+3. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
+4. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
 
 ## Cross-references
 

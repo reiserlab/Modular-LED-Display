@@ -89,7 +89,11 @@ Panel blocks are **pre-formatted for SPI transmission** following G6 Panel Proto
 - **GS2**: 53 bytes total (1 header + 1 command + 50 pattern + 1 stretch)
 - **GS16**: 203 bytes total (1 header + 1 command + 200 pattern + 1 stretch)
 
-The header byte includes parity bit (bit 7) and protocol version (bits 0–6). PC host pre-computes parity when generating pattern file; controller transmits blocks directly to panels without modification, optionally validating parity.
+The header byte includes parity bit (bit 7) and protocol version (bits 0–6). **Parity ownership rule:** each entity that *sends* a panel block must ensure parity is correct; each entity that *receives* one must validate parity and drop on mismatch. Concretely:
+
+- **Host** pre-computes parity when writing pattern files. The `.pat` file carries pre-formatted, parity-correct panel blocks.
+- **Controller** validates parity on each SD-card read (and, in v2, on each PSRAM read) and **recomputes parity** for any panel block it modifies or synthesizes — Modes 4 (closed-loop generated frames), Mode 5 (host-streamed raw pixels sliced into panel blocks), all-on/all-off, error displays, ISP messages. Blocks read intact from SD and forwarded unchanged in Modes 2/3 do not need recomputation, but read-time validation is the recommended defense in depth.
+- **Panel** validates parity on every received message and silently drops mismatches (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Message rejection behavior).
 
 ### Pixel Data Layout
 
@@ -153,7 +157,9 @@ This section describes how a G6 controller will read pattern files when one is b
 
 ### Transmission
 
-Controller transmits panel blocks **without modification**: enable chip-select for the panel, clock out the entire panel block (`header + command + pixels + stretch`), repeat for all panels in the panel set, disable chip-select. **Pre-formatted blocks eliminate controller overhead** for parity calculation and message assembly.
+For Modes 2 and 3 (pre-formatted blocks loaded from `.pat` on SD), the controller transmits panel blocks **without modification**: enable chip-select for the panel, clock out the entire panel block (`header + command + pixels + stretch`), repeat for all panels in the panel set, disable chip-select. Pre-formatted blocks eliminate per-frame parity calculation; the controller's job is to validate parity on SD read (defense in depth — see § Header Format above) and pass through.
+
+For Modes 4, 5, and any synthesized panel block (all-on, all-off, error displays, ISP), the controller composes the block and recomputes parity before transmission.
 
 ## PC Host Responsibilities (per `maDisplayTools` v2 implementation)
 
