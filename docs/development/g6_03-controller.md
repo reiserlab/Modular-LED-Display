@@ -194,7 +194,7 @@ This is a copy of the G4.1 commands. Possibly adjust for G6 use.
 | Get-ethernet-ip-address | `0x01, 0x66` | v1 | Returns DHCP-resolved IP as ASCII (matches slim G4.1) |
 | Get-controller-info | `0x01, 0x67` | v1 (G6-new) | Returns `{version, capability_bitmap}` with version-dispatched payload — covers v1 G6-mode detection AND v2 capability detection (Local Storage, Mode 1 TSI, v3 triggered/gated, …). |
 | g6-panel-storage-mode | `0x02, 0x40, mode_byte` | v2 (G6-new) | Switches controller from SD Mode (`mode_byte = 0`) to Local Storage Mode (`mode_byte = 1`); triggers the load phase that copies SD patterns into panel PSRAM. |
-| g6-program-panel | `0x02, 0x41, panel_index, filename[32]` | v1 (G6-new) | Reflash panel `panel_index` from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). |
+| g6-program-panel | `0x02, 0x41, panel_index, filename[32]` | v2 (G6-new) | Reflash panel `panel_index` from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). |
 
 **Stream-Frame for G6:** uses a **3-byte stream header** `[0x32, len_lo, len_hi, ...]`. The slim G4.1's `analog_x` / `analog_y` bytes (4 bytes after `len`) are **dropped for G6** (parsed and logged in slim but never plumbed; experimenters with motion-offset needs use Mode 4 closed-loop or a separate AI-driven workflow). Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 3-byte stream header.
 

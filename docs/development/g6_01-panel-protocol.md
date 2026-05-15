@@ -446,19 +446,48 @@ Version 4 introduces **predefined patterns** stored in panel flash (all-on, chec
 
 ## In-System Programming (ISP)
 
-ISP commands live in the v1 namespace (header `0x01`/`0x81`); they reflash the running panel image one panel at a time via SPI, selected by chip-select. Reserved opcode block `0xE0–0xEF`.
+Status: **Draft — design-review needed**. ISP commands live in the v1 namespace (header `0x01`/`0x81`); they reflash the running panel image one panel at a time via SPI, selected by chip-select. Reserved opcode block `0xE0–0xEF`. The framing and safety design below has open issues (see § ISP open questions); do not treat as a stable wire surface yet.
 
-| Cmd | Payload | Name | Notes |
+### Opcode table
+
+| Cmd | Payload (COPI) | Name | Response payload (CIPO; see § ISP confirmation format below) |
 | :-: | :-- | :-- | :-- |
-| `0xE0` | 16-byte sentinel `"G6PANELISPENTER\0"` + 4-byte unlock token | `ISP_ENTER` | Halts display, disables flash-touching IRQs; returns `{session_nonce, flash_size, page_size, sector_size, app_crc32}` via the standard confirmation slot. |
-| `0xE1` | 3-byte sector index + 4-byte session nonce | `ISP_ERASE_SECTOR` | Wraps RP2350 `flash_range_erase`. |
-| `0xE2` | 3-byte page index + 4-byte session nonce + 256-byte page data + 4-byte page CRC32 | `ISP_WRITE_PAGE` | Wraps `flash_range_program`; panel verifies per-page CRC before write. |
-| `0xE3` | 3-byte start address + 3-byte length + 4-byte expected CRC32 | `ISP_VERIFY_CRC` | Pass/fail via confirmation slot. |
-| `0xE4` | 4-byte session nonce + 1-byte mode (`0x00` = boot new app; `0x01` = stay in factory bootrom) | `ISP_EXIT_REBOOT` | Watchdog-reset. |
+| `0xE0` | 16-byte sentinel `"G6PANELISPENTER\0"` + 4-byte unlock token | `ISP_ENTER` | 17 bytes: 4-byte `session_nonce` + 4-byte `flash_size` + 2-byte `page_size` + 2-byte `sector_size` + 4-byte `app_crc32` + 1-byte `bootrom_version` |
+| `0xE1` | 3-byte sector index + 4-byte session nonce | `ISP_ERASE_SECTOR` | 0 bytes (ack only via header + cmd + checksum) |
+| `0xE2` | 3-byte page index + 4-byte session nonce + 256-byte page data + 4-byte page CRC32 over the 256 data bytes only | `ISP_WRITE_PAGE` | 0 bytes (ack only) |
+| `0xE3` | 3-byte start address + 3-byte length + 4-byte session nonce + 4-byte expected CRC32 | `ISP_VERIFY_CRC` | 5 bytes: 1-byte status (`0x00` = pass, `0x01` = mismatch) + 4-byte panel-computed CRC32 |
+| `0xE4` | 4-byte session nonce + 1-byte mode (`0x00` = boot new app; `0x01` = stay in factory bootrom) | `ISP_EXIT_REBOOT` | No response (panel resets) |
 
-**State machine:** Idle → `ISP_ENTER` → ISP-armed → (`ERASE_SECTOR` × N → `WRITE_PAGE` × N → `VERIFY_CRC` → `EXIT_REBOOT`) → reset. Any non-ISP message in ISP-armed aborts ISP and re-enables normal display. The session nonce returned by `ISP_ENTER` is required on every subsequent ISP opcode — replay protection against bus noise re-presenting an earlier write payload. Validation is two-layered: per-page CRC32 (catches bus errors mid-upload) and whole-image CRC32 via `ISP_VERIFY_CRC` (catches state-machine bugs).
+### ISP confirmation format
 
-**Brick recovery:** Single firmware image, no bootloader split. If in-firmware ISP gets corrupted mid-flash, recovery is out of band via BOOTSEL-on-USB at the panel (see [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md)). Controller-side workflow + SD layout in [`g6_03-controller.md`](g6_03-controller.md) § Panel firmware update (ISP).
+ISP messages use an **extended confirmation slot** that adds an opcode-specific response payload between the echoed command and the 8-bit additive checksum. Format on CIPO during the *next* ISP-armed CS-active window:
+
+```
+[header (parity recomputed)] [echoed_cmd] [response_payload_N_bytes] [8-bit checksum]
+```
+
+where `N` depends on `echoed_cmd` (see opcode table, "Response payload" column). The 8-bit additive checksum covers the entire CIPO message (header + cmd + response_payload). This differs from the standard 3-byte confirmation slot (§ Confirmation message above): standard panel-protocol messages keep the 3-byte form; only ISP opcodes use this extended form.
+
+For `ISP_ENTER` specifically, the response cannot piggyback on a preceding command (no prior ISP command exists). The controller therefore clocks out exactly `1 + 1 + 17 + 1 = 20` bytes on the SAME `ISP_ENTER` transaction: the panel computes its response during the COPI phase (after parsing payload), then drives MISO during the trailing CIPO byte windows. CS stays asserted for the full 20-byte exchange. All subsequent ISP commands follow the standard "response piggybacks on next ISP command" pattern.
+
+### State machine
+
+Idle → `ISP_ENTER` → ISP-armed → (`ERASE_SECTOR` × N → `WRITE_PAGE` × N → `VERIFY_CRC` → `EXIT_REBOOT`) → reset. Any non-ISP message in ISP-armed aborts ISP and re-enables normal display.
+
+The session nonce returned by `ISP_ENTER` is required on every subsequent ISP opcode (`0xE1`, `0xE2`, `0xE3`, `0xE4`) — replay protection against bus noise re-presenting an earlier write payload. Panel rejects ISP commands whose payload nonce doesn't match the active session nonce.
+
+Validation is two-layered: per-page CRC32 over the 256 data bytes only (catches bus errors mid-upload) and whole-image CRC32 via `ISP_VERIFY_CRC` (catches state-machine bugs).
+
+### Brick recovery
+
+Single firmware image, no bootloader split. If in-firmware ISP gets corrupted mid-flash, recovery is out of band via BOOTSEL-on-USB at the panel (see [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md)). Controller-side workflow + SD layout in [`g6_03-controller.md`](g6_03-controller.md) § Panel firmware update (ISP).
+
+### ISP open questions (design-review)
+
+1. **Atomic image staging.** No A/B slot, no "stage entire image before erase" requirement, no rollback path. A read error after `ISP_ERASE_SECTOR` leaves a partially programmed panel.
+2. **Firmware-blob authenticity.** Per-page + whole-image CRC32 catch accidents, not adversarial or wrong-target images. No signature, no board-compatibility tag, no anti-rollback policy.
+3. **ISP-in-v1 vs separate protocol version.** Putting flash-write opcodes in v1 means every future v2/v3/v4 panel firmware must continue to support them. A dedicated ISP protocol (with explicit `BOOT_TO_ISP` transition) would isolate dangerous operations and survive version evolution better. Current choice favors bring-up simplicity; revisit before stable release.
+4. **Mixed-firmware arenas on partial-flash failure.** Sequential one-at-a-time ISP avoids bus-wide damage but creates mixed-version arenas if a mid-arena panel fails. Audit before experiments.
 
 ## v5 — G6 Panel Protocol v5 (sketch only — no specifiable surface)
 
@@ -494,8 +523,13 @@ This table provides a complete reference of all commands across protocol version
 | `0x04` / `0x84` | `0x70` | 3 idx + stretch | Display Predefined Pattern with Stretch (Oneshot) | v4 |
 | `0x04` / `0x84` | `0x72` | 3 idx + stretch | Display Predefined Pattern with Stretch (Gated) | v4 |
 | `0x04` / `0x84` | `0x73` | 3 idx + stretch | Display Predefined Pattern with Stretch (Persistent) | v4 |
+| `0x01` / `0x81` | `0xE0` | 16-byte sentinel + 4-byte unlock token | `ISP_ENTER` (begin in-system programming session) | v1 (ISP) |
+| `0x01` / `0x81` | `0xE1` | 3 sector + 4 nonce | `ISP_ERASE_SECTOR` | v1 (ISP) |
+| `0x01` / `0x81` | `0xE2` | 3 page + 4 nonce + 256 data + 4 CRC32 | `ISP_WRITE_PAGE` | v1 (ISP) |
+| `0x01` / `0x81` | `0xE3` | 3 start + 3 length + 4 nonce + 4 expected CRC32 | `ISP_VERIFY_CRC` | v1 (ISP) |
+| `0x01` / `0x81` | `0xE4` | 4 nonce + 1 mode | `ISP_EXIT_REBOOT` | v1 (ISP) |
 
-(v4 Trigger and Gated-Persistent rows omitted pending alignment to the v3 mode set — see v4 deferred banner.)
+(v4 Trigger and Gated-Persistent rows omitted pending alignment to the v3 mode set — see v4 deferred banner. ISP opcodes have extended confirmation slot — see § In-System Programming.)
 
 **Notes:**
 

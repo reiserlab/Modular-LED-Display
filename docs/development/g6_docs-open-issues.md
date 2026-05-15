@@ -1,6 +1,6 @@
 # G6 Dev-Set — Open Issues at Handoff
 
-Last updated: 2026-05-15 by mreiser · Status: **Pre-handoff review notes**
+Last updated: 2026-05-15 by mreiser · Status: **Pre-handoff review notes** (post Codex cross-review pass)
 
 This file lists known issues found in a pre-handoff review pass (Codex GPT-5.5 cross-review against the full dev set, run 2026-05-03) that have **not yet been resolved in the spec**. It exists so the next reviewer doesn't re-discover them; once each item is addressed, it should be removed from this list. **This is a temporary meta-doc — when the list is empty, delete the file.**
 
@@ -26,9 +26,9 @@ All five items resolved 2026-05-15 (items 1–4 doc-internal; items 3 and 5 KiCa
 
 Two cases where the spec and a reference implementation disagreed. Both fixed by editing the implementation to match the spec; both fixes are unverified end-to-end (round-trip vectors need regeneration). See per-item notes for the remaining validation steps.
 
-6. ~~**`webDisplayTools/js/pat-encoder.js:230-232` writes `0x00` for both panel-block header and command bytes.**~~ Fixed 2026-05-15 in [`pat-encoder.js`](../../Generation%206/webDisplayTools/js/pat-encoder.js) — `encodeG6PanelGS2` now writes `block[1] = 0x10`; `encodeG6PanelGS16` writes `block[1] = 0x30`; added `setG6PanelHeaderWithParity()` helper that computes the v1 header byte with parity bit at the end (after cmd + payload + stretch are populated). **UNTESTED 2026-05-15**: the round-trip vectors at `Generation 6/maDisplayTools/g6/g6_encoding_reference.json` need to be re-generated and revalidated against the new encoder output; until that lands, treat the JS-encoder output as untested.
+6. ~~**`webDisplayTools/js/pat-encoder.js:230-232` writes `0x00` for both panel-block header and command bytes.**~~ Fixed 2026-05-15. `encodeG6PanelGS2`/`encodeG6PanelGS16` now write correct cmd bytes (0x10/0x30); `setG6PanelHeaderWithParity()` helper sets the v1 header byte with parity over version + cmd + payload + stretch. JSDoc + dimension-check comments also updated (full-grid `col_count` semantics; partial-arena support still requires structural changes to the encoder — flagged in code comment). **UNTESTED**: `g6_encoding_reference.json` round-trip vectors must be regenerated after MATLAB parity fix (see item 7).
 
-7. ~~**`maDisplayTools/g6/g6_save_pattern.m:93` writes installed-column count to `col_count`, spec says full-grid.**~~ Fixed 2026-05-15 in [`g6_save_pattern.m`](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m) — the `g6_arena_config()` call now receives `full_col_count` instead of `num_installed_cols`, and the `missing_panels` array (already computed using full-grid IDs above) is passed in so the panel mask correctly marks absent panels. **UNTESTED 2026-05-15**: the fix has not been run against the binary writer / round-trip vectors; partial-arena patterns (`G6_2x8of10`, `G6_3x12of18`) need verification before relying on output.
+7. ~~**`maDisplayTools/g6/g6_save_pattern.m:93` writes installed-column count to `col_count`, spec says full-grid.**~~ Fixed 2026-05-15, **second pass needed and applied**: original fix passed `missing_panels` to `g6_arena_config()` but `create_panel_mask()` discarded the arg (signature `(row_count, col_count, ~)`). Second-pass fix actually wires `missing_panels` through to clear-bit logic; comment block rewritten with new full-grid semantics. **Companion MATLAB parity fix (Codex-caught):** `g6_encode_panel.m::compute_header()` was omitting the version bit from the parity count, producing inverted parity vs. spec. Fixed to include bits 0–6 of byte 0. Both fixes UNTESTED end-to-end; regenerate `g6_encoding_reference.json` and confirm JS+MATLAB agree before relying on either.
 
 ## C. Architectural open questions (input welcomed)
 
@@ -41,6 +41,44 @@ These are not bugs; they're places where the spec is silent or undecided and whe
 
 10. **PSRAM index semantics + preload atomicity.**
     `g6_01` v2 uses "PSRAM index/location" without saying whether the 24-bit value is a byte address, frame slot, record index, or typed handle — plus bounds, alignment, GS2/GS16 type tagging, persistence across reset, full-memory behavior. Separately: if a preload pass is interrupted (one panel reboots mid-load), one panel can hold a different pattern table than its neighbors and the same 24-bit index then drives a spatially inconsistent stimulus. Worth a half-page subsection in `g6_01` § v2 once the address-space question is answered.
+
+## C-bis. Second-pass spec fixes from Codex cross-review (resolved 2026-05-15)
+
+Items surfaced by the Codex cross-review (2026-05-15) against the prior session's diff. All addressed in the same pass.
+
+- **ISP_ENTER reply doesn't fit standard 3-byte confirmation slot.** Resolved by specifying an **extended ISP confirmation format** (`header + echoed_cmd + N-byte response_payload + 8-bit checksum`) with per-opcode response lengths. ISP_ENTER carries its response on the SAME transaction (20 bytes total) because no prior ISP command exists to piggyback on. See [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § ISP confirmation format.
+
+- **ISP_VERIFY_CRC payload was missing the session nonce** while the state-machine paragraph said nonce was required on every opcode. Fixed: added 4-byte nonce to `0xE3` payload. VERIFY response now also includes panel-computed CRC32 (5-byte response: 1-byte status + 4-byte CRC).
+
+- **ISP per-page CRC32 byte coverage was underspecified.** Fixed: explicitly states "CRC32 over the 256 data bytes only" in the `0xE2` row.
+
+- **Master command summary table didn't list new ISP opcodes** despite claiming to be "complete reference of all commands v1–v4." Added 5 rows for `0xE0`–`0xE4` to the master table; with note that ISP opcodes use the extended confirmation slot.
+
+- **`g6-program-panel` Host Command Summary row was labeled "v1 (G6-new)"** but its wire form starts with `0x02` (v2 prefix). Relabeled to "v2 (G6-new)" to match `g6-panel-storage-mode`'s convention.
+
+- **`g6_07:91` still had the OLD (wrong) J3/J5 CS-shift prose** after the panel KiCad fix updated `g6_02:142+`. Rewritten to match the corrected canonical mapping (J3 pin 5 → MCU CS0, J5 pin 2 = NC, EINT through-pass on pin 1).
+
+- **`g6_07:180` (DIO/EINT level-translator bullet) implied `pinMode` was sufficient** to set translator direction. After the U2/U3 DIR clarification, this is wrong — firmware must explicitly drive D36 (U2 DIR) and D34 (U3 DIR). Bullet rewritten.
+
+- **`pat-encoder.js` JSDoc + dimension-check semantics** still assumed `col_count = installed columns`. JSDoc updated to "full grid columns" per spec. Added a "KNOWN LIMITATION" comment block explaining that partial-arena support needs a structural change (separate `fullColCount` + `installedCols` fields); G6_2x10 works correctly today because installed = full for that geometry.
+
+- **Arena hardware schema required one YAML per geometry name** which would have caused codegen to skip G6_2x8of10 (same hardware as G6_2x10). Refactored: geometry YAMLs now declare `hardware_profile:` field; hardware YAMLs are keyed by profile, not geometry. Codegen resolves geometry → profile → topology file. Result: G6_2x10 + G6_2x8of10 both compile against `arena_10-10_v1p1r7.yaml`. Codegen smoke-tested end-to-end (produces 2 arenas + skips G6_3x12of18 cleanly).
+
+- **Codegen error handling.** Now catches `yaml.YAMLError`, `TypeError`, `OSError` in addition to `KeyError`/`ValueError`; per-arena skip with reason instead of stack-trace abort.
+
+## C-bis open / deferred items (Codex-surfaced design pressure)
+
+These are real points Codex raised that the second-pass spec changes acknowledge but don't fully resolve:
+
+- **ISP-in-v1 vs separate protocol version.** Adversarial reviewer argued for a dedicated ISP protocol with explicit `BOOT_TO_ISP` transition. Current spec keeps the v1-namespace approach but downgrades the ISP section's status to **"Draft — design-review needed"** and adds a § "ISP open questions" with four flagged design holes (atomic staging, image authenticity, version-evolution, mixed-firmware-on-failure).
+
+- **`g6_arena_configs.h` static-const-in-header.** Multiple TUs `#include`ing the header each get their own copy of the arena table. Codegen still emits the same pattern. **Deferred** to a follow-up that splits codegen output into `.h` (extern decls) + `.c` (definitions).
+
+- **Host vs controller parity ownership contradiction** between `g6_03:47` ("controller adds parity") and `g6_04:92` ("host pre-computes parity; controller transmits raw"). Pre-existing; not addressed in this pass.
+
+- **Stale config names in `maDisplayTools/README.md`** (`G6_2x10_full`, `G6_2x8_walking`). Pre-existing; not addressed in this pass.
+
+- **Round-trip vector regeneration.** Required after both encoders' parity is consistent (Codex's MATLAB-parity catch means the previous `g6_encoding_reference.json` is also wrong; regenerate against the fixed MATLAB encoder, then revalidate JS against it).
 
 ## D. Out-of-band action items (already known; not for this review pass)
 
