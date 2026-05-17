@@ -7,7 +7,14 @@ This file holds the SPI-level protocol between the controller and the panels —
 
 ## Live Divergences
 
-All five v1 spec ↔ firmware divergences (checksum scope, confirmation message, stretch behavior, COMM_CHECK visual response, LED-mapping layering) are now resolved; the resolutions are reflected in the spec body above and listed in § History & Reconciliation. One latent firmware bug worth flagging: `check_protocol()` in `g6_firmware_devel @ 6944894` compares the full header byte (including parity bit) against `CMD_PROTOCOL_V1 = 0x01` — it would reject a valid v1 message with parity=1 (header `0x81`) if it were ever called by `Messenger::update()` (it currently isn't, so dormant in v1; would surface at v2 unless fixed).
+The v1 spec resolutions for the five spec ↔ firmware items (checksum scope, confirmation message, stretch behavior, COMM_CHECK visual response, LED-mapping layering) are reflected in the spec body below. **One latent firmware bug worth flagging for a fresh implementer:** `check_protocol()` in `iorodeo/g6_firmware_devel` (HEAD at last review, `@ 6944894`) compares the full header byte (including parity bit) against `CMD_PROTOCOL_V1 = 0x01` — it would reject a valid v1 message with parity = 1 (header `0x81`) if it were ever called by `Messenger::update()`. Currently dormant in v1 (not called from the message path); would surface at v2 unless fixed.
+
+**Two firmware tickets pending on the v1 side, beyond the bug above:**
+
+- `stretch` is parsed from the wire and stored on the `Pattern` object, but `Display::show()` does not yet scale BCM bit-plane ON-time durations by `stretch / 255` — see § Stretch Value below for the spec.
+- `Messenger::update()` does not yet write the panel-side confirmation message back on MISO during the next CS-active window — see § Confirmation message below for the spec.
+
+A V1 panel firmware implementer should treat fixing these three as the first concrete tasks before adding new features.
 
 ---
 
@@ -64,7 +71,7 @@ The stretch value is a single byte (0–255) that scales the brightness of all p
 - Is **cheap on the panel** (one multiplier on the BCM weight array per frame; no per-pixel multiply).
 - Aligns with the test rig's **float-weight architecture** (`G6_Panels_Test_Firmware @ bb26a44` § BCMWEIGHTS), which already encodes per-bit-plane ON time as a float.
 
-> **💡 Note — implementation status.** Stretch is parsed from the wire and stored on the `Pattern` object in `g6_firmware_devel @ 6944894`, but `Display::show()` does not yet apply it (Live Divergence D3 — historical, see History). Firmware ticket: scale BCM weights by `stretch/255` in the per-frame setup before bit-plane dispatch.
+> **💡 Note — implementation status.** Stretch is parsed from the wire and stored on the `Pattern` object in `g6_firmware_devel @ 6944894`, but `Display::show()` does not yet apply it. Firmware ticket: scale BCM weights by `stretch/255` in the per-frame setup before bit-plane dispatch.
 
 #### Endianness and Bit Packing
 

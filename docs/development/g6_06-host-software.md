@@ -15,7 +15,7 @@ The host-side MATLAB tooling already exists and is partially G6-aware: `Generati
 
 **Deep host-side spec migration is explicitly deferred.** This file's role is to capture the firmware ↔ host contract — what data formats and command sequences the firmware assumes the host will produce — not to re-document maDisplayTools. The deferral applies until either (a) the maDisplayTools tooling itself migrates further toward G6 (e.g., adds a v3 trigger workflow, Mode 1 TSI authoring, or PSRAM-mode preload management), at which point this file expands; or (b) the controller doc (`g6_03`) surfaces a host-side requirement not yet built in maDisplayTools.
 
-**maDisplayTools v2 already supplies the firmware contract** for v1 patterns: 18-byte v2 pattern header (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)), per-panel GS2/GS16 block encoding (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) v1 message format), and round-trip-validated cross-platform encoding via `g6_encoding_reference.json`. Host-side gaps still TBD are tracked under Open Questions; reconciliation detail in History & Reconciliation at the bottom.
+**maDisplayTools v2 already supplies the firmware contract** for v1 patterns: 18-byte v2 pattern header (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)), per-panel GS2/GS16 block encoding (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) v1 message format), and round-trip-validated cross-platform encoding via `g6_encoding_reference.json`. Host-side gaps still TBD are tracked under Open Questions.
 
 ---
 

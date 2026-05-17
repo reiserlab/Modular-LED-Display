@@ -75,7 +75,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | `frame_count_y` field of `PatternHeader` | `PatternHeader.h:9` (declared but never read or validated) | Dead weight; bytes reused in v2 layout. |
 | `row_signifier` byte between panel rows in pattern files | `SpiManager.cpp:113` (`++pos;` skips it) | Vestigial padding; v2 pattern files (`g6_04`) drop it. |
 
-(See § History & Reconciliation at the bottom for ambiguous-decision items, what `timing.md` does not measure, and the major decisions log.)
+(See § Timing measurements still needed (G6 bring-up) at the bottom for the SPI/BCM/Ethernet-RTT numbers `timing.md` does NOT cover.)
 
 ---
 
