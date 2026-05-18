@@ -7,7 +7,6 @@ Status: **v2 canonical** — 18-byte header, written by [`maDisplayTools/g6/g6_s
 
 - Files **written** today by `maDisplayTools` and `webDisplayTools` use the v2 18-byte header and have a shared bit-level test vector set in [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json).
 - Files **read** today: nothing — there's no consumer until a G6 controller firmware ships.
-- The G4.1 slim controller ([`PatternHeader.h`](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim/blob/main/src/PatternHeader.h)) has its own 8-byte `PatternHeader` union — that reads G4 patterns, **not** G6 `.pat` files. Documented here so the controller doc work doesn't accidentally treat it as the G6 reader.
 
 ---
 
@@ -35,6 +34,10 @@ PAT file
 | 11–16 | Panel Mask | 6 bytes | bitmask | Which panel positions are physically present (up to 48 panels) |
 | 17 | Checksum | uint8 | 0–255 | XOR of all frame data bytes |
 
+### Arena ID and Observer ID
+
+Both are 6-bit, per-generation namespaces resolved by the [maDisplayTools arena registry](../../Generation%206/maDisplayTools/configs/arena_registry/README.md): Arena ID 1–10 lab / 11–50 community / 51–62 user / 63 reserved; Observer ID 1–20 lab / 21–50 community / 51–62 user / 63 reserved. **Observer ID is host-side metadata only — the controller does not interpret it**; it identifies the observer perspective a pattern was rendered for, supporting one pattern × many perspectives in a library.
+
 ### Panel Mask (Bytes 11–16)
 
 Compact bitmask indicating which panel positions are physically present:
@@ -50,7 +53,7 @@ Compact bitmask indicating which panel positions are physically present:
 
 - **Algorithm**: byte-wise XOR
 - **Computation**: `checksum = byte[0] ^ byte[1] ^ … ^ byte[n]`
-- **Scope**: All frame data (from first frame's `"FR"` magic through last panel's stretch byte)
+- **Scope**: All frame data (from first frame's `"FR"` magic through last panel's duty_cycle byte)
 - **Result**: single byte (0–255)
 - **Usage**: optional validation in v1 panel protocol; enables future error detection
 
@@ -81,13 +84,13 @@ Panel blocks are **pre-formatted for SPI transmission** following G6 Panel Proto
 [Header byte: 1 byte]         ← Protocol v1 (0x01 or 0x81 with parity)
 [Command byte: 1 byte]        ← 0x10 (GS2) or 0x30 (GS16)
 [Pixel data: 50 (GS2) or 200 (GS16) bytes]   ← Row-major, MSB-first packing, origin at bottom-left
-[Stretch: 1 byte]             ← Brightness/timing (0–255)
+[duty_cycle: 1 byte]          ← Brightness scale (0–255); see g6_01 § Duty Cycle Value
 ```
 
 ### Block sizes
 
-- **GS2**: 53 bytes total (1 header + 1 command + 50 pattern + 1 stretch)
-- **GS16**: 203 bytes total (1 header + 1 command + 200 pattern + 1 stretch)
+- **GS2**: 53 bytes total (1 header + 1 command + 50 pattern + 1 duty_cycle)
+- **GS16**: 203 bytes total (1 header + 1 command + 200 pattern + 1 duty_cycle)
 
 The header byte includes parity bit (bit 7) and protocol version (bits 0–6). **Parity ownership rule:** each entity that *sends* a panel block must ensure parity is correct; each entity that *receives* one must validate parity and drop on mismatch. Concretely:
 
@@ -138,9 +141,7 @@ Four independent validation mechanisms (all **optional** in v1 — present in th
 3. **Frame magic** (per frame): `"FR"` + index validates frame boundaries.
 4. **Panel parity** (per block): header byte bit 7 detects transmission errors.
 
-## Controller Operation (aspirational; no G6 controller firmware exists yet)
-
-This section describes how a G6 controller will read pattern files when one is built. The G4.1 slim controller (`floesche/LED-Display_G4.1_ArenaController_Slim`) reads G4 patterns, not G6 `.pat` files. The controller-spec work continues in [`g6_03-controller.md`](g6_03-controller.md).
+## Controller Operation
 
 ### Reading pattern files
 
@@ -157,7 +158,7 @@ This section describes how a G6 controller will read pattern files when one is b
 
 ### Transmission
 
-For Modes 2 and 3 (pre-formatted blocks loaded from `.pat` on SD), the controller transmits panel blocks **without modification**: enable chip-select for the panel, clock out the entire panel block (`header + command + pixels + stretch`), repeat for all panels in the panel set, disable chip-select. Pre-formatted blocks eliminate per-frame parity calculation; the controller's job is to validate parity on SD read (defense in depth — see § Header Format above) and pass through.
+For Modes 2 and 3 (pre-formatted blocks loaded from `.pat` on SD), the controller transmits panel blocks **without modification**: enable chip-select for the panel, clock out the entire panel block (`header + command + pixels + duty_cycle`), repeat for all panels in the panel set, disable chip-select. Pre-formatted blocks eliminate per-frame parity calculation; the controller's job is to validate parity on SD read (defense in depth — see § Header Format above) and pass through.
 
 For Modes 4, 5, and any synthesized panel block (all-on, all-off, error displays, ISP), the controller composes the block and recomputes parity before transmission.
 
@@ -171,7 +172,7 @@ The PC host (MATLAB / Python / web) generates pattern files:
    - Compute parity per G6 Panel Protocol v1.
    - Insert header byte (`0x01` or `0x81`) and command byte (`0x10` GS2 / `0x30` GS16).
    - Pack pixels per G6 panel format (row-major, MSB-first, bottom-left origin; flip MATLAB row → panel row via `row_from_bottom = 19 - row`).
-   - Append stretch value.
+   - Append duty_cycle value.
 4. **Frame assembly**: prepend `"FR"` magic and frame index to panel blocks.
 5. **Checksum**: compute XOR over all frame data, store in header byte 17.
 6. **File writing**: 18-byte header followed by all frames.
@@ -185,12 +186,6 @@ Cross-reference: [`Generation 6/maDisplayTools/docs/patterns.md`](../../Generati
 In v2 the pattern header carries `row_count`, `col_count`, and the 6-byte panel mask. Region and SPI-bus assignment are looked up by Arena ID from the compiled-in [`g6_arena_configs.h`](g6_arena_configs.h) table; the pattern header carries no region/SPI-bus info.
 
 ---
-
-## Open Questions / TBDs
-
-1. **No G6 controller firmware exists.** All Controller Operation steps above are aspirational; G4.1 slim is a G4 baseline only. G6 controller scoping happens in [`g6_03-controller.md`](g6_03-controller.md).
-
-(Arena ID and Observer ID semantics are resolved by the [maDisplayTools arena registry](../../Generation%206/maDisplayTools/configs/arena_registry/README.md): both are 6-bit, per-generation namespaces. Arena ID: 1–10 lab / 11–50 community / 51–62 user / 63 reserved. Observer ID: 1–20 lab / 21–50 community / 51–62 user / 63 reserved. **Observer ID is host-side metadata only — the controller does not interpret it**; it identifies the observer perspective a pattern was rendered for, supporting one pattern × many perspectives in a library.)
 
 ## Cross-references
 

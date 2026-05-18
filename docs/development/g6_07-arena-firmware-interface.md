@@ -1,7 +1,7 @@
 # G6 — Arena Firmware Interface
 
 Source: G6 panels protocol v1 proposal ([Google Doc `17crYq4s...`](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#), tab "G6 arena design (v1/v2)"). Hardware authority: [`reiserlab/LED-Display_G6_Hardware_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) (first production run `v1.1.7`; design at `arena_10-10/arena_10-10_v1/production/v1p1r7/`).
-Status: **Thin firmware-interface reference with extracted pin assignments.** This file pulls only the firmware-relevant facts the controller doc ([`g6_03-controller.md`](g6_03-controller.md)) and the v3 trigger work need, plus a per-peripheral Teensy 4.1 pin table extracted from the KiCad schematics. Authoritative hardware documentation lives in the `Generation 6/Arena` submodule (`docs/arena.md`); do not duplicate hardware details here.
+Status: **Thin firmware-interface reference with extracted pin assignments.** This file pulls only the firmware-relevant facts the controller doc ([`g6_03-controller.md`](g6_03-controller.md)) and the Triggered/Gated EINT work need, plus a per-peripheral Teensy 4.1 pin table extracted from the KiCad schematics. Authoritative hardware documentation lives in the `Generation 6/Arena` submodule (`docs/arena.md`); do not duplicate hardware details here.
 
 ## Authoritative source
 
@@ -13,8 +13,6 @@ Status: **Thin firmware-interface reference with extracted pin assignments.** Th
   - `arena_10-10/arena_10-10_v1/assets/arena_10_of_10_v1r1.pdf` — schematic PDF rendered from the same sources
 
 - **Test arena (historical, dev-only, not used):** [`reiserlab/LED-Display_G6_Hardware_Test_Arena`](https://github.com/reiserlab/LED-Display_G6_Hardware_Test_Arena) (in this clone as the `Generation 6/Hardware` submodule). Per its own `docs/test-arena.md`: "intended as a development platform for arena firmware, but it was never actually used … this test arena should not be the default starting point". Captured here only because the dev-set README's status table lists it as a sibling of the production arena; firmware work targets the production arena, not the test arena.
-
-**💡 Note — version-mapping in the Arena submodule:** the production Arena `README.md` declares v1.1.7 as the current production run, but `docs/arena.md` still recommends v1p1r6 and the KiCad project root keeps a `_v1r1` filename across revisions. Out-of-band action item for the upstream Arena repo to reconcile; not a spec question for this dev set.
 
 ---
 
@@ -137,7 +135,7 @@ The source spec calls out the AI line specifically for "flight arena experiments
 - The slim G4.1 controller had `gain_` stored but never read; closed loop ran on an internal counter, not a real analog input.
 - **Mode 4 wiring:** controller samples **AIN0** (Teensy D14, BNC J28, ±10 V via OPA2277 → 0–3.3 V at ADC) at **500 Hz**; computes `fps = AI_voltage × 100 × gain / 10` where `gain` from `trial-params` is a signed-int 10× scaling factor (typical `-20` = -2.0 fps/V matches G3 flight-arena behavior). AIN1 (D15, J29) unused for Mode 4 — available for experimenter use. Full spec in [`g6_03-controller.md`](g6_03-controller.md) § 6 Mode Behavior on G6.
 
-### v3 Triggered/Gated display relevance
+### Triggered/Gated display relevance
 
 The arena exposes three EINT-related signals — and one configurable jumper (**J30**) that determines whether the external trigger reaches the panels directly or is mediated by the Teensy:
 
@@ -145,26 +143,26 @@ The arena exposes three EINT-related signals — and one configurable jumper (**
 |---|---|---|---|
 | BNC **J3** ("External Interrupt" silk) | pin 29 / D37 | Bidirectional 5 V via SN74LVC1T45 (U2) | Teensy-only path. **No panel bypass.** General-purpose interrupt the controller can monitor or assert. |
 | BNC **J4** ("0-5V Digital In/Out" silk) | pin 27 / D35 | Bidirectional 5 V via SN74LVC1T45 (U3) | Doubles as the panel-trigger source via jumper J30. The "DIO" silk label understates this. |
-| Panel-internal `TNY.EINT` | pin 25 / D33 | Driven via R25 (33 Ω) into the EINT fan-out for all 10 panel columns | Controller-driven path to fire (Triggered) or window-gate (Gated) the panels' display in v3 operation. |
+| Panel-internal `TNY.EINT` | pin 25 / D33 | Driven via R25 (33 Ω) into the EINT fan-out for all 10 panel columns | Controller-driven path to fire (Triggered) or window-gate (Gated) the panels' display. |
 | **Jumper J30** (selector) | — | Connects `D35_0_3V3` (J4 input at 3.3 V) to `TNY.EINT` via R216 (1 kΩ) | **Shorted = direct path**: J4 BNC drives panels with no Teensy in the loop. **Open = Teensy-mediated**: firmware reads D35 input and explicitly drives D33 output to forward. |
 
-For v3 trigger work this means **two distinct deployment modes** are physically supported:
+For Triggered/Gated work this means **two distinct deployment modes** are physically supported:
 
-- **Direct trigger (J30 shorted)** — lowest-latency external triggering/gating. Useful when the experiment-side trigger waveform is already correctly shaped for v3 Triggered or Gated mode (edge polarity, pulse width, window timing). The Teensy can still observe the signal on D35, but firmware participation is optional.
-- **Teensy-mediated trigger (J30 open)** — highest flexibility. Firmware can perform timing reshape, debouncing, edge-polarity inversion, gating-window enforcement, sync-to-BCM-cycle alignment, or skip entirely (firmware decides whether to forward). Required if the experiment-side trigger doesn't directly match the panel-protocol v3 expectations.
+- **Direct trigger (J30 shorted)** — lowest-latency external triggering/gating. Useful when the experiment-side trigger waveform is already correctly shaped for Triggered or Gated mode (edge polarity, pulse width, window timing). The Teensy can still observe the signal on D35, but firmware participation is optional.
+- **Teensy-mediated trigger (J30 open)** — highest flexibility. Firmware can perform timing reshape, debouncing, edge-polarity inversion, gating-window enforcement, sync-to-BCM-cycle alignment, or skip entirely (firmware decides whether to forward). Required if the experiment-side trigger doesn't directly match the panel-protocol Triggered/Gated expectations.
 
 Cross-references:
 
-- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 documents the panel-side Triggered (per-edge single-shot, `0x12`/`0x32`/`0x52`) and Gated (window gating, `0x14`/`0x34`/`0x54`) modes plus two open issues (trigger edge polarity, sync-vs-async gating semantics) — both decisions are easier to manage in **J30-open** mode where firmware can reshape the trigger.
-- The slim G4.1 controller has no input pins beyond CS lines; v3 trigger wiring is **net-new for G6** and depends on these arena EINT lines.
+- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § `0x12` / `0x13` documents the panel-side Triggered (per-edge single-shot — v1 `0x12` 2L, `0x32` 16L; v2 `0x52` PSRAM) and Gated (output-enable gate — v1 `0x13` 2L, `0x33` 16L; v2 `0x53` PSRAM) modes plus open issues on trigger edge polarity — easier to manage in **J30-open** mode where firmware can reshape the trigger.
+- The slim G4.1 controller has no input pins beyond CS lines; EINT trigger wiring (used by v1 Triggered/Gated) is **net-new for G6** and depends on these arena EINT lines.
 
-**J30 default = OPEN.** Shipped arenas leave J30 open by default → Teensy-mediated EINT path is the canonical v3 wiring. Direct-trigger mode (J30 shorted) is a deliberate per-experiment opt-in documented in arena bring-up notes. Firmware cannot detect the position, so the assumed-open default must be verified physically per arena.
+**J30 default = OPEN.** Shipped arenas leave J30 open by default → Teensy-mediated EINT path is the canonical wiring. Direct-trigger mode (J30 shorted) is a deliberate per-experiment opt-in documented in arena bring-up notes. Firmware cannot detect the position, so the assumed-open default must be verified physically per arena.
 
 ### v2 PSRAM / Mode 1 (TSI DO/AO) relevance
 
 The source spec for Mode 1 TSI files defines a 5-byte record `[FrameIndex16, DO, AO_lo, AO_hi]` with both DO and AO output lines' pin assignments noted as "depending on arena design". Reconciled:
 
-- The arena exposes **1 AO** (MCP4725 over I²C, 0–5 V, BNC J27) and **1 DO** (Teensy D35, level-translated to 5 V, BNC J4 — bidirectional, configured as output for Mode 1). **Caveat:** if jumper J30 is shorted, every Mode 1 DO toggle on D35 also retriggers the panel EINT bus via R216. To use D35 as an experimenter DO output without disturbing v3 gating, J30 must be left open. Firmware cannot detect this conflict.
+- The arena exposes **1 AO** (MCP4725 over I²C, 0–5 V, BNC J27) and **1 DO** (Teensy D35, level-translated to 5 V, BNC J4 — bidirectional, configured as output for Mode 1). **Caveat:** if jumper J30 is shorted, every Mode 1 DO toggle on D35 also retriggers the panel EINT bus via R216. To use D35 as an experimenter DO output without disturbing Gated-mode display, J30 must be left open. Firmware cannot detect this conflict.
 - The TSI record's DO byte (1 byte) → encodes a single digital output state; arena has 1 DO line → straightforward mapping.
 - The TSI record's AO field (16 bits) → encodes a single analog output sample; arena has 1 AO line → single-channel; firmware writes the upper 12 bits to MCP4725 (DAC is 12-bit, low 4 bits of AO field are ignored or rounded).
 - **The source spec floated "2 AO lines might be interesting, depending on arena design".** As-built has 1 AO — adding a second would require an arena re-spin (or repurposing one of the AI lines, which the OPA2277 chain doesn't currently support).
@@ -197,6 +195,6 @@ The source spec for Mode 1 TSI files defines a 5-byte record `[FrameIndex16, DO,
 - [reiserlab/LED-Display_G6_Hardware_Arena](https://github.com/reiserlab/LED-Display_G6_Hardware_Arena) — production arena submodule remote (used to populate this doc via `gh api`)
 - [reiserlab/LED-Display_G6_Hardware_Test_Arena](https://github.com/reiserlab/LED-Display_G6_Hardware_Test_Arena) — historical/never-used dev test arena
 - [`g6_00-architecture.md`](g6_00-architecture.md) — host/controller/panel split; the arena hosts the controller
-- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — panel protocol; v3 trigger semantics interact with the EINT lines on this arena
-- [`g6_03-controller.md`](g6_03-controller.md) — controller doc; arena facts here resolve open questions about CS-line topology, AI source for Mode 4, EINT for v3 gating
+- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — panel protocol; Triggered/Gated semantics interact with the EINT lines on this arena
+- [`g6_03-controller.md`](g6_03-controller.md) — controller doc; arena facts here resolve open questions about CS-line topology, AI source for Mode 4, EINT for Gated-mode display
 - [`g6_06-host-software.md`](g6_06-host-software.md) — host-side concerns; arena geometry must be supplied from host since controller is geometry-ignorant

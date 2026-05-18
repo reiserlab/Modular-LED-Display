@@ -8,11 +8,9 @@ Live `⚠ Flag` callouts and per-file `Open Questions / TBDs` sections inside ea
 
 ## Spec decisions still open
 
-- **v2/v3 superset compatibility: normative MUST or soft MAY?** `g6_01-panel-protocol.md` § v2 body says panels MUST accept all commands from versions 1 through N; the parenthetical that follows says scope may be narrowed during implementation review. Pick one. Recommendation: commit to MUST (matches what's prototyped) and drop the parenthetical. Deferred to design-review session.
-
 - **PSRAM index semantics + preload atomicity.** `g6_01` v2 uses "PSRAM index/location" without saying whether the 24-bit value is a byte address, frame slot, record index, or typed handle — plus bounds, alignment, GS2/GS16 type tagging, persistence across reset, full-memory behavior. Separately: if a preload pass is interrupted (one panel reboots mid-load), one panel can hold a different pattern table than its neighbors and the same 24-bit index then drives a spatially inconsistent stimulus. Needs a half-page subsection in `g6_01` § v2 once the address-space question is answered.
 
-## Deferred design pressure (Codex-surfaced, acknowledged but not closed)
+## Deferred design pressure (acknowledged but not closed)
 
 - **ISP-in-v1 vs separate protocol version.** Putting flash-write opcodes in v1 means every future v2/v3/v4 panel firmware must continue to support them. A dedicated ISP protocol with explicit `BOOT_TO_ISP` transition would isolate dangerous operations and survive version evolution. The ISP section is currently marked **"Draft — design-review needed"** with four flagged design holes (atomic staging, image authenticity, version-evolution, mixed-firmware-on-failure) — see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § ISP open questions.
 
