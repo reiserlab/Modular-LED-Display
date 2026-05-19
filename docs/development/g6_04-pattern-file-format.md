@@ -32,7 +32,7 @@ PAT file
 | 9 | Column Count | uint8 | 1–255 | **Full** grid columns in arena (subset installed via panel mask) |
 | 10 | `gs_val` | uint8 | 1 = GS2, 2 = GS16 | Pixel encoding throughout file |
 | 11–16 | Panel Mask | 6 bytes | bitmask | Which panel positions are physically present (up to 48 panels) |
-| 17 | Checksum | uint8 | 0–255 | XOR of all frame data bytes |
+| 17 | Header CRC | uint8 | 0–255 | CRC-8/AUTOSAR of header bytes 0-16 (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § CRC-8 algorithm). Frame-data integrity is handled separately by per-frame CRC-16 trailers (see § Frame Format). |
 
 ### Arena ID and Observer ID
 
@@ -49,28 +49,49 @@ Compact bitmask indicating which panel positions are physically present:
 
 **Validation:** Controller MUST verify (a) `row_count × col_count ≤ 48`, and (b) the count of bits set in the mask is ≤ `row_count × col_count`. If either check fails, return a "pattern error" to the host.
 
-### Checksum (Byte 17)
+### Header CRC (Byte 17)
 
-- **Algorithm**: byte-wise XOR
-- **Computation**: `checksum = byte[0] ^ byte[1] ^ … ^ byte[n]`
-- **Scope**: All frame data (from first frame's `"FR"` magic through last panel's duty_cycle byte)
+- **Algorithm**: CRC-8/AUTOSAR (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § CRC-8 algorithm for parameters, test vectors, and bit ordering)
+- **Scope**: header bytes 0-16 only. Frame-data integrity is the job of the per-frame CRC-16 trailers described in § Frame Format.
 - **Result**: single byte (0–255)
-- **Usage**: optional validation in v1 panel protocol; enables future error detection
-
-**💡 Note — two checksum algorithms in the protocol family.** Pattern file uses **XOR**; panel-confirmation message uses **additive sum mod 256** (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Confirmation message). Both intentional, both confirmed against firmware — listed here so readers don't conflate them.
+- **Usage**: required integrity check on the file header. Controller MUST verify on SD read and refuse to open the file on mismatch. Catches header-level bit-flips (`G6PT` magic + sanity rules already cover gross corruption; this is the bit-level defense for fields like `panel_mask` where a single-bit flip might pass the popcount validation).
 
 ## Frame Format
 
-Each frame begins with a 4-byte validation header, followed by all panel blocks for that frame in row-major panel order:
+Each frame begins with a 4-byte validation header, followed by all panel blocks for that frame in row-major panel order, then a 2-byte CRC-16 trailer:
 
 ```
 Frame:
   [Magic: "FR" (0x46 0x52): 2 bytes]
   [Frame Index: uint16 LE: 2 bytes]
   [Panel blocks for all panels, row-major order: panels 0, 1, 2, …, num_panels-1]
+  [CRC-16/CCITT: 2 bytes, little-endian]
 ```
 
-**Frame overhead:** 4 bytes per frame.
+**Frame overhead:** 6 bytes per frame (2 magic + 2 index + 2 CRC).
+
+### Per-frame CRC-16
+
+| Parameter | Value |
+| :-- | :-- |
+| Polynomial | `0x1021` (CRC-16/CCITT-FALSE) |
+| Initial value | `0xFFFF` |
+| Input reflection | false |
+| Output reflection | false |
+| Final XOR | `0x0000` |
+| Universal check value | `0x29B1` over the ASCII string `"123456789"` |
+
+**Scope:** `{FR_magic, frame_index, all_panel_blocks}` — everything in the frame except the CRC-16 trailer itself. CRC bytes are appended little-endian (byte 0 = low 8 bits, byte 1 = high 8 bits).
+
+**Detection at G6 frame sizes:**
+- GS2 frame (1064 B = 8512 bits): HD=4 — catches all 3-bit errors.
+- GS16 frame (4064 B = 32512 bits): HD=4 at the boundary.
+- 3×12 GS16 frame (7312 B = 58496 bits): HD=3 above the 32-kbit HD=4 limit.
+- 16-bit burst-detection floor across all frame sizes.
+
+**Validation policy:** controller computes CRC-16 as each frame is read; on mismatch, the controller MUST refuse to display that frame and report a frame-level pattern error to the host. Localized detection lets the controller skip/retry a single bad frame instead of binning the whole file.
+
+**Reference implementations:** Linux kernel `lib/crc-ccitt.c`, Boost.CRC `crc_16_ccitt_false_t`, Python `crcmod` (poly `0x11021`).
 
 ### Panel ordering
 
@@ -119,8 +140,8 @@ This matches [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data 
 
 ```
 file_size  = 18 + (num_frames × frame_size)
-frame_size = 4 + (num_panels × block_size)
-num_panels = row_count × col_count        # full grid; subset selected via panel mask
+frame_size = 4 + (num_panels × block_size) + 2  # +2 for CRC-16 trailer
+num_panels = row_count × col_count              # full grid; subset selected via panel mask
 block_size = 53 (GS2) or 203 (GS16)
 ```
 
@@ -128,18 +149,19 @@ block_size = 53 (GS2) or 203 (GS16)
 
 | Arena | Frames | Mode | Frame size | File size |
 |---|---:|---|---:|---:|
-| 2×10 (20 panels) | 100 | GS2 | 1,064 B | **106,418 B** (~104 KB) |
-| 2×10 (20 panels) | 100 | GS16 | 4,064 B | **406,418 B** (~397 KB) |
-| 3×12 (36 panels) | 1,000 | GS16 | 7,312 B | **7,312,018 B** (~6.97 MB) |
+| 2×10 (20 panels) | 100 | GS2 | 1,066 B | **106,618 B** (~104 KB) |
+| 2×10 (20 panels) | 100 | GS16 | 4,066 B | **406,618 B** (~397 KB) |
+| 3×12 (36 panels) | 1,000 | GS16 | 7,314 B | **7,314,018 B** (~6.97 MB) |
 
 ## Validation Layers
 
-Four independent validation mechanisms (all **optional** in v1 — present in the format, enforcement is implementation-dependent):
+Five validation mechanisms. The two CRCs are **required** (controller refuses to display on mismatch); the others are catch-all sanity checks:
 
 1. **Pattern magic** (bytes 0–3): `"G6PT"` identifies file type.
-2. **Checksum** (byte 17): XOR of all frame data detects corruption.
-3. **Frame magic** (per frame): `"FR"` + index validates frame boundaries.
-4. **Panel parity** (per block): header byte bit 7 detects transmission errors.
+2. **Header CRC-8** (byte 17): CRC-8/AUTOSAR over the 17-byte header. Required — catches header-level bit-flips before any frame is read.
+3. **Per-frame CRC-16** (2-byte trailer per frame): CRC-16/CCITT over the frame body. Required — localizes corruption to specific frames.
+4. **Frame magic** (per frame): `"FR"` + index validates frame boundaries.
+5. **Panel parity** (per block): header byte bit 7 detects transmission errors at the panel-block level.
 
 ## Controller Operation
 
@@ -149,11 +171,13 @@ Four independent validation mechanisms (all **optional** in v1 — present in th
 2. Validate magic `"G6PT"` and version (= 2 in v2).
 3. Extract `frame_count`, `row_count`, `col_count`, `gs_val`, `panel_mask`, Arena ID, Observer ID.
 4. Verify `row_count × col_count ≤ 48`.
-5. (Optional) Compute and verify checksum over frame data.
+5. Compute and verify the **header CRC-8** over bytes 0-16; on mismatch, return a "header error" to the host and refuse to open the file.
 6. For each frame:
    - Read frame magic `"FR"` and `frame_index` (4 bytes).
    - (Optional) Verify `frame_index` matches the expected sequence value.
    - Read all panel blocks sequentially.
+   - Read the 2-byte CRC-16 trailer.
+   - Compute and verify **CRC-16/CCITT** over `{FR_magic, frame_index, panel_blocks}`; on mismatch, return a frame-level "pattern error" to the host and skip this frame.
    - For each panel block: (optional) validate parity in header byte, then transmit entire block (53 or 203 bytes) directly to the panel via SPI.
 
 ### Transmission
@@ -173,9 +197,9 @@ The PC host (MATLAB / Python / web) generates pattern files:
    - Insert header byte (`0x01` or `0x81`) and command byte (`0x10` GS2 / `0x30` GS16).
    - Pack pixels per G6 panel format (row-major, MSB-first, bottom-left origin; flip MATLAB row → panel row via `row_from_bottom = 19 - row`).
    - Append duty_cycle value.
-4. **Frame assembly**: prepend `"FR"` magic and frame index to panel blocks.
-5. **Checksum**: compute XOR over all frame data, store in header byte 17.
-6. **File writing**: 18-byte header followed by all frames.
+4. **Frame assembly**: prepend `"FR"` magic and frame index to panel blocks; append 2-byte CRC-16/CCITT trailer over `{FR_magic, frame_index, panel_blocks}` little-endian.
+5. **Header CRC**: compute **CRC-8/AUTOSAR** (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § CRC-8 algorithm) over header bytes 0-16, store in byte 17.
+6. **File writing**: 18-byte header (including byte-17 CRC) followed by all frames (each with trailing CRC-16).
 
 Cross-reference: [`Generation 6/maDisplayTools/docs/patterns.md`](../../Generation%206/maDisplayTools/docs/patterns.md) for user-facing docs on where generated `.pat` files live and how to regenerate reference patterns.
 

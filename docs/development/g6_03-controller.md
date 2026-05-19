@@ -63,7 +63,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | v2 PSRAM workflow + TSI parsing for Mode 1 | Mode 1 absent (`modes.h:6-10`); no PSRAM-related code anywhere | Adds load-phase logic, `(PatternID, FrameIndex16) → PSRAMAddress24` mapping table, TSI 5-byte record parser, DO/AO output drivers (pin assignments depend on arena hardware). |
 | `g6-panel-storage-mode` host command | Not in `ArenaCommands` enum | Pick a free opcode — none of `0x00, 0x01, 0x06, 0x08, 0x16, 0x30, 0x32, 0x66, 0x70, 0xFF` are available. |
 | EINT trigger-line wiring (input GPIO) used by v1 Triggered/Gated | Slim has no input pins beyond CS lines | Single trigger input to be added. Wiring depends on arena hardware. |
-| Magic / format-version field / XOR checksum in pattern header | None in `PatternHeader.h:6-15` | Adopt v2 layout per `g6_04`. |
+| Magic / format-version field / CRC-8 header + per-frame CRC-16 | None in `PatternHeader.h:6-15` | Adopt v2 layout per `g6_04`: CRC-8/AUTOSAR over the 17-byte header (byte 17) + CRC-16/CCITT trailer per frame (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § CRC-8 algorithm and [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) § Frame Format). |
 | Mode 1 (TSI Position Function) and Mode 5 (Streaming) top-level dispatch | Slim implements only Modes 2/3/4 (`modes.h:6-10`); Mode 5 streaming is partially built via `STREAMING_FRAME` state but no top-level mode dispatch | Add full mode dispatch for Modes 1–5. |
 
 **Drop / not needed for G6:**

@@ -58,6 +58,56 @@ The parity bit is set such that this count modulo 2 equals the parity bit value,
 - 2-level oneshot (command `0x10`), all pixels=0, duty_cycle=1 → header should be `0x81` (1 from version + 1 from command + 1 from duty_cycle = 3 ones → parity 1)
 - 16-level oneshot (command `0x30`), all pixels=0, duty_cycle=0 → header should be `0x81` (1 from version + 2 from command = 3 ones → parity 1)
 
+#### CRC-8 algorithm
+
+All single-byte checksums in the G6 protocol family use **CRC-8/AUTOSAR**:
+
+| Parameter | Value |
+| :-- | :-- |
+| Polynomial | `0x2F` (`x^8 + x^5 + x^3 + x^2 + x + 1`; Koopman notation `0x97`) |
+| Initial value | `0xFF` |
+| Input reflection | false |
+| Output reflection | false |
+| Final XOR | `0xFF` |
+| Universal check value | `0xDF` over the ASCII string `"123456789"` |
+
+Three sites use this algorithm:
+
+1. **CIPO panel-confirmation checksum** — third byte of the 3-byte confirmation slot, over `{incoming COPI header_byte_with_parity_cleared, cmd_byte, payload_bytes}` of the message being acknowledged.
+2. **ISP extended-confirmation checksum** — trailing byte of the ISP confirmation slot, over `{outgoing CIPO header_byte_with_parity_cleared, cmd_byte, response_payload}`.
+3. **Pattern-file header checksum** — byte 17 of the `.pat` file header (see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) § Header CRC). Scope: header bytes 0-16 only. Frame-data integrity is the job of the per-frame CRC-16 trailer specified in `g6_04` § Frame Format (CRC-16/CCITT, HD=4 across our frame sizes, localizes corruption to a specific frame).
+
+**Detection properties at G6 message sizes:**
+
+- HD=4 (catches all 3-bit errors) for data words up to 119 bits.
+- HD=2 (catches all 1-bit errors) for longer messages, including the 424-bit GS2 payload, 1624-bit GS16 payload, and multi-MB pattern files. The HD=2 regime above 119 bits is the price of the 1-byte budget; some 2-bit errors slip through (~2/256 probability for random 2-bit patterns).
+- Catches all burst errors up to 8 bits long at every message size.
+- Strictly stronger than sum-mod-256 or XOR for burst errors.
+
+**Bit and byte ordering.** SPI is MSB-first on the wire (§ SPI framing). CRC-8/AUTOSAR has `refin=false`, meaning each input byte is fed MSB-first into the LFSR. The two conventions align — the bit stream the CRC processes is the bit stream that hits the wire. **No bit reversal needed.** Bytes are fed in transmission order (byte 0 first). The CRC byte itself is NOT included in the CRC computation.
+
+**Construction order for the 3-byte confirmation slot** (resolves CRC/parity dependency):
+
+1. Compute CRC over `{version_byte_with_parity_bit_cleared, cmd_byte, payload_bytes}` of the message being acknowledged.
+2. Place `{header_byte_template_with_parity_cleared, cmd_byte, crc_byte}` in the confirmation slot.
+3. Compute parity over the resulting 3-byte slot (count 1-bits across all 24 bits except the parity bit) and set the parity bit in the header.
+
+The same procedure applies to the ISP extended-confirmation slot over its longer response payload.
+
+**Sentinel discriminator.** Confirmation-slot sentinels use the cmd byte as the discriminator: `cmd=0x00` for the empty-buffer sentinel and `cmd=0xFF` for the COMM_CHECK-fail sentinel. The CRC byte in those slots is the literal `0x00` (convention: no real payload to checksum), NOT a computed CRC over `{version, sentinel_cmd}`. **Validators MUST branch on the cmd byte before treating byte 2 as a CRC** — a valid message can naturally produce CRC `0x00`, so the checksum value alone cannot distinguish a sentinel from a real message.
+
+**Protocol-specific test vectors** (final values pinned in [`g6_encoding_reference.json`](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json) once the encoders are regenerated):
+
+| Input bytes (hex) | Description | CRC |
+| :-- | :-- | :-- |
+| `01 10 00…00 00` (53 bytes: hdr + cmd + 50× zero pixels + duty=0) | 2L Oneshot all-zero | `0xC6` |
+| `81 30 00…00 00` (203 bytes: hdr+parity + cmd + 200× zero pixels + duty=0) | 16L Oneshot all-zero | `0x0C` |
+| `01 01 00 01 02 … C7` (202 bytes: COMM_CHECK canonical) | COMM_CHECK | `0x8B` |
+
+Implementers MUST verify their CRC implementation against both the universal `"123456789"` → `0xDF` check value and at least one protocol-specific vector before integration.
+
+**Reference implementations:** Linux kernel `lib/crc8.c`, Boost.CRC, Python `crcmod`. RP2354 implementation can use a 256-byte lookup table in flash; computational cost is negligible at SPI traffic rates.
+
 #### Duty Cycle Value
 
 The `duty_cycle` value is a single byte (0–255) that scales the brightness of all pixels in a pattern by **modulating the BCM bit-plane ON-time durations** (not the pixel values themselves). Effective per-bit-plane ON time = `base_T × duty_cycle / 255`, where `base_T` is the BCM base time (3.0 µs in v1 panel firmware). `duty_cycle = 0` → all bit-planes have zero ON time → display off. `duty_cycle = 255` → unchanged from base BCM weights.
@@ -79,7 +129,7 @@ Each message SHALL be transmitted as exactly one SPI transaction, bounded by chi
 
 **SPI mode**: CPOL=1, CPHA=1 (SPI Mode 3), MSB-first. **Clock**: panels accept up to 30 MHz (firmware default in [`reiserlab/LED-Display_G6_Firmware_Panel/panel/src/constants.cpp`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/blob/feat/v1-stage1-protocol/panel/src/constants.cpp)). Cross-platform implementations SHOULD configure the same.
 
-A message from the controller to the panel is defined by the "protocol commands". The panels return the header and command from the previously received message followed by an 8-bit checksum.
+A message from the controller to the panel is defined by the "protocol commands". The panels return the header and command from the previously received message followed by an 8-bit CRC-8 checksum (per § CRC-8 algorithm).
 
 The controller SHALL clock exactly the number of bytes required by the command for that protocol version, but at least 3 bytes. Invalid messages are ignored and don't trigger a panel update.
 
@@ -220,11 +270,13 @@ On CS falling edge, a panel returns a **3-byte confirmation slot** describing th
 [byte 0: header_with_parity]  [byte 1: cmd_or_sentinel]  [byte 2: checksum]
 ```
 
-When the panel receives a valid command, it stores the version (from the incoming header), the command byte, and an 8-bit checksum **over the whole incoming message** (header byte + command byte + payload bytes, sum mod 256). The header byte in the confirmation slot echoes the **incoming protocol version** (`0x01` for V1; in future, `0x02` for V2) with the parity bit **recomputed** over the 3-byte confirmation message.
+When the panel receives a valid command, it stores the version (from the incoming header), the command byte, and an 8-bit CRC-8 checksum (per § CRC-8 algorithm) over the incoming message bytes excluding the CRC byte itself. The header byte in the confirmation slot echoes the **incoming protocol version** (`0x01` for V1; in future, `0x02` for V2) with the parity bit **recomputed** per the construction-order rule in § CRC-8 algorithm.
 
 For invalid commands (parity failure, length mismatch, unsupported protocol version, unknown command, etc.) the buffer is **not updated** — the panel continues to return whatever was in the slot before. This preserves the spec invariant "for invalid commands no information is stored."
 
-The 3-byte slot is **cleared** by the panel only after at least 3 bytes have been clocked out on CIPO. If the controller asserts CS for fewer than 3 byte windows, the slot stays armed for the next CS-active window. (Every valid panel-protocol message is ≥ 3 bytes — header + cmd + ≥ 1 payload byte — so any normal traffic cycle clears the previous confirmation.)
+**Every valid panel-protocol message MUST be at least 3 bytes** (header + cmd + ≥ 1 payload byte). Commands that would otherwise have a zero-byte payload are padded with one reserved byte (`0x0F` Reset PSRAM, `0x02` Query diagnostics, `0x03` Reset diagnostic stats — all carry a 1-byte ignored payload). The minimum-3-byte rule guarantees that every CS-active window clocks out all 3 bytes of the prior confirmation, so confirmations cannot accumulate or be silently dropped between commands.
+
+If a controller violates the ≥ 3 byte rule (e.g., asserts CS for fewer than 3 byte windows after sending a too-short message), the panel rejects the short message on length-check; the prior confirmation slot stays armed and is delivered on the next valid CS-active window.
 
 **4-state encoding** (normative; matches firmware behavior):
 
@@ -237,7 +289,7 @@ The 3-byte slot is **cleared** by the panel only after at least 3 bytes have bee
 
 **`cmd = 0xFF` is reserved panel-side** for the COMM_CHECK-fail sentinel and MUST NOT be issued by a controller. See Master command summary § Reserved confirmation values.
 
-The 8-bit additive checksum (sum mod 256) is faster to compute than CRC/SHA — a single loop over the receive buffer. Matches `Message::calculate_8bit_checksum()` in `reiserlab/LED-Display_G6_Firmware_Panel @ feat/v1-stage1-protocol` ([message.cpp:171–177](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/blob/feat/v1-stage1-protocol/panel/src/message.cpp#L171-L177)). (Note: the panel-confirmation checksum here is **additive** (sum mod 256); the [pattern-file checksum in `g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) is **XOR**. Both are confirmed against firmware; the two algorithms intentionally differ.)
+Algorithm details and test vectors in § CRC-8 algorithm above. Note: pattern-file frame integrity uses **CRC-16/CCITT per-frame** (`g6_04` § Frame Format), distinct from this wire-level CRC-8; only the file header at `g6_04` byte 17 shares this CRC-8 algorithm.
 
 **Examples:**
 
@@ -366,9 +418,9 @@ Opcode encoding follows the low-nibble-mode rule (`0`=Oneshot, `1`=Persistent, `
 
 Clears all user-stored patterns from PSRAM (preserves predefined patterns under v3 `0x70`–`0x73`, if those use a separate flash region — see v3).
 
-**Payload**: None (0 bytes)
+**Payload**: 1 byte (reserved; transmit as `0x00`, panel ignores). Padding ensures every message is ≥ 3 bytes so the CIPO confirmation slot drains in each CS-active window (see § Confirmation message).
 
-**Example**: `[0x82] [0x0F]`
+**Example**: `[0x02] [0x0F] [0x00]`
 
 #### `0x3F` — Write 16-Level Grayscale to PSRAM
 
@@ -475,9 +527,9 @@ For Protocol v3, the version bits are `0b0000011`, giving possible header values
 
 Get diagnostics from the panel. Current candidates from `<will@iorodeo.com>`: counts of bad bytes, short messages, parity failures, queue drops, or other error rates. Statistics could be collected from `0x01` COMM_CHECK responses or from all messages since the last reset.
 
-**Payload**: None (0 bytes)
+**Payload**: 1 byte (reserved; transmit as `0x00`, panel ignores). Padding ensures every message is ≥ 3 bytes — see § Confirmation message.
 
-**Example**: `[0x03] [0x02]`
+**Example**: `[0x03] [0x02] [0x00]`
 
 > **⚠ Flag — diagnostic data shape unspecified.** Spec the diagnostic record format (counters, error codes, response carrier slot) before this command becomes implementable. The CIPO confirmation slot is 3 bytes — diagnostic data exceeds that, so a separate response mechanism is needed (extended slot? streamed over CIPO with explicit length? mailbox via PSRAM?).
 
@@ -485,9 +537,9 @@ Get diagnostics from the panel. Current candidates from `<will@iorodeo.com>`: co
 
 Reset the diagnostic counter(s).
 
-**Payload**: None (0 bytes)
+**Payload**: 1 byte (reserved; transmit as `0x00`, panel ignores). Padding ensures every message is ≥ 3 bytes — see § Confirmation message.
 
-**Example**: `[0x83] [0x03]`
+**Example**: `[0x83] [0x03] [0x00]`
 
 #### `0x70` / `0x71` / `0x72` / `0x73` — Display Predefined Pattern (mode in low nibble)
 
@@ -531,13 +583,13 @@ Status: **Draft — design-review needed**. ISP commands live in the v1 namespac
 
 ### ISP confirmation format
 
-ISP messages use an **extended confirmation slot** that adds an opcode-specific response payload between the echoed command and the 8-bit additive checksum. Format on CIPO during the *next* ISP-armed CS-active window:
+ISP messages use an **extended confirmation slot** that adds an opcode-specific response payload between the echoed command and the 8-bit CRC-8 checksum (per § CRC-8 algorithm, including the construction-order rule for the parity bit). Format on CIPO during the *next* ISP-armed CS-active window:
 
 ```
 [header (parity recomputed)] [echoed_cmd] [response_payload_N_bytes] [8-bit checksum]
 ```
 
-where `N` depends on `echoed_cmd` (see opcode table, "Response payload" column). The 8-bit additive checksum covers the entire CIPO message (header + cmd + response_payload). This differs from the standard 3-byte confirmation slot (§ Confirmation message above): standard panel-protocol messages keep the 3-byte form; only ISP opcodes use this extended form.
+where `N` depends on `echoed_cmd` (see opcode table, "Response payload" column). The 8-bit CRC-8 checksum covers the CIPO message bytes excluding the CRC byte itself (header + cmd + response_payload). This differs from the standard 3-byte confirmation slot (§ Confirmation message above): standard panel-protocol messages keep the 3-byte form; only ISP opcodes use this extended form.
 
 For `ISP_ENTER` specifically, the response cannot piggyback on a preceding command (no prior ISP command exists). The controller therefore clocks out exactly `1 + 1 + 17 + 1 = 20` bytes on the SAME `ISP_ENTER` transaction: the panel computes its response during the COPI phase (after parsing payload), then drives MISO during the trailing CIPO byte windows. CS stays asserted for the full 20-byte exchange. All subsequent ISP commands follow the standard "response piggybacks on next ISP command" pattern.
 
@@ -584,7 +636,7 @@ v1 Triggered + Gated are prototyped (Triggered measured at 865 ± 17 ns trigger-
 | `0x01` / `0x81` | `0x13` | 51 bytes (50 pattern + duty_cycle) | Display 2-Level Grayscale (Gated) | v1 | prototyped |
 | `0x01` / `0x81` | `0x32` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Triggered) | v1 | prototyped |
 | `0x01` / `0x81` | `0x33` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Gated) | v1 | prototyped |
-| `0x02` / `0x82` | `0x0F` | None | Reset PSRAM (clear user patterns) | v2 | |
+| `0x02` / `0x82` | `0x0F` | 1 byte (reserved) | Reset PSRAM (clear user patterns) | v2 | |
 | `0x02` / `0x82` | `0x3F` | 3 idx + 200 pattern + duty_cycle | Write 16-Level Grayscale to PSRAM | v2 | ⚠ index semantics open |
 | `0x02` / `0x82` | `0x50` | 3 idx | Display PSRAM Index, implicit duty_cycle (Oneshot) | v2 | |
 | `0x02` / `0x82` | `0x51` | 3 idx | Display PSRAM Index, implicit duty_cycle (Persistent) | v2 | |
@@ -594,8 +646,8 @@ v1 Triggered + Gated are prototyped (Triggered measured at 865 ± 17 ns trigger-
 | `0x02` / `0x82` | `0x61` | 3 idx + duty_cycle | Display PSRAM Index, explicit duty_cycle (Persistent) | v2 | |
 | `0x02` / `0x82` | `0x62` | 3 idx + duty_cycle | Display PSRAM Index, explicit duty_cycle (Triggered) | v2 | |
 | `0x02` / `0x82` | `0x63` | 3 idx + duty_cycle | Display PSRAM Index, explicit duty_cycle (Gated) | v2 | |
-| `0x03` / `0x83` | `0x02` | None | Query diagnostic stats | v3 | ⚠ data shape unspecified |
-| `0x03` / `0x83` | `0x03` | None | Reset diagnostic stats | v3 | |
+| `0x03` / `0x83` | `0x02` | 1 byte (reserved) | Query diagnostic stats | v3 | ⚠ data shape unspecified |
+| `0x03` / `0x83` | `0x03` | 1 byte (reserved) | Reset diagnostic stats | v3 | |
 | `0x03` / `0x83` | `0x70` | 3 idx + duty_cycle | Display Predefined Pattern (Oneshot) | v3 | ⚠ pattern catalog TBD |
 | `0x03` / `0x83` | `0x71` | 3 idx + duty_cycle | Display Predefined Pattern (Persistent) | v3 | ⚠ pattern catalog TBD |
 | `0x03` / `0x83` | `0x72` | 3 idx + duty_cycle | Display Predefined Pattern (Triggered) | v3 | ⚠ pattern catalog TBD |
@@ -648,10 +700,9 @@ Modes are encoded in the low nibble of the command byte (`0`=Oneshot, `1`=Persis
 
 ## Open Questions / TBDs
 
-1. **v2 zero-payload commands.** `0x02`, `0x03`, `0x0F` have zero-byte payloads in spec but firmware enforces `PAYLOAD_MINIMUM_SIZE = 1`. Decide during v2 migration: drop the floor or add a dummy byte.
-2. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
-3. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
-4. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
+1. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
+2. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
+3. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
 
 ## Implementation status
 
@@ -659,7 +710,7 @@ v1 panel firmware: [`reiserlab/LED-Display_G6_Firmware_Panel`](https://github.co
 
 | Spec item | Status |
 | :-- | :-- |
-| Message framing, header byte, parity rule, CIPO 3-byte confirmation slot (4-state encoding, `0xFF` COMM_CHECK-fail sentinel) | implemented (not yet stacked-panel bench-validated) |
+| Message framing, header byte, parity rule, CIPO 3-byte confirmation slot (4-state encoding, `0xFF` COMM_CHECK-fail sentinel) | **CIPO checksum: CRC-8/AUTOSAR (firmware update pending).** Other framing items: implemented, not yet stacked-panel bench-validated. |
 | `0x01` COMM_CHECK (byte-for-byte validation against canonical payload) | implemented |
 | `0x10` / `0x11` 2L Oneshot + Persistent, `0x30` / `0x31` 16L Oneshot + Persistent | implemented |
 | Duty cycle (BCM-via-PIO with fixed-period scan, default 1 kHz refresh) | implemented |
