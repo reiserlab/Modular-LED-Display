@@ -29,7 +29,7 @@ The dev-set specifies CRC-8/AUTOSAR for wire-level slots (CIPO confirmation, ISP
 - **JS encoder update** in `Generation 6/webDisplayTools/` — same two changes.
 - **Pattern-file consumers** (any reader code in maDisplayTools/webDisplayTools/controller) — update file_size and frame_size formulas to account for the per-frame +2 bytes.
 - **v2 short-command padding** — when v2 firmware lands, ensure `0x0F` Reset PSRAM, `0x02` Query diagnostics, `0x03` Reset diagnostic stats are all sent with 1 reserved padding byte (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Confirmation message ≥ 3-byte rule). Already reflected in the v2 spec command definitions.
-- **Round-trip vector regeneration.** `Generation 6/maDisplayTools/g6/g6_encoding_reference.json` regenerated against the corrected encoders; pin protocol-specific CRC-8 vectors (`01 10 00…00 00` → `0xC6`, `81 30 00…00 00` → `0x0C`, COMM_CHECK canonical → `0x8B`) and per-frame CRC-16 vectors. Confirm MATLAB↔JS byte-for-byte. Also subsumes the existing post-fix regen item.
+- **Round-trip vector regeneration.** `Generation 6/maDisplayTools/g6/g6_encoding_reference.json` regenerated against the corrected encoders; pin protocol-specific CRC-8 vectors (`01 10 00…00 00` → `0xC6`, `01 30 00…00 00` → `0x6D`, COMM_CHECK canonical → `0x8B`) and per-frame CRC-16 vectors. Confirm MATLAB↔JS byte-for-byte. Also subsumes the existing post-fix regen item.
 - **Sharp-cite re-add** — once firmware lands `calculate_crc8()` and the controller adds `verify_crc16()` for per-frame validation, add `file:line` cites from `g6_01` § Confirmation message and `g6_04` § Per-frame CRC-16 (CLAUDE.md rule #9).
 
 ## Out-of-band

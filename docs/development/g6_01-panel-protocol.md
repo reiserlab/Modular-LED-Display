@@ -101,7 +101,7 @@ The same procedure applies to the ISP extended-confirmation slot over its longer
 | Input bytes (hex) | Description | CRC |
 | :-- | :-- | :-- |
 | `01 10 00…00 00` (53 bytes: hdr + cmd + 50× zero pixels + duty=0) | 2L Oneshot all-zero | `0xC6` |
-| `81 30 00…00 00` (203 bytes: hdr+parity + cmd + 200× zero pixels + duty=0) | 16L Oneshot all-zero | `0x0C` |
+| `01 30 00…00 00` (203 bytes: hdr + cmd + 200× zero pixels + duty=0) | 16L Oneshot all-zero | `0x6D` |
 | `01 01 00 01 02 … C7` (202 bytes: COMM_CHECK canonical) | COMM_CHECK | `0x8B` |
 
 Implementers MUST verify their CRC implementation against both the universal `"123456789"` → `0xDF` check value and at least one protocol-specific vector before integration.
