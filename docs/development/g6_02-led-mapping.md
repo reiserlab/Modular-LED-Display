@@ -227,10 +227,6 @@ Worked example consumers: [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) �
 1. **KiCad submodule init for direct hardware audit.** Most firmware-relevant facts already verified via PR-review docs + direct gh-api KiCad trace; init the `Generation 6/Panels` submodule (blocked on SSH host-key trust per handover) when convenient for ongoing iteration.
 2. **Maximum SPI clock rate.** Firmware default is 30 MHz; **target is 25 MHz with margin**, but exact panel-side hardware ceiling is **TBD** (not characterized). Worth measuring on a scope before pushing past 25 MHz on production hardware.
 
-## Historical context (v0.1)
-
-The original v0.1 ("Janelia batch") panel had reversed LED polarity (col LOW + row HIGH = ON) due to LED placement during assembly, and used 240 Ω current-limit resistors. v0.2 fixed both: flipped to NORMAL polarity (col HIGH + row LOW = ON) and switched to 160 Ω resistors (~50 % brightness boost; better uniformity under multi-LED load due to UCC27517's asymmetric output impedance). v0.2 also added the R29 33 Ω MISO series-termination, properly routed EINT to GP45 (no more bodge wire), and shrunk the board to 45×45 mm. v0.3 then redesigned the pin map for clean dual-PIO scanning. **v0.1 is not built today** — kept here as the reference for the LED designator CSV (the geometric mapping is unchanged across all three revisions).
-
 ## Cross-references
 
 - [Source Google Doc, "Panel LED Mappings" tab](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#) — v0.1 LED mapping verbatim source.

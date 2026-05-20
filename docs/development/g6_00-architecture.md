@@ -47,8 +47,6 @@ The Teensy 4.1 + 2-SPI-bus configuration is concrete for the current production 
 - **Panel firmware** owns the *schematic → physical-pin* mapping: applies the PCB-layout-driven remap (e.g., `display.cpp::sch_to_pos_index()` in `g6_firmware_devel @ 6944894`, with the `NUM_COLOR = 4` quadrant scheme) to convert schematic-pixel index to actual COL/ROW drive pins.
 - The G6 controller sees patterns only as sequences of 20×20 subframes, ordered by panel number already mapped by the host. Controller packs pixels and forwards them per the G6 panel protocol — it does **not** apply LED mapping.
 
-(Note: the source spec mentioned "color-LED organization (until we decide to make the panels 'color-aware' in v4/5)" — current v4 and v5 do not specify color awareness; the parenthetical is dropped, captured in Open Q #1.)
-
 **Host owns arena / panel layout**
 
 - The PC host also defines how multiple panels are arranged in space (arena layout).
@@ -69,7 +67,7 @@ Panel message format is common to all protocol versions and is as specified in t
   - `0x01` (`0b00000001`) — when parity bit = 0
   - `0x81` (`0b10000001`) — when parity bit = 1
 
-More precisely: the **scaffolding is common** (`[header byte][command byte][payload…]` shape, parity-bit-in-MSB convention) and the **version field in the header byte selects which command set applies** (v1 = `0b0000001`, v2 = `0b0000010`, v3 = `0b0000011`, v4 = `0b0000100`). See [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) for the per-version command tables.
+More precisely: the **scaffolding is common** (`[header byte][command byte][payload…]` shape, parity-bit-in-MSB convention) and the **version field in the header byte selects which command set applies** (v1 = `0b0000001` live-SPI display, v2 = `0b0000010` PSRAM-backed display, v3 = `0b0000011` diagnostics + predefined patterns + future feature classes). See [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) for the per-version command tables.
 
 ### Panel responsibilities
 
@@ -81,9 +79,8 @@ The panel receives commands via SPI and returns confirmations according to the [
 
 ## Open Questions / TBDs
 
-1. **Color-LED organization** — original source spec referred to "color-aware in v4/v5", but neither v4 (predefined patterns + stretch) nor v5 (sketch) currently specify color support. Aspirational; revisit when color support is actually specced.
-2. **Stateless-panel vs mode-flag question** (carried over from precursor) — v1's Oneshot-only model is consistent with the stateless approach, but v3's Triggered/Gated commands re-open the question. Defer to firmware investigation against `G6_Panels_Test_Firmware`.
-3. **Architecture-prose tightening** (non-blocking) — minor items: (a) "controller never needs to know spatial layout" is overreach for Mode 4 closed-loop; (b) "Endianess" → "Endianness" typo on §; (c) common-message-format claim should be reworded once g6_01 master command summary has v1–v4 version-bits clearly tabled. Bundle for next pass.
+1. **Color-LED organization** — original source spec referred to "color-aware in v4/v5"; under the post-restructure V1/V2/V3 themes (live SPI / PSRAM / everything-else), color support is part of v3 § Future feature classes. Aspirational; revisit when color support is actually specced.
+2. **Stateless-panel vs mode-flag question.** v1's controller-driven one-shot model (Oneshot, Triggered, Gated all one-shot per command; Persistent the special case) is consistent with the stateless approach. The Triggered/Gated open questions (exact pattern-consumption semantics — see g6_01-panel-protocol.md § `0x12` / `0x13`) need design review before v1 firmware ships those commands.
 
 ## Cross-references
 

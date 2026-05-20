@@ -13,7 +13,7 @@ This file captures the firmware-side perspective on host-PC software responsibil
 
 The host-side MATLAB tooling already exists and is partially G6-aware: `Generation 6/maDisplayTools/` (HEAD `a51fe18`) supplies `g6/g6_save_pattern.m` (writes the v2 18-byte pattern header) and `g6/g6_encode_panel.m` (encodes per-panel GS2/GS16 blocks), validated end-to-end against the JS encoder in `webDisplayTools` via the round-trip JSON test vectors at `g6/g6_encoding_reference.json`. The submodule's own docs (`Generation 6/maDisplayTools/docs/{g6_quickstart, sd_card_deployment_notes, experiment_pipeline_guide, pattern_library_convention, pattern_tools_quickstart, patterns}.md`) are authoritative for the actual MATLAB workflow today and are published in the public Jekyll site.
 
-**Deep host-side spec migration is explicitly deferred.** This file's role is to capture the firmware ↔ host contract — what data formats and command sequences the firmware assumes the host will produce — not to re-document maDisplayTools. The deferral applies until either (a) the maDisplayTools tooling itself migrates further toward G6 (e.g., adds a v3 trigger workflow, Mode 1 TSI authoring, or PSRAM-mode preload management), at which point this file expands; or (b) the controller doc (`g6_03`) surfaces a host-side requirement not yet built in maDisplayTools.
+**Deep host-side spec migration is explicitly deferred.** This file's role is to capture the firmware ↔ host contract — what data formats and command sequences the firmware assumes the host will produce — not to re-document maDisplayTools. The deferral applies until either (a) the maDisplayTools tooling itself migrates further toward G6 (e.g., adds a Triggered/Gated workflow, Mode 1 TSI authoring, or PSRAM-mode preload management), at which point this file expands; or (b) the controller doc (`g6_03`) surfaces a host-side requirement not yet built in maDisplayTools.
 
 **maDisplayTools v2 already supplies the firmware contract** for v1 patterns: 18-byte v2 pattern header (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)), per-panel GS2/GS16 block encoding (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) v1 message format), and round-trip-validated cross-platform encoding via `g6_encoding_reference.json`. Host-side gaps still TBD are tracked under Open Questions.
 
@@ -95,7 +95,7 @@ v2 capability detection shares the v1 "G6 mode" gap above — same `get-controll
 
 - [Source Google Doc, "Host PC Matlab SW" tab](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#)
 - [`g6_00-architecture.md`](g6_00-architecture.md) — host/controller/panel responsibility split
-- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — panel protocol v1 + v2 + v3 + v4/v5 (the firmware that the host writes for)
+- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — panel protocol v1 + v2 + v3 (the firmware that the host writes for)
 - [`g6_02-led-mapping.md`](g6_02-led-mapping.md) — pixel ↔ LED designator mapping (host-side concern; firmware sees opaque payload)
 - [`g6_03-controller.md`](g6_03-controller.md) — controller-side firmware contracts (the other half of host ↔ firmware spec)
 - [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) — on-disk pattern file format (the canonical wire format between host and controller)
