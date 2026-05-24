@@ -60,7 +60,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | Panel-map data structure with regions / SPI-bus / CS | Slim has only the fixed `panel_set_select_pins` matrix + `region_count_per_frame=2`; no per-panel routing | Controller `#include`s [`g6_arena_configs.h`](g6_arena_configs.h) and indexes by Arena ID from the pattern header. No runtime config. |
 | Panel-set ordering for parallel transmission | Slim iterates column-major (`SpiManager.cpp:92-99`); G6 spec section 4 calls for panel-set iteration | Resolution pending: either (a) port G4's column-major iteration as-is and update G6 spec § 4 to match, (b) implement panel-set iteration in the controller per current spec, or (c) make ordering configurable per arena. Pick during G6 controller bring-up. |
 | Controller-side parity computation | Not present | See Modify section above. |
-| v2 PSRAM workflow + TSI parsing for Mode 1 | Mode 1 absent (`modes.h:6-10`); no PSRAM-related code anywhere | Adds load-phase logic, `(PatternID, FrameIndex16) → PSRAMAddress24` mapping table, TSI 5-byte record parser, DO/AO output drivers (pin assignments depend on arena hardware). |
+| v2 PSRAM workflow + TSI parsing for Mode 1 | Mode 1 absent (`modes.h:6-10`); no PSRAM-related code anywhere | Adds load-phase logic, `(PatternID, FrameIndex16) → PSRAMSlotIndex24` mapping table, TSI 5-byte record parser, DO/AO output drivers (pin assignments depend on arena hardware). |
 | `g6-panel-storage-mode` host command | Not in `ArenaCommands` enum | Pick a free opcode — none of `0x00, 0x01, 0x06, 0x08, 0x16, 0x30, 0x32, 0x66, 0x70, 0xFF` are available. |
 | EINT trigger-line wiring (input GPIO) used by v1 Triggered/Gated | Slim has no input pins beyond CS lines | Single trigger input to be added. Wiring depends on arena hardware. |
 | Magic / format-version field / CRC-8 header + per-frame CRC-16 | None in `PatternHeader.h:6-15` | Adopt v2 layout per `g6_04`: CRC-8/AUTOSAR over the 17-byte header (byte 17) + CRC-16/CCITT trailer per frame (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § CRC-8 algorithm and [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) § Frame Format). |
@@ -162,7 +162,7 @@ Mode 4 is the lowest priority, with some final details depending on arena hardwa
 
 | Mode | Name | Version introduced | Behavior |
 | :-: | :-- | :-: | :-- |
-| **1** | Position Function (TSI) | v2 | Controller reads next 5-byte record from selected `.TSI` file at each time step; resolves `FrameIndex16 → PSRAMAddress24`; sends a panel `display-by-index` command (`0x50`); updates DO/AO outputs. Valid only in Local Storage Mode (see § Major updates for v2). |
+| **1** | Position Function (TSI) | v2 | Controller reads next 5-byte record from selected `.TSI` file at each time step; resolves `FrameIndex16 → PSRAMSlotIndex24`; sends a panel `display-by-index` command (`0x50`); updates DO/AO outputs. Valid only in Local Storage Mode (see § Major updates for v2). |
 | **2** | Open Loop | v1 | At each frame interval: load frame from SD → slice → pack → send. |
 | **3** | Show Frame (host-commanded position) | v1 | Host gives frame index via `set-frame-position`; controller loads → slices → sends. |
 | **4** | Closed Loop Velocity | v1 | Controller reads analog voltage on AI line, integrates rate to determine frame index, then loads → slices → sends. Lowest priority for G6 v1; AI source TBD per `g6_07`. |
@@ -217,12 +217,12 @@ The controller now supports two mutually exclusive operating modes:
 2. **Local Storage Mode (new in v2)**
    - Controller performs a **load phase** after switching into this mode:
      - All patterns/frames on SD for the current experiment are copied to panel PSRAM.
-     - A unified internal table is built mapping `(PatternID, FrameIndex16) → PSRAMAddress24`.
+     - A unified internal table is built mapping `(PatternID, FrameIndex16) → PSRAMSlotIndex24`.
    - After loading, Modes 1–4 use index-based v2 panel commands instead of streaming full frames.
    - No hybrid mode: runtime uses either SD Mode or Local Storage Mode exclusively.
    - For later version, evaluate removing SD usage entirely. Pattern-frames could be streamed over Ethernet, sliced and sent out to panels for storage.
 
-Pattern IDs and frame indices remain 16-bit externally; only the internal PSRAM addresses are 24-bit. This mode switch does not change Pattern IDs or frame index values as seen by the host — only the controller's internal implementation.
+Pattern IDs and frame indices remain 16-bit externally; only the internal PSRAM slot indices are 24-bit (per [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § PSRAM addressing model and lifecycle, slot indices are opaque to the controller — firmware picks the byte stride). This mode switch does not change Pattern IDs or frame index values as seen by the host — only the controller's internal implementation.
 
 ### 2. Unified Frame Index Space (Host Still Uses 16-bit IDs)
 
@@ -231,10 +231,10 @@ Externally (host ↔ controller), Pattern IDs and Frame indices remain 16-bit va
 Internally, in Local Storage Mode, the controller maps:
 
 ```
-(PatternID, FrameIndex16) → GlobalFrameIndex16 → PSRAMAddress24
+(PatternID, FrameIndex16) → GlobalFrameIndex16 → PSRAMSlotIndex24
 ```
 
-- Panels only receive 3-byte PSRAM indices during v2 display commands.
+- Panels only receive 3-byte PSRAM slot indices during v2 display commands.
 - This mapping layer is entirely internal to the controller.
 
 ### 3. Local Storage Load Phase
@@ -244,7 +244,7 @@ Upon entering Local Storage Mode:
 1. Controller scans SD metadata for pattern and frame structure.
 2. Assigns each frame a global `FrameIndex16`.
 3. Uploads every frame to panel PSRAM using v2 write commands.
-4. Builds the mapping from `(PatternID, FrameIndex16)` to `PSRAMAddress24`.
+4. Builds the mapping from `(PatternID, FrameIndex16)` to `PSRAMSlotIndex24`.
 
 After this phase, Modes 1–4 run without reading arena frames from SD (except for TSI files in Mode 1).
 
@@ -319,7 +319,7 @@ Mode 1 (formerly Position Function Mode) introduced in v2, valid only in Local S
 At each time step (rate set by `trial-params` arguments: `Frame Rate-LO` / `Frame Rate-HI`):
 
 1. Controller reads next 5-byte record from the selected `.TSI` file.
-2. Resolves `FrameIndex16 → PSRAMAddress24` (based on `trial-params` arguments: `PatternID-LO` / `PatternID-HI`).
+2. Resolves `FrameIndex16 → PSRAMSlotIndex24` (based on `trial-params` arguments: `PatternID-LO` / `PatternID-HI`).
 3. Sends a **display-by-index** panel command (`0x50` — Display PSRAM Index v2 command).
 4. Updates DO and AO outputs accordingly.
 
