@@ -248,6 +248,54 @@ Upon entering Local Storage Mode:
 
 After this phase, Modes 1–4 run without reading arena frames from SD (except for TSI files in Mode 1).
 
+#### Atomicity and recovery protocol
+
+PSRAM is volatile and the panel-side preload is not a single atomic operation. To guarantee that every panel in the chain is displaying patterns from the *same* preload pass (no panel quietly running yesterday's table, no panel rebooted mid-load, no controller bookkeeping error producing a marked-loaded panel with garbage data), the controller MUST follow the protocol below. The mechanism rests on four pieces of v2 panel state defined in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § PSRAM addressing model and lifecycle: the **loaded-latch**, the **32-bit `load_generation`** token, the **`successful_write_count`** (panel-internal counter checked at `0x4F` time), and the **`storage_format_id`**.
+
+**Preload protocol**:
+
+1. Pick a fresh non-zero 32-bit `load_generation` for this preload pass. Random 32-bit values give low collision risk across sessions; a monotonic counter is acceptable only if the controller persists it across its own reboots (otherwise a controller restart with panels still powered may collide with a prior session's tokens). Zero is reserved as the "never loaded" sentinel and MUST NOT be used.
+2. For each panel, unicast [`0x0F` Reset PSRAM](g6_01-panel-protocol.md) (clears slots, latch, generation, write counter, error). Broadcast `0x0F` is allowed ONLY on arena topologies where every panel has its own CIPO line (per-panel CS plus per-panel CIPO routing) — on shared-CIPO topologies, broadcasting would cause MISO contention as multiple panels attempt to drive the confirmation slot. Unicast is the safe default.
+3. For each panel, for each slot to be loaded: unicast [`0x3F` Write 16-Level Grayscale to PSRAM](g6_01-panel-protocol.md). Validate the CIPO confirmation of each write. Note that CIPO confirmations are *delayed by one CS-active window* — the confirmation for `0x3F` write `K` arrives in the first 3 CIPO bytes of write `K+1` (or in the drain step below if `K` was the last). Two failure paths matter:
+   - **Semantic-reject** (CIPO sentinel `cmd_echo = 0xFE`): the panel rejected the write at the protocol layer (e.g., out-of-range slot, write after Mark-Loaded — see `last_op_error` codes in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md)). Follow up with `0x2F` to read `last_op_error`, fix the controller-side error, then restart this panel's preload from step 2 (`0x0F` Reset) — controller and panel write counters are still in sync, but the partial table is no longer trustworthy.
+   - **CIPO validation failure** (parity error, CRC mismatch, length error, or no echo at all): the controller cannot tell whether the panel accepted the write or not. Retrying in place would risk double-counting (panel accepted, controller didn't see it, controller retries, panel accepts again → panel counter ahead of controller). **Always abandon and restart this panel's preload from step 2 (`0x0F`)** on any CIPO validation failure — never retry the same slot write in place.
+
+   Maintain a per-panel counter `controller_writes_since_reset` that the controller increments only after each `0x3F` is CIPO-validated. The controller MUST reset its own counter to zero on every `0x0F` it issues to that panel (mirrors panel state). Counter saturates at `0xFFFFFF` to match the panel; preload passes MUST stay well under this bound.
+4. **Drain the final `0x3F` confirmation.** After the last `0x3F` write to a panel, CIPO confirmations are delayed: the final write's confirmation has not yet been delivered when the controller is ready to Mark-Loaded. Issue a unicast `0x2F` Query PSRAM Status — its first 3 CIPO bytes carry the final `0x3F`'s standard confirmation (per the drainage rule in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Confirmation message). Validate that `prior_cmd == 0x3F` AND CRC validates AND `last_op_error == 0` in the `0x2F` extended response. Each of the failure modes the drain catches is distinct and important:
+   - `prior_cmd == 0xFE` (PSRAM semantic-reject sentinel): the final `0x3F` was rejected at the panel. Restart this panel's preload from step 2.
+   - `prior_cmd == 0x00` (empty-buffer sentinel `{0x81, 0x00, 0x00}`): the panel rebooted between accepting the final `0x3F` and the drain — its confirmation slot was wiped. Restart this panel's preload from step 2.
+   - CRC validation failure: the drain's prior-confirmation bytes were corrupted on the wire. Restart this panel's preload from step 2.
+   - `last_op_error != 0` in the extended response: a prior op in this pass was rejected but the controller missed the sentinel. Restart this panel's preload from step 2.
+
+   Without this drain step the controller could issue `0x4F` while the final intended `0x3F` was actually rejected — and the count check would coincidentally pass (controller didn't count an unconfirmed write; panel didn't count the rejected write).
+
+   Controller MUST NOT proceed to step 5 until every panel in the chain has been drain-validated. A panel that fails the drain check must be re-loaded before any panel sees `0x4F` — otherwise the recovery rule in step 5 would have to bail out chain-wide on a single-panel issue that was still cleanly recoverable here.
+5. For each panel, unicast [`0x4F` Mark PSRAM Loaded](g6_01-panel-protocol.md) carrying `{load_generation, controller_writes_since_reset}`. The panel rejects (sentinel `0xFE` + `last_op_error = 0x06` `MARK_LOADED_COUNT_MISMATCH`) if its own write counter disagrees. **On reject: abort this entire preload pass and restart the protocol from step 1 across every panel in the chain with a fresh `load_generation`.** Reloading only the rejected panel with a fresh token while the rest of the chain holds the old token would recreate the generation-skew this protocol is designed to prevent.
+6. For each panel, unicast [`0x2F` Query PSRAM Status](g6_01-panel-protocol.md); verify `status.latch_loaded = 1`, `load_generation` matches what was sent, `last_op_error == 0`, `slot_count_le24` is at least the number of slots used. Verify `storage_format_id` is **non-zero** (controller MUST refuse v2 production use of any panel reporting `0x00` — that ID is reserved for pre-registry firmware and offers no compatibility guarantee; debug/lab use with explicit operator opt-in MAY override) **and identical** across every panel in the chain — a mismatch means the chain is running heterogeneous firmware whose slot stride / per-slot metadata format may differ, and v2 display is unsafe until firmware is unified.
+
+**Polling discipline** (deliberately not "before every display-mode entry" — that's too aggressive for tight stimulus loops):
+
+- MUST query each panel's `0x2F` once after Mark-Loaded (step 5 above).
+- MUST re-query whenever any of the following is observed:
+  - CIPO empty-buffer sentinel `{0x81, 0x00, 0x00}` (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Confirmation message) — a panel may have rebooted and lost its prior-confirmation slot.
+  - Sentinel `cmd_echo = 0xFE` (PSRAM semantic-reject) on any v2 op.
+  - Unsolicited error glyph observed by the operator.
+- SHOULD re-query at coarse experiment boundaries (start of a new trial, return from operator-initiated pause).
+- MUST NOT poll `0x2F` per stimulus frame in tight loops (e.g., Mode 1 at fixed time slices, see § 4 below) — rely on the sentinel mechanism for in-flight reset detection.
+
+**Recovery protocol** (any panel returns `load_generation = 0`, a value other than the controller's current pass token, or `latch_loaded = 0`):
+
+Recovery is **chain-wide atomic**, not per-panel. If any one panel needs reloading, every panel in the chain MUST be re-loaded with a fresh `load_generation`. This avoids the failure mode where reloading only the affected panel would leave its generation different from its neighbors — making "are all panels on the same load?" untrue and impossible to recover from in the next recovery pass.
+
+1. **Blank the arena.** Stop streaming display commands and force every panel to a dark state. On per-panel-CIPO topologies, broadcast a 2L Oneshot with all-zero pixel data; on shared-CIPO topologies, unicast the same Oneshot to each panel sequentially. Single-panel reload during active display would recreate the spatial-inconsistency the latch + generation model exists to prevent.
+2. **Pick a fresh `load_generation` `G'`** distinct from the prior pass token.
+3. **Re-execute the preload protocol on every panel in the chain** (`0x0F` → all `0x3F` writes → drain `0x2F` to validate the final `0x3F` confirmation → `0x4F` with `G'` and the controller's count → `0x2F` to verify). Validate the `0x0F` confirmation in CIPO too (defense-in-depth — a `0x0F` whose CIPO doesn't echo cleanly may have been corrupted on the wire, and the subsequent preload state is suspect). Yes, this re-uploads patterns even to panels that didn't reset — the cost is one extra preload-pass duration, and in exchange the chain ends up in a known-consistent state.
+4. **Resume or abort according to experiment policy.** For static stimulus libraries, automatic resume after chain-wide reload is often acceptable. For timing-critical Mode 1 loops at high frame rates (a 200 Hz loop loses ~32 frames during a 30-panel × 100-slot reload), the scientifically correct action is frequently abort + operator intervention. The controller exposes detection and chain-wide recovery as protocol primitives; the policy choice between auto-resume and abort lives at the experiment-configuration layer.
+
+**Recovery cost.** Chain-wide recovery uploads `panels × slots × ~204 bytes` of pattern data plus a handful of bookkeeping ops. For an `arena_10-10` (30 panels × ~100 slots) preload that's ~600 KB of payload, ~160 ms at 30 MHz SPI before software / inter-frame gaps. For high-latency experimental loops this is a noticeable pause; controllers may want to schedule recovery at trial boundaries when possible.
+
+**Capability negotiation note**: panel-side v2 capability advertisement (a dedicated "I am v2-capable" opcode) is still open design work — see the Compatibility note at the top of [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v2 — G6 Panel Protocol v2 — PSRAM-backed display. Until specced, the controller treats `0x2F` round-trip success as the de-facto v2-support probe.
+
 ### 4. Mode 1 Support via TSI Files
 
 Mode 1 (formerly Position Function Mode) introduced in v2, valid only in Local Storage Mode, and is driven by **Time Series Index (TSI)** files stored on the SD card.
@@ -309,7 +357,7 @@ Mode 1 is invalid in SD Mode.
 v1, v2, and v3 are being designed together. Controller-side additions across the three versions:
 
 - **v1 Triggered/Gated** (`0x12`/`0x13`/`0x32`/`0x33` under header `0x01`/`0x81`) — dispatch alongside the v1 Oneshot/Persistent handlers. v1 Persistent (`0x11`/`0x31`) is already implemented in panel firmware; Triggered/Gated are specced and prototyped but not in v1 production firmware yet. See [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § `0x12`/`0x13` for semantics.
-- **v2 PSRAM Triggered/Gated** (`0x52`/`0x53` implicit-`duty_cycle`, `0x62`/`0x63` explicit-`duty_cycle`) — add when v2 firmware lands. `0x53` PSRAM-Persistent is the one Persistent-mode opcode that's reserved-but-deferred (v1 Persistent `0x11`/`0x31` is already live; PSRAM-Persistent depends on v2 PSRAM addressing semantics being resolved first).
+- **v2 PSRAM Triggered/Gated** (`0x52`/`0x53` implicit-`duty_cycle`, `0x62`/`0x63` explicit-`duty_cycle`) — add when v2 firmware lands. Note: low-nibble `1` is Persistent, `2` is Triggered, `3` is Gated (so `0x51`/`0x61` are PSRAM-Persistent, `0x53`/`0x63` are PSRAM-Gated). All four mode variants are specified in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v2.
 - **v3 dispatcher** — recognize v3 header byte `[0x03]`/`[0x83]` and route to v3 command handlers (diagnostics `0x02`/`0x03`, predefined-pattern display `0x70`–`0x73`) alongside the v1/v2 handlers per the version-superset rule (a v3 panel MUST accept v1 + v2 commands).
 - **EINT forwarding** — Triggered/Gated rely on EINT. For the production `arena_10-10`, the wiring runs through jumper J30 (default OPEN per [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md)), so the controller drives `TNY.EINT` (Teensy D33) based on whatever Triggered/Gated software policy is in force.
 

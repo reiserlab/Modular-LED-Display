@@ -8,9 +8,11 @@ Live `⚠ Flag` callouts and per-file `Open Questions / TBDs` sections inside ea
 
 ## Spec decisions still open
 
-- **PSRAM index semantics + preload atomicity.** `g6_01` v2 uses "PSRAM index/location" without saying whether the 24-bit value is a byte address, frame slot, record index, or typed handle — plus bounds, alignment, GS2/GS16 type tagging, persistence across reset, full-memory behavior. Separately: if a preload pass is interrupted (one panel reboots mid-load), one panel can hold a different pattern table than its neighbors and the same 24-bit index then drives a spatially inconsistent stimulus. Needs a half-page subsection in `g6_01` § v2 once the address-space question is answered.
+*(no cross-cutting spec decisions currently open; per-file `Open Questions / TBDs` sections in each `g6_*.md` remain authoritative for narrower items)*
 
 ## Deferred design pressure (acknowledged but not closed)
+
+- **Panel-side v2 capability advertisement.** [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v2 — G6 Panel Protocol v2 — PSRAM-backed display (Compatibility note) records that "I am v2-capable" is not yet a dedicated opcode; the controller probes v2 support via `0x2F` Query PSRAM Status round-trip. A purpose-built advertisement opcode (analogous to `COMM_CHECK`) would let the controller fan out a discovery sweep without depending on PSRAM-state side effects. Worth tackling alongside the next v2 firmware bring-up pass.
 
 - **ISP-in-v1 vs separate protocol version.** Putting flash-write opcodes in v1 means every future v2/v3/v4 panel firmware must continue to support them. A dedicated ISP protocol with explicit `BOOT_TO_ISP` transition would isolate dangerous operations and survive version evolution. The ISP section is currently marked **"Draft — design-review needed"** with four flagged design holes (atomic staging, image authenticity, version-evolution, mixed-firmware-on-failure) — see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § ISP open questions.
 
