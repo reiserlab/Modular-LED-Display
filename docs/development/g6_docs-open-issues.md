@@ -22,10 +22,6 @@ Live `⚠ Flag` callouts and per-file `Open Questions / TBDs` sections inside ea
 
 ## Follow-up after CRC spec lands
 
-CRC-8/AUTOSAR for wire-level slots (CIPO confirmation, ISP extended confirmation, pattern-file header byte 17) and CRC-16/CCITT-FALSE for per-frame integrity in pattern files. Status:
-
-- **Panel firmware:** ✓ landed (`reiserlab/LED-Display_G6_Firmware_Panel` commit `7594dbd`; single-panel smoke-tested on v0.3.1; sharp `file:line` cite to `Message::calculate_crc8` now in `g6_01` § Implementation status).
-- **v2 short-command padding** (`0x0F`, `0x02`, `0x03` carry 1 reserved byte): ✓ already in v2 spec command definitions.
 - **Controller-side CRC-16 per-frame validation** (`verify_crc16()` or equivalent) and sharp `file:line` cite to it from `g6_04` § Per-frame CRC-16 — pending the G6 controller port.
 
 ## Out-of-band
