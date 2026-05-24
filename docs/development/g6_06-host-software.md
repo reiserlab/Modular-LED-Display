@@ -30,6 +30,12 @@ The host-side MATLAB tooling already exists and is partially G6-aware: `Generati
 
 **Geometry-supply status:** the *panel-presence* part is in the v2 pattern header (`row_count`, `col_count`, 6-byte panel mask — `maDisplayTools/g6/g6_save_pattern.m`). Per-arena geometry and registered Arena IDs live in the [maDisplayTools arena registry](../../Generation%206/maDisplayTools/configs/arena_registry/README.md) (host-canonical YAML; per-generation 6-bit ID namespace). The controller-side [`g6_arena_configs.h`](g6_arena_configs.h) is currently hand-maintained from that registry plus a sibling hardware-topology YAML (SPI bus + CS GPIO per column, TBD); a small Python codegen under `maDisplayTools/tools/` will replace the hand-sync once it lands. `flip_ud` and per-panel pixel-index fields stay host-only (never reach the controller).
 
+### Observer IDs (deferred)
+
+Observer IDs will follow the same host-canonical registry pattern as Arena IDs (YAML under `maDisplayTools/configs/`). They are **pure pattern-creation-time metadata** — they bundle the observer-rig parameters a pattern was authored against, for provenance and logging. Observer IDs do not reach the controller, do not appear in the pattern header on the wire, and do not dispatch any runtime behavior on host, controller, or panel.
+
+Implementation deferred; will land alongside Arena IDs in the maDisplayTools registry when the pattern-creation pipeline is ready. No spec, firmware, or host-runtime changes needed in the meantime.
+
 ### G4 controller target = "G6 mode"
 
 Same G4 command set, but the host must know it's talking to a G6 controller (via ID/version) so it can:
