@@ -710,7 +710,7 @@ v1 panel firmware: [`reiserlab/LED-Display_G6_Firmware_Panel`](https://github.co
 
 | Spec item | Status |
 | :-- | :-- |
-| Message framing, header byte, parity rule, CIPO 3-byte confirmation slot (4-state encoding, `0xFF` COMM_CHECK-fail sentinel) | **CIPO checksum: CRC-8/AUTOSAR (firmware update pending).** Other framing items: implemented, not yet stacked-panel bench-validated. |
+| Message framing, header byte, parity rule, CIPO 3-byte confirmation slot (4-state encoding, `0xFF` COMM_CHECK-fail sentinel) | CIPO checksum: CRC-8/AUTOSAR implemented ([`Message::calculate_crc8`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/blob/main/panel/src/message.cpp#L243-L251), 256-byte LUT at [L215–L241](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/blob/main/panel/src/message.cpp#L215-L241)). Other framing items: implemented, single-panel-verified on v0.3.1 hardware (clean boot, 60 s selftest cycle, no PIO IRQ timeouts; ~30 mA idle → ~320 mA all-on @ duty_cycle=255 from MacBook USB-C). Not yet stacked-panel bench-validated. |
 | `0x01` COMM_CHECK (byte-for-byte validation against canonical payload) | implemented |
 | `0x10` / `0x11` 2L Oneshot + Persistent, `0x30` / `0x31` 16L Oneshot + Persistent | implemented |
 | Duty cycle (BCM-via-PIO with fixed-period scan, default 1 kHz refresh) | implemented |
