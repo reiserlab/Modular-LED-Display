@@ -58,7 +58,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | Item | Why new | Notes |
 |---|---|---|
 | Panel-map data structure with regions / SPI-bus / CS | Slim has only the fixed `panel_set_select_pins` matrix + `region_count_per_frame=2`; no per-panel routing | Controller `#include`s [`g6_arena_configs.h`](g6_arena_configs.h) and indexes by Arena ID from the pattern header. No runtime config. |
-| Panel-set ordering for parallel transmission | Slim iterates column-major (`SpiManager.cpp:92-99`); G6 spec section 4 calls for panel-set iteration | Spec ↔ impl divergence D9 in [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) — three options to resolve. |
+| Panel-set ordering for parallel transmission | Slim iterates column-major (`SpiManager.cpp:92-99`); G6 spec section 4 calls for panel-set iteration | Resolution pending: either (a) port G4's column-major iteration as-is and update G6 spec § 4 to match, (b) implement panel-set iteration in the controller per current spec, or (c) make ordering configurable per arena. Pick during G6 controller bring-up. |
 | Controller-side parity computation | Not present | See Modify section above. |
 | v2 PSRAM workflow + TSI parsing for Mode 1 | Mode 1 absent (`modes.h:6-10`); no PSRAM-related code anywhere | Adds load-phase logic, `(PatternID, FrameIndex16) → PSRAMAddress24` mapping table, TSI 5-byte record parser, DO/AO output drivers (pin assignments depend on arena hardware). |
 | `g6-panel-storage-mode` host command | Not in `ArenaCommands` enum | Pick a free opcode — none of `0x00, 0x01, 0x06, 0x08, 0x16, 0x30, 0x32, 0x66, 0x70, 0xFF` are available. |
