@@ -82,7 +82,7 @@ Firmware must select the correct SPI peripheral per board version. `iorodeo/g6_f
 
 **v0.3:** Both COL (GP0–GP19) and ROW (GP20–GP39) are fully contiguous; SPI relocated to SPI1 on GP40–43 (out of the way). **PIO1 with `GPIOBASE = 16` and base GP20** can drive rows with a clean `out pins, 20`. **Dual-PIO `PIOFULL` is straightforward** — validated end-to-end against v0.3.1 panels in `G6_Panels_Test_Firmware @ bb26a44` (see `single_led/PRODUCTION_ARCHITECTURE.md` § 5 PIOFULL). Enables fully-autonomous PIO scanning: CPU is free during scan bursts, no `noInterrupts()` needed; ~0.37 µs/row overhead vs ~0.61 µs/row in PIOSCAN; potentially supports 5- or 6-bit BCM within the same 15 µs scan window.
 
-**Firmware implication:** to support both panel revisions, firmware needs (a) per-version pin-constant tables, (b) per-version SPI peripheral selection (SPI0 vs SPI1), (c) per-version scan architecture (PIOSCAN vs PIOFULL — or both PIOSCAN as a common baseline plus PIOFULL as a v0.3-only optimization), and (d) a board-id mechanism (Open Question #4).
+**Firmware implication:** to support both panel revisions, firmware needs (a) per-version pin-constant tables, (b) per-version SPI peripheral selection (SPI0 vs SPI1), (c) per-version scan architecture (PIOSCAN vs PIOFULL — or both PIOSCAN as a common baseline plus PIOFULL as a v0.3-only optimization), and (d) a board-id mechanism (implemented as the build-time `-DPANEL_REV` flag in `panel/platformio.ini`, with envs `pico_v021` and `pico_v031` per [`LED-Display_G6_Firmware_Panel`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/blob/main/panel/platformio.ini)).
 
 ## LED matrix and drivers
 
@@ -165,7 +165,7 @@ Cross-doc with [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interf
 
 ## LED designator mapping (v0.1)
 
-The 400-row v0.1 LED designator table is in [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) (CSV with header `row,col,led` + 400 data rows). v0.2 and v0.3 designator tables are pending KiCad-source extraction (Open Question #2).
+The 400-row v0.1 LED designator table is in [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) (CSV with header `row,col,led` + 400 data rows). v0.2 and v0.3 designator tables are verified identical to v0.1 — no separate CSV needed.
 
 ### Grid layout (v0.1 — for visual orientation)
 
@@ -236,7 +236,7 @@ Worked example consumers: [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) �
 - [`G6_Panels_Test_Firmware/test_firmware/single_led/G6_V03_SCHEMATIC_REVIEW.md`](https://github.com/mbreiser/G6_Panels_Test_Firmware) — v0.3.1 schematic review (32/32 checks passed).
 - [`G6_Panels_Test_Firmware/test_firmware/single_led/PRODUCTION_ARCHITECTURE.md`](https://github.com/mbreiser/G6_Panels_Test_Firmware) — PIOFULL validation on v0.3.1 panels (PIO viability evidence).
 - [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) `panel/src/constants.cpp` — v0.2 pin layout source (`COL_PIN`, `ROW_PIN`, `SPI_*_PIN`).
-- [`iorodeo/g6_firmware_devel`](https://github.com/iorodeo/g6_firmware_devel) `panel/src/display.cpp::sch_to_pos_index()` — schematic → physical pin remapping layer (Open Q #5).
+- Schematic → physical pin remapping layer: [`LED-Display_G6_Firmware_Panel`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/blob/main/panel/src/layout.h) `panel/src/layout.{h,cpp}` (replaced iorodeo's `display.cpp::sch_to_pos_index()` in commit [`7c042cd`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/commit/7c042cd)).
 - [`iorodeo/LED-Display_G6_Hardware_Panel`](https://github.com/iorodeo/LED-Display_G6_Hardware_Panel) PR `prod_v0p2r0` (head `89960365`) — v0.2 + v0.3 production design source.
 - `panel_rp2354_20x20_v0.3.0.pdf` (in `G6_Panels_Test_Firmware/`) — v0.3 schematic PDF.
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format — uses the v0.1 mapping for the four worked-example pixels (`pixel[0,0]` → D50, `pixel[0,1]` → D70, `pixel[19,18]` → D340, `pixel[19,19]` → D360).
