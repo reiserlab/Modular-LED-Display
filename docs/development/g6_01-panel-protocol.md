@@ -229,6 +229,34 @@ The controller is expected to stream patterns at its normal cadence regardless o
 
 Use case: window-gated display for behavior-rig event windows. The rig's event-window controller drives EINT; the panel controller streams patterns at its own cadence; the animal sees patterns only during event windows. The two control streams are decoupled, which simplifies the controller-side software and makes the event-window timing precise (driven by the rig clock, not the SPI clock).
 
+#### Timing considerations for Triggered & Gated (`duty_cycle` dependence)
+
+**Per-row drive time depends on both `duty_cycle` and gray level.** This determines the LED-on window inside each EINT trigger interval (Triggered) and the gate-drop response latency (Gated). For the V1 panel firmware (`reiserlab/LED-Display_G6_Firmware_Panel` with default `base_T = 3 µs`):
+
+| Pattern | `duty_cycle` | Per-row LED-on window | Fraction of 125 µs (8 kHz) trigger interval | Gate-drop latency (Gated) |
+|---|---|---|---|---|
+| Gray_2  | 255 | ~45 µs | 36% | ~45 µs |
+| Gray_2  | 128 | ~23 µs | 18% | ~23 µs |
+| Gray_2  |  85 | ~15 µs | 12% | ~15 µs |
+| Gray_2  |  64 | ~11 µs |  9% | ~11 µs |
+| Gray_2  |   1 | ~1–3 µs (PIO floor) | ~1–2% | ~3 µs |
+| Gray_16 | 255 | ~50 µs | 40% | ~50 µs |
+| Gray_16 | 128 | ~25 µs | 20% | ~25 µs |
+| Gray_16 |  85 | ~17 µs | 13.5% | ~17 µs |
+| Gray_16 |   1 | ~5 µs (4× plane floor) | ~4% | ~5 µs |
+
+The 865 ± 17 ns trigger-to-LED latency cited elsewhere is the PIO setup time (independent of `duty_cycle`) — it measures "edge → first LED on", not "edge → row fully drawn". Between rows the panel is naturally dark: `show_row` sets the row pin HIGH (=OFF) on exit, so the dead time inside each trigger interval (interval − LED-on window) has no illumination, and the controller can rely on that dead time for downstream sampling without LED bleedthrough.
+
+**Canonical Triggered use case** — sub-frame synchronization for behavior rigs and microscopy:
+
+The typical experiment wants each row's LED flash to occupy only a **small fraction** of its EINT trigger interval — ~10–15% is a common target — so the bright window stays well clear of adjacent rows' sampling windows. At the spec's 8 kHz EINT target (125 µs trigger interval), this corresponds to `duty_cycle` ≈ **64–85** for either gray level, giving ~12.5–18.75 µs of LED-on per row. The resulting full-frame rate is **EINT_rate / 20 = 400 fps** at 8 kHz, with each row's LEDs flashing briefly inside its own trigger window.
+
+**Hard upper bound, not a target:** the per-row drive time at `duty_cycle = 255` (~45–50 µs) is the largest LED-on window that fits inside one 125 µs trigger interval — beyond this, edges that arrive while a row is still being driven will be missed. Operating anywhere near this bound leaves no dead time for downstream sampling and is generally not what behavior-rig users want. **Bench-test the intended `(duty_cycle, EINT frequency, gray level)` combination before relying on it in a production experiment** — both that no edges are missed *and* that the LED-on fraction matches the experimental requirement.
+
+**Implications for Gated (`0x13` / `0x33`)**: the mid-scan HIGH→LOW response latency is bounded by one per-row drive time. The spec text "within one bit-plane interval" is approached only at low `duty_cycle`; at full `duty_cycle = 255` it's ~50 µs (per-row granularity in the V1 firmware implementation — a documented departure for code-simplicity reasons).
+
+Both effects are inherent to the BCM scan engine; firmware can't compress per-row drive below the PIO floor. Controller-side software should treat `duty_cycle` as the knob that sets the LED-on fraction of each trigger interval (Triggered) or the gate-drop latency (Gated).
+
 #### `0x30` — Display 16-Level Grayscale (Oneshot)
 
 Displays a 16-level (4-bit per pixel) pattern **once** — single BCM scan, then idle.
