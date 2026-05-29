@@ -61,3 +61,9 @@
 [submodule "Generation 6/webDisplayTools"]
 	path = Generation 6/webDisplayTools
 	url = https://github.com/reiserlab/webDisplayTools
+[submodule "Generation 6/Panel-Firmware"]
+	path = Generation 6/Panel-Firmware
+	url = git@github.com:reiserlab/LED-Display_G6_Firmware_Panel.git
+[submodule "Generation 6/Arena-Firmware"]
+	path = Generation 6/Arena-Firmware
+	url = git@github.com:reiserlab/LED-Display_G6_Firmware_Arena.git
