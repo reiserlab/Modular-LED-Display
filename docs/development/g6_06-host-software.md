@@ -19,6 +19,17 @@ The host-side MATLAB tooling already exists and is partially G6-aware: `Generati
 
 ---
 
+## Host control options & transports
+
+The host drives the controller with one command stream (`[len, cmd, …]`) over **either transport**: **Ethernet/TCP** (port 62222 — the MATLAB path) or **USB-CDC serial**. The same G6 arena firmware build ([`LED-Display_G6_Firmware_Arena`](https://github.com/reiserlab/LED-Display_G6_Firmware_Arena)) serves both and routes each response back to the transport its command arrived on. Command set: [`g6_03-controller.md`](g6_03-controller.md) § Host Command Summary.
+
+The serial path enables **browser-based control with no install** — **demonstrated working** on real hardware via the firmware repo's `scripts/web-serial` page (Web Serial API, Chromium). [`webDisplayTools`](https://github.com/reiserlab/webDisplayTools) builds on it:
+
+- **Arena Console** — PControl-like live control (connect, all-on/off, trial-params, set-frame, SPI clock, pattern-by-name).
+- **v3 Experiment Designer (runner)** — single-trial dry-run + full-sequence execution from the browser; patterns are staged on the SD card by a Pattern Set / SD-bundle builder (1-based index).
+
+MATLAB over TCP stays the established path; the browser/serial path is additive. (Tracked in the Linear project *G6 Web Control (CSHL)*.)
+
 ## Anticipated PC host updates for G6 v1
 
 ### Arena configuration for G6 panels

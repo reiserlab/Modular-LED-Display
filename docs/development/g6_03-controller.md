@@ -28,7 +28,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | `SET_FRAME_POSITION_CMD` (0x70) | `commands.h:14`, `CommandProcessor.cpp:121-133` | ✓ unchanged |
 | `SET_REFRESH_RATE_CMD` (0x16) | `commands.h:11`, `CommandProcessor.cpp:71-81` | ✓ generic 16-bit Hz setter |
 | `GET_ETHERNET_IP_ADDRESS_CMD` (0x66) | `commands.h:13`, `CommandProcessor.cpp:117-119` | ✓ utility command |
-| TCP framing (port 62222, `[len, cmd, ...]` binary form, `[0x32, len_lo, len_hi, …]` stream form) | `NetworkManager.cpp:50-95`, `constants.h:126,127,128` | ✓ retained |
+| TCP framing (port 62222, `[len, cmd, ...]` binary form, `[0x32, len_lo, len_hi, …]` stream form) | `NetworkManager.cpp:50-95`, `constants.h:126,127,128` | ✓ retained — G6 firmware also accepts the same command stream over **USB-CDC serial** (same framing; see [`g6_06`](g6_06-host-software.md) § Host control options) |
 | Response framing `[len, status, echo_cmd, ASCII msg]` (200 B response buffer) | `NetworkManager.cpp:106-119`, `constants.h:129` | ✓ |
 | Single-client TCP server with `setNoDelay(true)`; DHCP-only IP | `NetworkManager.h:37-38`, `NetworkManager.cpp:5-18` | ✓ |
 | `IntervalTimer`-driven refresh ISR | `SpiManager.cpp:37-48` | ✓ |
