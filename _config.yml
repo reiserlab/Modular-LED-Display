@@ -110,6 +110,7 @@ exclude: [
     "Generation 6/Panels/README.md",
     "Generation 6/Panel-Firmware/README.md",
     "Generation 6/Panel-Firmware/panel/README.md",
+    "Generation 6/Panel-Firmware/panel/bench",
     "Generation 6/Panel-Firmware/panel_controller/README.md",
     "Generation 6/Panel-Firmware/test_arena/README.md",
     ## G6 maDisplayTools
