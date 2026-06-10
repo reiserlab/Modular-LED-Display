@@ -102,10 +102,16 @@ exclude: [
 
     ## G6 Arena
     "Generation 6/Arena/README.md",
+    "Generation 6/Arena-Firmware/README.md",
+    "Generation 6/Arena-Firmware/debug",
     ## G6 Test Arena
     "Generation 6/Hardware/README.md",
     ## G6 Panels
     "Generation 6/Panels/README.md",
+    "Generation 6/Panel-Firmware/README.md",
+    "Generation 6/Panel-Firmware/panel/README.md",
+    "Generation 6/Panel-Firmware/panel_controller/README.md",
+    "Generation 6/Panel-Firmware/test_arena/README.md",
     ## G6 maDisplayTools
     "Generation 6/maDisplayTools/README.md",
     "Generation 6/maDisplayTools/patterns/README.md",
