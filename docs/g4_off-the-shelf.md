@@ -8,6 +8,8 @@ nav_order: 9
 1. TOC
 {:toc}
 
+__NOTE__: These components are only requried for the G4 system, not for the G4.1 system.
+
 # Computer {#computer}
 
 The computer acts as a controller for the arena and we recommend the use of a dedicated machine for this task. Two applications, namely MATLAB and a Simulink based custom application, need to run in parallel on this machine. The faster this machine the better, but we cannot give a recommendation on what the lower limit is. Most recently we used Dell Precision 5820 Workstations, but other recent PC with a PCIe slot will most likely work as well. The communication between computer and arena is realized through a specialized I/O card.
