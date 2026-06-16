@@ -11,7 +11,7 @@
 	path = Generation 3/AVRDude
 	url = git@github.com:reiserlab/LED-Display_G3_Firmware_avrdude.git
 [submodule "Generation 4/Firmware"]
-	path = Generation 4/Firmware
+	path = Generation 4/Firmware-Panels
 	url = git@github.com:reiserlab/LED-Display_G4_Firmware.git
 [submodule "Generation 4/Hardware"]
 	path = Generation 4/Hardware
@@ -67,3 +67,6 @@
 [submodule "Generation 6/Arena-Firmware"]
 	path = Generation 6/Arena-Firmware
 	url = git@github.com:reiserlab/LED-Display_G6_Firmware_Arena.git
+[submodule "Generation 4/Firmware-Arena"]
+	path = Generation 4/Firmware-Arena
+	url = git@github.com:reiserlab/LED-Display_G4_Firmware_Arena.git

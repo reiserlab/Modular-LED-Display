@@ -88,10 +88,11 @@ exclude: [
     "Generation 4/Display_Tools/PControl_Matlab/test_scripts",
     "Generation 4/Display_Tools/G4_Data_Analysis/support/",
     "Generation 4/Display_Tools/Pitching_Zaber_Stage/zaber functions/",
-    "Generation 4/Firmware/hardware_v0p1",
-    "Generation 4/Firmware/hardware_v0p2",
-    "Generation 4/Firmware/library",
-    "Generation 4/Firmware/test_controllers",
+    "Generation 4/Firmware-Panels/hardware_v0p1",
+    "Generation 4/Firmware-Panels/hardware_v0p2",
+    "Generation 4/Firmware-Panels/library",
+    "Generation 4/Firmware-Panels/test_controllers",
+    "Generation 4/Firmware-Arena/README.md",
     ## Hardware
     "Generation 4/Hardware/atmega328",
     "Generation 4/Hardware/max6960",
@@ -124,6 +125,8 @@ exclude: [
     "Generation 6/webDisplayTools/CLAUDE.md",
     "Generation 6/webDisplayTools/CHANGELOG.md",
     "Generation 6/webDisplayTools/docs/development",
+    "Generation 6/webDisplayTools/node_modules",
+    "Generation 6/webDisplayTools/tests",
     "CLAUDE.md",
   ]
 
