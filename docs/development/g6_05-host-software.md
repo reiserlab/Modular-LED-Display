@@ -54,7 +54,7 @@ Same G4 command set, but the host must know it's talking to a G6 controller (via
 - Use G6-compatible pattern sizes (20×20 per panel)
 - Avoid any legacy G4 hardware assumptions.
 
-G6 adds opcode `0x67 = get-controller-info` (single command with version-dispatched response shape) covering both v1 G6-mode detection and v2 capability bitmap. Specification lives in [`g6_03-controller.md`](g6_03-controller.md) § Command Registry.
+G6 adds opcode `0xC2 = get-controller-info` (single command with version-dispatched response shape) covering both v1 G6-mode detection and v2 capability bitmap. Specification lives in [`g6_03-controller.md`](g6_03-controller.md) § Command Registry.
 
 ### Pattern and file format expectations
 
