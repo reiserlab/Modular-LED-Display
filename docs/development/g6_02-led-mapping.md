@@ -1,7 +1,7 @@
 # G6 — Panel Hardware Reference (v0.2 + v0.3) and LED Mapping
 
 Source: G6 panels protocol v1 proposal ([Google Doc `17crYq4s...`](https://docs.google.com/document/d/17crYq4sdD1GhazOPS_Yi6UyGV6ugUy3WGnCWWw49r_0/edit#), tab "Panel LED Mappings"). Hardware authority: [`reiserlab/LED-Display_G6_Hardware_Panel`](https://github.com/reiserlab/LED-Display_G6_Hardware_Panel) (v0.2 + v0.3 KiCad). v0.2 pin layout also in [`g6_firmware_devel/panel/src/constants.cpp`](https://github.com/iorodeo/g6_firmware_devel).
-Status: **Specified for v0.2 + v0.3** — every firmware-relevant pin, peripheral, polarity, resistor value, and connector pinout captured. v0.1 LED designator mapping table at [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) is canonical for all three revisions (LED XY positions are byte-identical across v0.1/v0.2/v0.3; only orientation differs).
+Status: **Specified for v0.2 + v0.3** — every firmware-relevant pin, peripheral, polarity, resistor value, and connector pinout captured. v0.1 LED designator mapping table at [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) is canonical for all three revisions — LED positions, component rotation, and designators are byte-identical across v0.1/v0.2/v0.3 (verified from KiCad; see § LED designator mapping). Only the MCU COL/ROW GPIO wiring and SPI peripheral differ between revisions (see § Pin assignments).
 
 This file captures the firmware ↔ panel-hardware contract for the two in-house G6 panel revisions (**v0.2** production, **v0.3** parallel revision in-house but not enough for full systems yet), plus the LED designator mapping. Major firmware-relevant deltas between v0.2 and v0.3: **pin/column wiring, SPI peripheral, PSRAM CS pin, PIO viability**. BOMs are otherwise bit-identical (same MCU, LEDs, current-limit resistor, drivers, connectors).
 
@@ -124,7 +124,7 @@ With the v3 mode set finalized in [`g6_01-panel-protocol.md`](g6_01-panel-protoc
 - **Gated modes** (`0x14`, `0x34`, `0x54`): while GP45 HIGH, panel internally refreshes the loaded pattern at its BCM rate; while LOW, display off. Recommended: GPIO level-watch + scan-loop gate.
 - **EINT pin is GP45 on both v0.2 and v0.3** — the only firmware-visible pin shared identically across the two revisions. Same firmware handler works on both.
 
-The arena-side wiring (Teensy D33 `TNY.EINT` → R25 33 Ω → fan-out → all 10 panel columns) and the J30 jumper (Teensy-mediated vs direct-from-J4-BNC) are documented in [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § v3 Triggered/Gated display relevance.
+The arena-side wiring (Teensy D33 `TNY.EINT` → R25 33 Ω → fan-out → all 10 panel columns) and the J30 jumper (Teensy-mediated vs direct-from-J4-BNC) are documented in [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md) § v3 Triggered/Gated display relevance.
 
 ## Connectors
 
@@ -154,7 +154,7 @@ J4/J5 (top side) enable **panel daisy-chaining / vertical stacking**. The produc
 - Inside the panel, J3↔J5 routes each remaining CS signal to **a one-higher pin number in J5**: `J3 pin 4 (CS1) → J5 pin 5`, `J3 pin 3 (CS2) → J5 pin 4`, `J3 pin 2 (CS3) → J5 pin 3`. EINT passes straight through (`J3 pin 1 ↔ J5 pin 1`). `J5 pin 2 = NC` — would have carried this panel's CS0 onward, but CS0 stops here.
 - When panels stack (lower J5 ↔ upper J3 in 1:1 pin alignment), each panel up the stack reads the *next* arena CS line as its own CS0: lower J5 pin 5 (CS1) → upper J3 pin 5 (which the upper panel hardwires to MCU CS0). **Up to 4 panels per stack** (4 arena CS lines); same mechanism in v0.2 and v0.3.
 
-Cross-doc with [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § Chip-select topology (arena drives 4 distinct Teensy CS pins per column).
+Cross-doc with [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md) § Chip-select topology (arena drives 4 distinct Teensy CS pins per column).
 
 ## Programming / boot workflow
 
@@ -166,6 +166,10 @@ Cross-doc with [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interf
 ## LED designator mapping (v0.1)
 
 The 400-row v0.1 LED designator table is in [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv) (CSV with header `row,col,led` + 400 data rows). v0.2 and v0.3 designator tables are verified identical to v0.1 — no separate CSV needed.
+
+**Cross-revision designator mapping — verified identical (no transform).** All 400 LED footprint placements (`D1`–`D400`) were extracted from the KiCad PCBs of all three revisions (`panel_rp2354_20x20_v0p{1,2,3}/panel_rp2354_20x20.kicad_pcb`). Every designator sits at the same `(x, y)` centroid and the same −135° rotation in all three, so the designator-to-grid mapping is the identity — no rotation, mirror, or offset. The v0.1 grid/CSV is therefore the canonical pixel↔designator mapping for v0.1, v0.2, and v0.3 alike: silk `Dn` on any revision is the same grid cell.
+
+What differs between revisions is **not** the LED layout but the MCU-side wiring — the COL/ROW GPIO assignments and the SPI peripheral (see § Pin assignments, § SPI peripheral mapping). The panel firmware absorbs that with a per-build schematic→physical-pin remap; it does not change the host-visible pixel↔designator mapping.
 
 ### Grid layout (v0.1 — for visual orientation)
 
@@ -241,8 +245,8 @@ Worked example consumers: [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) �
 - `panel_rp2354_20x20_v0.3.0.pdf` (in `G6_Panels_Test_Firmware/`) — v0.3 schematic PDF.
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Pixel Data Format — uses the v0.1 mapping for the four worked-example pixels (`pixel[0,0]` → D50, `pixel[0,1]` → D70, `pixel[19,18]` → D340, `pixel[19,19]` → D360).
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v3 Display Modes — defines Triggered + Gated semantics that this file's § v3 EINT firmware contract implements.
-- [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) § v3 Triggered/Gated display relevance — arena-side EINT wiring (Teensy D33 → R25 → all panels' GP45).
+- [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md) § v3 Triggered/Gated display relevance — arena-side EINT wiring (Teensy D33 → R25 → all panels' GP45).
 - [`g6_00-architecture.md`](g6_00-architecture.md) § Host responsibilities — host owns LED mapping; this file is the data the host uses.
-- `Generation 6/Panels/panel_rp2354_20x20_v0p2/` (in submodule, currently uninitialized) — current production panel KiCad source.
-- `Generation 6/Panels/panel_rp2354_20x20_v0p3/` (in submodule, currently uninitialized) — parallel revision panel KiCad source.
-- `Generation 6/Panels/docs/` (in submodule, currently uninitialized) — authoritative panel hardware docs (when submodule lands).
+- `Generation 6/Panels/panel_rp2354_20x20_v0p2/` (in submodule) — current production panel KiCad source.
+- `Generation 6/Panels/panel_rp2354_20x20_v0p3/` (in submodule) — parallel revision panel KiCad source.
+- `Generation 6/Panels/docs/` (in submodule) — authoritative panel hardware docs.

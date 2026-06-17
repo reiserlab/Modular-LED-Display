@@ -218,8 +218,8 @@ In v2 the pattern header carries `row_count`, `col_count`, and the 6-byte panel 
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — Panel block format references panel-protocol v1 header byte, command byte, parity rule, payload sizes
 - [`g6_02-led-mapping.md`](g6_02-led-mapping.md) — pixel ↔ LED designator mapping
 - [`g6_03-controller.md`](g6_03-controller.md) — controller-side reading of pattern files; G6 controller doesn't exist yet
-- [`g6_06-host-software.md`](g6_06-host-software.md) — host-side workflow
-- [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md) — production `arena_10-10` topology (fills the region/SPI gap)
+- [`g6_05-host-software.md`](g6_05-host-software.md) — host-side workflow
+- [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md) — production `arena_10-10` topology (fills the region/SPI gap)
 - [Generation 6/maDisplayTools/g6/g6_save_pattern.m](../../Generation%206/maDisplayTools/g6/g6_save_pattern.m) — canonical v2 `.pat` writer
 - [Generation 6/maDisplayTools/g6/g6_encode_panel.m](../../Generation%206/maDisplayTools/g6/g6_encode_panel.m) — panel-block encoder
 - [Generation 6/maDisplayTools/g6/g6_encoding_reference.json](../../Generation%206/maDisplayTools/g6/g6_encoding_reference.json) — JSON test vectors validated by `maDisplayTools` and `webDisplayTools`

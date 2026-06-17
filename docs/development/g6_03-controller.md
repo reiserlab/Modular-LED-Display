@@ -28,7 +28,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | `SET_FRAME_POSITION_CMD` (0x70) | `commands.h:14`, `CommandProcessor.cpp:121-133` | ✓ unchanged |
 | `SET_REFRESH_RATE_CMD` (0x16) | `commands.h:11`, `CommandProcessor.cpp:71-81` | ✓ generic 16-bit Hz setter |
 | `GET_ETHERNET_IP_ADDRESS_CMD` (0x66) | `commands.h:13`, `CommandProcessor.cpp:117-119` | ✓ utility command |
-| TCP framing (port 62222, `[len, cmd, ...]` binary form, `[0x32, len_lo, len_hi, …]` stream form) | `NetworkManager.cpp:50-95`, `constants.h:126,127,128` | ✓ retained — G6 firmware also accepts the same command stream over **USB-CDC serial** (same framing; see [`g6_06`](g6_06-host-software.md) § Host control options) |
+| TCP framing (port 62222, `[len, cmd, ...]` binary form, `[0x32, len_lo, len_hi, …]` stream form) | `NetworkManager.cpp:50-95`, `constants.h:126,127,128` | ✓ retained — G6 firmware also accepts the same command stream over **USB-CDC serial** (same framing; see [`g6_05`](g6_05-host-software.md) § Host control options) |
 | Response framing `[len, status, echo_cmd, ASCII msg]` (200 B response buffer) | `NetworkManager.cpp:106-119`, `constants.h:129` | ✓ |
 | Single-client TCP server with `setNoDelay(true)`; DHCP-only IP | `NetworkManager.h:37-38`, `NetworkManager.cpp:5-18` | ✓ |
 | `IntervalTimer`-driven refresh ISR | `SpiManager.cpp:37-48` | ✓ |
@@ -156,7 +156,7 @@ The controller must support **G4 display Modes 2, 3, 4, and 5:**
 - **Mode 5 (Streaming)**
   - Host sends raw arena frames; controller slices → packs → sends immediately.
 
-Mode 4 is the lowest priority, with some final details depending on arena hardware.
+Mode 4 is the lowest implementation priority for G6 v1.
 
 ### Modes table (all five, with version)
 
@@ -165,7 +165,7 @@ Mode 4 is the lowest priority, with some final details depending on arena hardwa
 | **1** | Position Function (TSI) | v2 | Controller reads next 5-byte record from selected `.TSI` file at each time step; resolves `FrameIndex16 → PSRAMSlotIndex24`; sends a panel `display-by-index` command (`0x50`); updates DO/AO outputs. Valid only in Local Storage Mode (see § Major updates for v2). |
 | **2** | Open Loop | v1 | At each frame interval: load frame from SD → slice → pack → send. |
 | **3** | Show Frame (host-commanded position) | v1 | Host gives frame index via `set-frame-position`; controller loads → slices → sends. |
-| **4** | Closed Loop Velocity | v1 | Controller reads analog voltage on AI line, integrates rate to determine frame index, then loads → slices → sends. Lowest priority for G6 v1; AI source TBD per `g6_07`. |
+| **4** | Closed Loop Velocity | v1 | Controller reads analog voltage on AI line, integrates rate to determine frame index, then loads → slices → sends. Lowest priority for G6 v1; AI source is AIN0 / D14 / BNC J28 (see § 6 Mode Behavior). |
 | **5** | Streaming | v1 | Host sends raw arena frames; controller slices → packs → sends immediately. No SD or PSRAM access required. |
 
 > **⚠ Flag — Mode 1 not described in the v1 Modes section above.** The v1 source spec listed only Modes 2–5 since Mode 1 (TSI) was introduced in v2. The Modes table above is the unified five-mode reference; the source-tab v1 list will read as incomplete unless cross-referenced. Phase 2 consolidation can drop the per-version Modes lists in favor of this unified table.
@@ -174,29 +174,66 @@ Mode 4 is the lowest priority, with some final details depending on arena hardwa
 
 - **`all-on`** (`0x01, 0xff`) and **`all-off`** (`0x01, 0x00`) — controller-side opcodes for arena bring-up and host-facing diagnostic ergonomics. Internally `all-off` collapses to the same `ALL_OFF` state as `stop-display`; the duplication is for host clarity, not for distinct internal semantics.
 - **`stop-display`**, **`set-refresh-rate`**, **`get-ethernet-ip-address`** — standard G4-compatible host commands.
+- **`set-diagnostic-output`** (`0x02, 0x68, on`) — mutes (`on = 0`) or unmutes (`on = 1`) the controller's `DEBUG_SERIAL` diagnostic text stream on the shared USB-CDC pipe; no effect on a non-diagnostic firmware build (still acked). Interactive clients (web-serial) mute on connect for a clean command/response channel; the CIPO capture scripts re-enable it. Flag persists across reconnects. Always acked so the wire protocol is uniform across builds.
 - **`switch-grayscale`** (0x06) and **`display-reset`** (0x01) — **dropped for G6.** The canonical pattern-header `gs_val` byte (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)) replaces `switch-grayscale`; `display-reset` has no G6 meaning. Hosts will not send these opcodes for G6.
 
 ---
 
-## Host Command Summary
+## Command Registry
 
-This is a copy of the G4.1 commands. Possibly adjust for G6 use.
+**Source of truth for Host → Controller commands** — the controller's own command set,
+mirrored by `Arena-Firmware/src/commands.h` (`enum ArenaCommands`); these MUST be kept in sync.
 
-| Name | G4 Starting bytes | Version | Comment |
-|---|---|---|---|
-| Trial-params | `0x0c, 0x08` | v1 | "Combined command" |
-| Set-frame-position | `0x03, 0x70` | v1 | |
-| Stream-Frame | `0x32` | v1 | G6 frame-data length differs (see below) |
-| Stop-Display | `0x01, 0x30` | v1 | Also doubles as "all off" |
-| all-on | `0x01, 0xff` | v1 | Controller-side opcode for arena bring-up. Host-composed Mode 5 frames are also possible, but `0xff` stays canonical for diagnostics. |
-| all-off | `0x01, 0x00` | v1 | Controller-side opcode for arena bring-up (same rationale as all-on). |
-| Set-refresh-rate | `0x03, 0x16` | v1 | Sets SPI re-transmission rate. **Default is picked from the v2 pattern-header `gs_val` byte**: 300 Hz for GS16, 1000 Hz for GS2. Host may override via this command. |
-| Get-ethernet-ip-address | `0x01, 0x66` | v1 | Returns DHCP-resolved IP as ASCII. |
-| Get-controller-info | `0x01, 0x67` | v1 (G6-new) | Returns `{version, capability_bitmap}` with version-dispatched payload — covers v1 G6-mode detection AND v2 capability detection (Local Storage, Mode 1 TSI, v1 Triggered/Gated, …). |
-| g6-panel-storage-mode | `0x02, 0x40, mode_byte` | v2 (G6-new) | Switches controller from SD Mode (`mode_byte = 0`) to Local Storage Mode (`mode_byte = 1`); triggers the load phase that copies SD patterns into panel PSRAM. |
-| g6-program-panel | `0x02, 0x41, panel_index, filename[32]` | v2 (G6-new) | Reflash panel `panel_index` from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). |
+**Controller → Panel** (SPI) commands are a separate namespace whose authority is
+[`g6_01`](g6_01-panel-protocol.md) § Master command summary (mirrored by
+`Panel-Firmware/panel/src/protocol.h`), not this file — see the pointer under § Controller →
+Panel commands below. The two are independent wires: the same byte means different things on
+each (e.g. `0x30` = stop-display to the controller, but Display-16-Level-Grayscale to a
+panel), so never merge them into one flat list.
+
+### Host → Controller commands
+
+`cmd` is the command byte; "Wire form" shows the full framed message `[len, cmd, …]`
+(`len` = byte count after the length prefix). Response: `[len, status, echo_cmd, ASCII msg]`.
+
+The **Version** column tracks the *controller capability generation* that introduced the host
+command (v1 = G4 baseline + G6 v1; v2 = the PSRAM / Local-Storage feature set), which is a
+different axis from the *panel protocol version* in the header byte of Controller → Panel
+commands. There are deliberately **no v3 host commands**: panel-protocol v3 (diagnostics,
+predefined patterns, Triggered/Gated) is reached through existing host commands plus the EINT
+line and the controller's v3 dispatcher, not through new host opcodes. The host's only v3
+surface today is capability detection via `get-controller-info` (`0x67`) bits `v3_triggered` /
+`v3_gated`. A dedicated v3 host command would be added here only if/when one is specced.
+
+| cmd | Name | Wire form | Version | Notes |
+|:-:|---|---|:-:|---|
+| `0x00` | all-off | `0x01, 0x00` | v1 | Arena bring-up; collapses to the `ALL_OFF` state (same as stop-display). |
+| `0x01` | display-reset | `0x01, 0x01` | — | **Dropped for G6** — no G6 meaning; recognized only to reject. |
+| `0x06` | switch-grayscale | `0x01, 0x06` | — | **Dropped for G6** — grayscale inferred from stream size / pattern-header `gs_val`. |
+| `0x08` | trial-params | `0x0c, 0x08, …` | v1 | "Combined command": selects Mode 2/3/4 + pattern + timing (12 param bytes). |
+| `0x16` | set-refresh-rate | `0x03, 0x16, lo, hi` | v1 | uint16 Hz. Default from `gs_val`: 300 Hz GS16 / 1000 Hz GS2; host may override. |
+| `0x30` | stop-display | `0x01, 0x30` | v1 | Also doubles as all-off. |
+| `0x32` | stream-frame | `0x32, len_lo, len_hi, …` | v1 | Mode 5; 3-byte stream header (see below). |
+| `0x40` | g6-panel-storage-mode | `0x02, 0x40, mode_byte` | v2 (G6-new) | `0` = SD Mode, `1` = Local Storage Mode; triggers the PSRAM load phase. |
+| `0x41` | g6-program-panel | `0x02, 0x41, panel_index, filename[32]` | v2 (G6-new) | Reflash a panel from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). |
+| `0x66` | get-ethernet-ip-address | `0x01, 0x66` | v1 | Returns DHCP-resolved IP as ASCII. |
+| `0x67` | get-controller-info | `0x01, 0x67` | v1 (G6-new) | Returns `{version, capability_bitmap}`, version-dispatched (G6-mode + v2 capability bits). |
+| `0x68` | set-diagnostic-output | `0x02, 0x68, on` | v1 (G6-new) | Mute (`0`) / unmute (`1`) `DEBUG_SERIAL` diagnostics on USB-CDC. See § 7 Utility Commands. |
+| `0x70` | set-frame-position | `0x03, 0x70, lo, hi` | v1 | Mode 3: host-commanded frame index (uint16). |
+| `0xFF` | all-on | `0x01, 0xff` | v1 | Arena bring-up; canonical for diagnostics. |
 
 **Stream-Frame for G6:** uses a **3-byte stream header** `[0x32, len_lo, len_hi, ...]`. The legacy `analog_x` / `analog_y` bytes are **not used in G6** — experimenters with motion-offset needs use Mode 4 closed-loop or a separate AI-driven workflow. Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 3-byte stream header.
+
+### Controller → Panel commands
+
+The controller issues these to panels over SPI, but their **authoritative definition lives in
+[`g6_01`](g6_01-panel-protocol.md) § Master command summary** — full opcodes, payloads,
+parity, CIPO confirmation, and per-mode semantics. Not duplicated here, to keep one authority
+per namespace.
+
+Reminder: panel opcodes share byte values with the host commands above but are a distinct
+namespace on a different wire (e.g. panel `0x30` = Display 16-Level Grayscale, host `0x30` =
+stop-display).
 
 ---
 
@@ -325,7 +362,7 @@ At each time step (rate set by `trial-params` arguments: `Frame Rate-LO` / `Fram
 
 Mode 1 is invalid in SD Mode.
 
-**DO/AO pin assignments resolved** by [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md): TSI DO byte → Teensy D35 (level-translated to BNC J4); TSI AO 16-bit → MCP4725 I²C DAC (BNC J27, upper 12 bits used by the 12-bit DAC). With jumper J30 default = open (Teensy-mediated EINT), Mode 1 DO toggles do not interfere with the panel-trigger path.
+**DO/AO pin assignments resolved** by [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md): TSI DO byte → Teensy D35 (level-translated to BNC J4); TSI AO 16-bit → MCP4725 I²C DAC (BNC J27, upper 12 bits used by the 12-bit DAC). With jumper J30 default = open (Teensy-mediated EINT), Mode 1 DO toggles do not interfere with the panel-trigger path.
 
 ### 5. G6-specific controller commands
 
@@ -359,7 +396,7 @@ v1, v2, and v3 are being designed together. Controller-side additions across the
 - **v1 Triggered/Gated** (`0x12`/`0x13`/`0x32`/`0x33` under header `0x01`/`0x81`) — dispatch alongside the v1 Oneshot/Persistent handlers. v1 Persistent (`0x11`/`0x31`) is already implemented in panel firmware; Triggered/Gated are specced and prototyped but not in v1 production firmware yet. See [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § `0x12`/`0x13` for semantics.
 - **v2 PSRAM Triggered/Gated** (`0x52`/`0x53` implicit-`duty_cycle`, `0x62`/`0x63` explicit-`duty_cycle`) — add when v2 firmware lands. Note: low-nibble `1` is Persistent, `2` is Triggered, `3` is Gated (so `0x51`/`0x61` are PSRAM-Persistent, `0x53`/`0x63` are PSRAM-Gated). All four mode variants are specified in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v2.
 - **v3 dispatcher** — recognize v3 header byte `[0x03]`/`[0x83]` and route to v3 command handlers (diagnostics `0x02`/`0x03`, predefined-pattern display `0x70`–`0x73`) alongside the v1/v2 handlers per the version-superset rule (a v3 panel MUST accept v1 + v2 commands).
-- **EINT forwarding** — Triggered/Gated rely on EINT. For the production `arena_10-10`, the wiring runs through jumper J30 (default OPEN per [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md)), so the controller drives `TNY.EINT` (Teensy D33) based on whatever Triggered/Gated software policy is in force.
+- **EINT forwarding** — Triggered/Gated rely on EINT. For the production `arena_10-10`, the wiring runs through jumper J30 (default OPEN per [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md)), so the controller drives `TNY.EINT` (Teensy D33) based on whatever Triggered/Gated software policy is in force.
 
 ---
 
@@ -418,5 +455,5 @@ Slim G4.1 baseline numbers (for reference, not G6 targets): SD reads ~2 µs cach
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — Panel Protocol v1 messaging (the wire format the controller emits).
 - [`g6_02-led-mapping.md`](g6_02-led-mapping.md) — pixel ↔ LED designator mapping (host-side concern; the controller treats the 20×20 grid as an opaque 51-byte/201-byte payload).
 - [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) — on-disk pattern file format (the controller's SD reader consumes these).
-- [`g6_06-host-software.md`](g6_06-host-software.md) — host-side workflow (the producer of the commands listed in Host Command Summary above).
+- [`g6_05-host-software.md`](g6_05-host-software.md) — host-side workflow (the producer of the commands listed in the Command Registry above).
 - [floesche/LED-Display_G4.1_ArenaController_Slim](https://github.com/floesche/LED-Display_G4.1_ArenaController_Slim) — G4 baseline controller implementation; structural starting point for G6 controller work.
