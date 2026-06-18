@@ -219,6 +219,11 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x34` | reset-frames-sent | `0x01, 0x34` | v1 (G6-new) | Zeroes the frames-sent counter. Defined in webDisplayTools; firmware implementation pending. |
 | `0x40` | g6-panel-storage-mode | `0x02, 0x40, mode_byte` | v2 (G6-new) | `0` = SD Mode, `1` = Local Storage Mode; triggers the PSRAM load phase. |
 | `0x41` | g6-program-panel | `0x02, 0x41, panel_index, filename[32]` | v2 (G6-new) | Reflash a panel from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). |
+| `0x80` | get-file-count | `0x01, 0x80` | v2 (G6-new) | Returns the number of pattern files on the SD card as uint16 LE. |
+| `0x82` | get-pattern-filename | `0x03, 0x82, idx_lo, idx_hi` | v2 (G6-new) | Returns the filename for the pattern at 1-based uint16 `idx` (same convention as `patternId` in trial-params). Response payload: 1-byte length + ASCII filename chars. |
+| `0x83` | set-pattern-filename | — | v2 (G6-new) | **Reserved.** |
+| `0x84` | get-pattern-file | `0x84, len_b0…len_b7, idx_lo, idx_hi` | v2 (G6-new) | Returns the full content of the pattern file at 0-based uint16 `idx`. Uses 8-byte (uint64 LE) length prefix following the command byte (same convention as `0x85`); response also carries the file data with a uint64 LE length prefix. |
+| `0x85` | set-pattern-file | `0x85, len_b0…len_b7, idx_lo, idx_hi, file_data…` | v2 (G6-new) | Overwrites the content of the pattern file at 0-based uint16 `idx`. Uses 8-byte (uint64 LE) length prefix following the command byte; `len` = 2 (index bytes) + file size in bytes. |
 | `0xC0` | set-ethernet-ip-address | — | v2 (G6-new) | Reserved — not yet implemented. Paired with `get-ethernet-ip-address`. |
 | `0xC1` | get-ethernet-ip-address | `0x01, 0xC1` | v1 | Returns DHCP-resolved IP as ASCII. |
 | `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap}`, version-dispatched (G6-mode + v2 capability bits). |
