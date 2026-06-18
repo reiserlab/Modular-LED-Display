@@ -70,7 +70,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 
 | Item | Slim source | Rationale |
 |---|---|---|
-| `DISPLAY_RESET_CMD` (0x01) "reset to FPGA" semantics | `CommandProcessor.cpp:53-55` | No FPGA in Teensy slim path; spec § 7 explicitly says drop. |
+| `DISPLAY_RESET_CMD` (0x01) "reset to FPGA" semantics | — | Repurposed as `SYSTEM_RESET_CMD`: triggers SCB_AIRCR SYSRESETREQ after acking. Original G4 "reset to FPGA" meaning has no G6 equivalent. |
 | `SWITCH_GRAYSCALE_CMD` (0x06) | `commands.h:9`, `CommandProcessor.cpp:57-69` | Spec § 7 explicitly says drop. May reconsider if G6 ergonomics need it. |
 | `frame_count_y` field of `PatternHeader` | `PatternHeader.h:9` | Dead weight; bytes reused in v2 layout. |
 | `row_signifier` byte between panel rows in pattern files | `SpiManager.cpp:113` (`++pos;` skips it) | Vestigial padding; v2 pattern files (`g6_04`) drop it. |
@@ -175,7 +175,8 @@ Mode 4 is the lowest implementation priority for G6 v1.
 - **`all-on`** (`0x01, 0xff`) and **`all-off`** (`0x01, 0x00`) — controller-side opcodes for arena bring-up and host-facing diagnostic ergonomics. Internally `all-off` collapses to the same `ALL_OFF` state as `stop-display`; the duplication is for host clarity, not for distinct internal semantics.
 - **`stop-display`**, **`set-refresh-rate`**, **`get-ethernet-ip-address`** — standard G4-compatible host commands.
 - **`set-diagnostic-output`** (`0x02, 0xC3, on`) — mutes (`on = 0`) or unmutes (`on = 1`) the controller's `DEBUG_SERIAL` diagnostic text stream on the shared USB-CDC pipe; no effect on a non-diagnostic firmware build (still acked). Interactive clients (web-serial) mute on connect for a clean command/response channel; the CIPO capture scripts re-enable it. Flag persists across reconnects. Always acked so the wire protocol is uniform across builds.
-- **`switch-grayscale`** (0x06) and **`display-reset`** (0x01) — **dropped for G6.** The canonical pattern-header `gs_val` byte (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)) replaces `switch-grayscale`; `display-reset` has no G6 meaning. Hosts will not send these opcodes for G6.
+- **`system-reset`** (`0x01`) — triggers a software system reset (SCB_AIRCR SYSRESETREQ). The controller acks the command, flushes its TX buffer, then resets. The USB CDC device or TCP connection will drop within ~10 ms; the host should treat a subsequent connection loss as expected.
+- **`switch-grayscale`** (0x06) — **dropped for G6.** The canonical pattern-header `gs_val` byte (per [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md)) replaces it. Hosts should not send this opcode for G6.
 
 ---
 
@@ -208,7 +209,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | cmd | Name | Wire form | Version | Notes |
 |:-:|---|---|:-:|---|
 | `0x00` | all-off | `0x01, 0x00` | v1 | Arena bring-up; collapses to the `ALL_OFF` state (same as stop-display). |
-| `0x01` | display-reset | `0x01, 0x01` | — | **Dropped for G6** — no G6 meaning; recognized only to reject. |
+| `0x01` | system-reset | `0x01, 0x01` | v1 (G6-new) | Software system reset — acks then triggers SCB_AIRCR SYSRESETREQ. USB/TCP link drops immediately after the ack. |
 | `0x06` | switch-grayscale | `0x01, 0x06` | — | **Dropped for G6** — grayscale inferred from stream size / pattern-header `gs_val`. |
 | `0x08` | trial-params | `0x0c, 0x08, …` | v1 | "Combined command": selects Mode 2/3/4 + pattern + timing (12 param bytes). |
 | `0x16` | set-refresh-rate | `0x03, 0x16, lo, hi` | v1 | uint16 Hz. Default from `gs_val`: 300 Hz GS16 / 1000 Hz GS2; host may override. |
@@ -238,6 +239,408 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xFF` | all-on | `0x01, 0xff` | v1 | Arena bring-up; canonical for diagnostics. |
 
 **Stream-Frame for G6:** uses a **3-byte stream header** `[0x32, len_lo, len_hi, ...]`. The legacy `analog_x` / `analog_y` bytes are **not used in G6** — experimenters with motion-offset needs use Mode 4 closed-loop or a separate AI-driven workflow. Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 3-byte stream header.
+
+### Per-command wire formats
+
+Each command is listed in ascending opcode order. Framing conventions:
+
+- **Standard framing** (all commands except `stream-frame`, `set-pattern-filename`, `set-pattern-file`): command is `[length, cmd, params…]` where `length` counts the bytes after the length prefix. Response is `[length, status, echo_cmd, payload…]` where `status = 0` is success and `status ≠ 0` is an error.
+- **Opcode-first framing** (`0x32 stream-frame`, `0x83 set-pattern-filename`, `0x85 set-pattern-file`): command starts with the opcode byte directly, no length prefix; see each entry.
+- **Bulk response** (`0x84 get-pattern-file`, `0x8A get-sd-archive`): a standard framed header carries the total byte count; raw bytes follow the header with no additional framing.
+- All multi-byte integers are little-endian unless stated otherwise.
+- Success responses with no data payload: `[0x02, 0x00, cmd]` (length = 2, status = 0, echo = cmd, empty payload).
+- Error responses: `[len, err_code, cmd, ASCII_error_message]`.
+
+#### 0x00 all-off
+
+Enters `ALL_OFF` state; stops all SPI output.
+
+**Command:** `[0x01, 0x00]`
+
+**Response:** `[len, 0x00, 0x00, ASCII_msg]` — status = 0, ASCII diagnostic text in payload (not a protocol contract).
+
+---
+
+#### 0x01 system-reset
+
+Triggers a software system reset. The controller sends the ack, flushes its TX buffer, waits ~10 ms for the frame to be transmitted, then writes `SCB_AIRCR = 0x05FA0004` (ARM Cortex-M SYSRESETREQ). The USB CDC device or TCP connection drops immediately after the ack arrives at the host; this is expected behaviour, not an error.
+
+**Command:** `[0x01, 0x01]`
+
+**Response (before reset):** `[len, 0x00, 0x01, "rebooting"]` — status = 0. The connection drops within ~10 ms of receipt.
+
+**Error cases:** none; always succeeds.
+
+---
+
+#### 0x06 switch-grayscale (dropped)
+
+Recognized only to produce an explicit rejection. Grayscale mode is inferred from frame size or the pattern-header `gs_val` byte.
+
+**Command:** `[0x01, 0x06]`
+
+**Response:** `[len, 0x01, 0x06, ASCII_error]`
+
+---
+
+#### 0x08 trial-params
+
+Selects the display mode (2/3/4), opens the named SD pattern, and arms the refresh timer.
+
+**Command:** `[len, 0x08, mode, pat_id_lo, pat_id_hi, rate_lo, rate_hi, gain, init_lo, init_hi, …]`
+
+Payload bytes after the command byte:
+
+| Offset | Field | Type | Description |
+|---|---|---|---|
+| 0 | `mode` | uint8 | 2 = Open Loop, 3 = Show Frame, 4 = Closed Loop |
+| 1–2 | `pattern_id` | uint16 LE | 1-based SD pattern index |
+| 3–4 | `frame_rate` | uint16 LE | Hz — frame-advance rate for Mode 2 |
+| 5 | `gain` | int8 | Mode 4 velocity scale: actual gain = `gain / 10` fps/V (e.g. `−20` → −2.0 fps/V) |
+| 6–7 | `init_pos` | uint16 LE | Initial frame index (0-based) |
+| 8+ | reserved | — | Legacy G4 fields; accepted and ignored |
+
+Minimum payload: 8 bytes (offsets 0–7). Full G4-legacy form sends 12 param bytes (`length = 0x0D`).
+
+**Response (success):** `[0x02, 0x00, 0x08]`
+
+**Response (error):** `[len, 0x01, 0x08, ASCII_msg]` — invalid mode, pattern not found, or SD read failure.
+
+---
+
+#### 0x16 set-refresh-rate
+
+Sets the SPI refresh rate. A value of 0 is ignored and the current rate is retained.
+
+**Command:** `[0x03, 0x16, rate_lo, rate_hi]` — `rate` uint16 LE Hz.
+
+**Response:** `[0x02, 0x00, 0x16]`
+
+---
+
+#### 0x17 get-refresh-rate
+
+Returns the currently active refresh rate.
+
+**Command:** `[0x01, 0x17]`
+
+**Response:** `[0x04, 0x00, 0x17, hz_lo, hz_hi]` — uint16 LE Hz.
+
+---
+
+#### 0x30 stop-display
+
+Stops SPI output and enters `ALL_OFF` state. Same internal effect as `all-off`.
+
+**Command:** `[0x01, 0x30]`
+
+**Response:** `[len, 0x00, 0x30, ASCII_msg]`
+
+---
+
+#### 0x32 stream-frame
+
+Mode 5 (Streaming). Uses opcode-first framing: the first byte is `0x32` directly (no length prefix); a 2-byte payload-length field follows.
+
+**Command:**
+
+```
+[0x32, frame_len_lo, frame_len_hi, frame_prefix[4], block_0[block_size], … block_N[block_size]]
+```
+
+| Field | Size | Description |
+|---|---|---|
+| opcode | 1 | `0x32` |
+| `frame_len` | 2 | uint16 LE, byte count of everything that follows |
+| frame prefix | 4 | `0x46, 0x52, frame_idx_lo, frame_idx_hi` — ASCII `"FR"` + uint16 LE frame index (informational; not used for panel routing) |
+| panel blocks | `num_panels × block_size` | Panel blocks in panel-set order; `block_size` = 53 (GS2) or 203 (GS16) |
+
+`frame_len = 4 + num_panels × block_size`. For a 2×10 G6 arena: 1064 B (GS2) or 4064 B (GS16).
+
+**Response (success):** `[0x02, 0x00, 0x32]`
+
+**Response (error):** `[len, 0x01, 0x32, "Bad stream-frame size"]` — payload size does not match any supported arena geometry.
+
+---
+
+#### 0x33 get-frames-sent
+
+Returns the number of frame-transfers pushed to panels since boot or the last `reset-frames-sent`.
+
+**Command:** `[0x01, 0x33]`
+
+**Response:** `[0x06, 0x00, 0x33, n_b0, n_b1, n_b2, n_b3]` — uint32 LE count.
+
+---
+
+#### 0x34 reset-frames-sent
+
+Zeroes the frames-sent counter.
+
+**Command:** `[0x01, 0x34]`
+
+**Response:** `[0x02, 0x00, 0x34]`
+
+---
+
+#### 0x40 g6-panel-storage-mode
+
+Switches the controller between SD Mode and Local Storage Mode. Transitioning to Local Storage Mode (`mode_byte = 1`) triggers the PSRAM load phase. v2 feature — not yet in firmware.
+
+**Command:** `[0x02, 0x40, mode_byte]` — `mode_byte = 0` = SD Mode, `mode_byte = 1` = Local Storage Mode.
+
+**Response (success):** `[0x02, 0x00, 0x40]`
+
+---
+
+#### 0x41 g6-program-panel
+
+Reflashes a single panel from a firmware image on SD. v2 feature — not yet in firmware; see § Panel firmware update (ISP) for the full per-panel workflow.
+
+**Command:** `[len, 0x41, panel_index, filename_chars…]` — `panel_index` uint8 (resolved to a row in `g6_arena_configs.h`); `filename` is a null-terminated ASCII path relative to `/firmware/` (up to 32 chars including the null).
+
+**Response (success):** `[0x02, 0x00, 0x41]`
+
+**Response (error):** `[len, err, 0x41, ASCII_msg]` — panel index out of range, firmware image not found, footer validation failed, or ISP step failed (includes the last successful step in the message).
+
+---
+
+#### 0x70 set-frame-position
+
+Mode 3 (Show Frame): commands the controller to display a specific frame of the currently-open pattern. Requires a prior `trial-params` with `mode = 3`.
+
+**Command:** `[0x03, 0x70, idx_lo, idx_hi]` — `idx` uint16 LE, 0-based frame index.
+
+**Response (success):** `[0x02, 0x00, 0x70]`
+
+**Response (error):** `[len, 0x01, 0x70, ASCII_msg]` — no pattern open, or index ≥ frame count.
+
+---
+
+#### 0x80 get-file-count
+
+Returns the number of permanent pattern files on the SD card. `pattern.temp` is not counted.
+
+**Command:** `[0x01, 0x80]`
+
+**Response:** `[0x04, 0x00, 0x80, n_lo, n_hi]` — uint16 LE count.
+
+---
+
+#### 0x82 get-pattern-filename
+
+Returns the filename of the pattern at the given 1-based index.
+
+**Command:** `[0x03, 0x82, idx_lo, idx_hi]` — `idx` uint16 LE, 1-based.
+
+**Response (success):** `[len, 0x00, 0x82, name_len, char0…charN]`
+
+| Payload field | Size | Description |
+|---|---|---|
+| `name_len` | 1 byte | uint8 byte count of the filename |
+| filename | `name_len` bytes | ASCII, no null terminator |
+
+**Response (error):** `[len, 0x01, 0x82, ASCII_msg]` — `idx = 0` or `idx > pattern_count`.
+
+---
+
+#### 0x83 set-pattern-filename
+
+Renames an existing pattern file. Uses opcode-first framing (no length prefix).
+
+**Command:** `[0x83, idx_lo, idx_hi, name_len, char0…charN]`
+
+| Field | Size | Description |
+|---|---|---|
+| opcode | 1 | `0x83` |
+| `idx` | 2 | uint16 LE; 1-based pattern index — **`idx = 0` renames `pattern.temp`** and inserts it into the sorted permanent list |
+| `name_len` | 1 | uint8 byte count of the new name |
+| name | `name_len` bytes | ASCII |
+
+**Response (success):** `[0x04, 0x00, 0x83, new_idx_lo, new_idx_hi]` — uint16 LE 1-based position of the renamed file in the updated sorted list.
+
+**Response (error):** `[len, err, 0x83, ASCII_msg]` — index out of range, name length zero or exceeds the limit, or SD rename failed.
+
+---
+
+#### 0x84 get-pattern-file
+
+Downloads the full content of the pattern file at a 1-based index. The response uses a two-part layout: a standard framed header carrying the file size, followed immediately by the raw file bytes without any additional framing.
+
+**Command:** `[0x03, 0x84, idx_lo, idx_hi]` — `idx` uint16 LE, 1-based; **`idx = 0` is rejected**.
+
+**Response (success):**
+
+```
+[0x0A, 0x00, 0x84, size_b0, size_b1, size_b2, size_b3, 0x00, 0x00, 0x00, 0x00]
+<file_size raw bytes — no additional framing>
+```
+
+The framed header has `length = 0x0A` (1 status + 1 echo + 8 size bytes). `size` is uint64 LE; the upper 4 bytes are always zero (SD files are limited to 32-bit sizes). The `file_size` raw bytes follow the header frame with no length prefix or framing byte.
+
+**Response (error):** `[len, 0x01, 0x84, ASCII_msg]` — `idx = 0`, `idx > pattern_count`, or SD open failed.
+
+---
+
+#### 0x85 set-pattern-file
+
+Uploads file data to the SD card. Uses opcode-first framing with an 8-byte (uint64 LE) payload-length field; no length prefix.
+
+**Command:**
+
+```
+[0x85, idx_lo, idx_hi, len_b0, len_b1, len_b2, len_b3, len_b4, len_b5, len_b6, len_b7, file_data…]
+```
+
+| Field | Size | Description |
+|---|---|---|
+| opcode | 1 | `0x85` |
+| `idx` | 2 | uint16 LE; **`idx = 0` writes to `/patterns/pattern.temp`**; `idx > 0` overwrites the existing 1-based pattern in place |
+| `file_size` | 8 | uint64 LE byte count of `file_data` |
+| `file_data` | `file_size` bytes | Raw pattern file content |
+
+Upload timeout: 30 seconds of inactivity aborts the transfer and removes the partial file.
+
+**Response (success):** `[0x02, 0x00, 0x85]`
+
+**Response (error):** `[len, err, 0x85, ASCII_msg]` — index out of range, SD open failed, or timeout.
+
+---
+
+#### 0x86 delete-pattern-file
+
+Deletes the pattern file at the given index. Rescans and re-sorts `/patterns/` after deletion.
+
+**Command:** `[0x03, 0x86, idx_lo, idx_hi]` — `idx` uint16 LE; **`idx = 0` deletes `pattern.temp`**; `idx > 0` deletes the 1-based permanent pattern.
+
+**Response (success):** `[0x02, 0x00, 0x86]`
+
+**Response (error):** `[len, err, 0x86, "Delete failed"]` — `idx > pattern_count`, or target file does not exist (including `idx = 0` when `pattern.temp` is absent).
+
+---
+
+#### 0x8A get-sd-archive
+
+Streams the full SD card content as a ZIP archive (store mode, no compression). Only accepted in `ALL_OFF` state. Like `get-pattern-file`, the response is a framed header followed by bulk raw bytes.
+
+**Command:** `[0x01, 0x8A]`
+
+**Response (success):**
+
+```
+[0x0A, 0x00, 0x8A, size_b0, size_b1, size_b2, size_b3, size_b4, size_b5, size_b6, size_b7]
+<total_size raw ZIP bytes — no additional framing>
+```
+
+`total_size` (uint64 LE) is the complete ZIP byte count, pre-computed before streaming begins. Contents: `MANIFEST.bin`, `MANIFEST.txt`, then all `/patterns/*.pat` files in index order. Each ZIP entry uses a data descriptor (`PK\x07\x08`) so CRC-32 values are finalized after each file is streamed.
+
+**Response (error):** `[len, 10, 0x8A, "Stop display first"]` — controller is not in `ALL_OFF` state (error code 10 = `CE_DISPLAY_ACTIVE`).
+
+---
+
+#### 0x8F delete-all-patterns
+
+Deletes every file in `/patterns/`, including `pattern.temp` if present, then rewrites the manifest. Can take several seconds on a populated SD card — use a host-side timeout of at least 10 s.
+
+**Command:** `[0x01, 0x8F]`
+
+**Response (success):** `[0x02, 0x00, 0x8F]`
+
+**Response (error):** `[len, err, 0x8F, "Delete-all failed"]`
+
+---
+
+#### 0xC0 set-ethernet-ip-address
+
+Reserved — not yet implemented. No wire form defined.
+
+---
+
+#### 0xC1 get-ethernet-ip-address
+
+Returns the DHCP-resolved IP address as an ASCII string.
+
+**Command:** `[0x01, 0xC1]`
+
+**Response:** `[len, 0x00, 0xC1, char0…charN]` — ASCII dotted-quad (e.g. `"10.0.0.5"`), no null terminator.
+
+---
+
+#### 0xC2 get-controller-info
+
+Returns the controller version byte and capability bitmap. Use this to detect G6 mode and v2/v3 feature availability before issuing feature-gated commands.
+
+**Command:** `[0x01, 0xC2]`
+
+**Response:** `[0x04, 0x00, 0xC2, version, capability]`
+
+| Payload byte | Field | Description |
+|---|---|---|
+| 0 | `version` | Controller capability generation |
+| 1 | `capability` | Bitmap — see below |
+
+**Capability bitmap (bit 0 = LSB):**
+
+| Bit | Name | Meaning |
+|---|---|---|
+| 0 | `g6_mode` | Always 1 for any G6 controller |
+| 1 | `v2_local_storage` | Local Storage Mode (PSRAM) supported |
+| 2 | `mode_1_tsi` | Mode 1 / TSI file playback supported |
+| 3 | `v3_triggered` | v3 Triggered mode supported |
+| 4 | `v3_gated` | v3 Gated mode supported |
+| 5–7 | reserved | Transmit as 0 |
+
+---
+
+#### 0xC3 set-diagnostic-output
+
+Mutes or unmutes the `DEBUG_SERIAL` diagnostic text stream on the USB-CDC pipe. Has no effect in non-debug firmware builds but is still acknowledged. The flag persists across reconnects. Interactive clients mute on connect; CIPO capture scripts re-enable.
+
+**Command:** `[0x02, 0xC3, on]` — `on = 0` mutes; `on ≠ 0` enables.
+
+**Response:** `[len, 0x00, 0xC3, ASCII_msg]` — payload is `"diag on"` or `"diag off"`.
+
+---
+
+#### 0xC4 get-diagnostic-output
+
+Returns the current diagnostic-output state.
+
+**Command:** `[0x01, 0xC4]`
+
+**Response:** `[0x03, 0x00, 0xC4, state]` — `state = 0` muted, `state = 1` active.
+
+---
+
+#### 0xC5 set-spi-clock
+
+Sets the SPI clock rate. Values outside 1–30 MHz are clamped internally. The response echoes the applied (clamped) value.
+
+**Command:** `[0x03, 0xC5, mhz_lo, mhz_hi]` — `mhz` uint16 LE.
+
+**Response:** `[0x04, 0x00, 0xC5, applied_lo, applied_hi]` — uint16 LE applied MHz.
+
+---
+
+#### 0xC6 get-spi-clock
+
+Returns the current SPI clock rate.
+
+**Command:** `[0x01, 0xC6]`
+
+**Response:** `[0x04, 0x00, 0xC6, mhz_lo, mhz_hi]` — uint16 LE MHz.
+
+---
+
+#### 0xFF all-on
+
+Fills every panel buffer with maximum-brightness GS16 oneshot blocks and starts the refresh timer.
+
+**Command:** `[0x01, 0xFF]`
+
+**Response:** `[len, 0x00, 0xFF, ASCII_msg]` — status = 0.
+
+---
 
 ### Controller → Panel commands
 
