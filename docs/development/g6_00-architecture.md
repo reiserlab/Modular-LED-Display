@@ -35,7 +35,7 @@ The **host** is the computer running MATLAB or Python based software. It talks t
      └─────┘ └─────┘ └─────┘     └─────┘
 ```
 
-The Teensy 4.1 + 2-SPI-bus configuration is concrete for the current production arena (`arena_10-10` v1.1.7 — see [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md)). The architecture description stays loose to allow other counts in future hardware; per-arena topology lives in `g6_07`, not in this overview.
+The Teensy 4.1 + 2-SPI-bus configuration is concrete for the current production arena (`arena_10-10` v1.1.7 — see [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md)). The architecture description stays loose to allow other counts in future hardware; per-arena topology lives in `g6_06`, not in this overview.
 
 ## General assumptions
 
@@ -89,4 +89,4 @@ The panel receives commands via SPI and returns confirmations according to the [
 - [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) — header byte, command byte, parity rule, payload formats, master command summary.
 - [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) § Panel Map — panel mask layout + region/SPI-bus open question.
 - [`g6_03-controller.md`](g6_03-controller.md) — Teensy controller responsibilities; reconciled against the G4.1 slim controller.
-- [`Generation 6/Arena/docs/arena.md`](../../Generation%206/Arena/docs/arena.md) (in submodule, currently uninitialized locally) — built arena hardware, current revision `v1.1.7`.
+- [`Generation 6/Arena/docs/arena.md`](../../Generation%206/Arena/docs/arena.md) (in submodule) — built arena hardware, current revision `v1.1.7`.

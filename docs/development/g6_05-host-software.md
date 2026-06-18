@@ -21,7 +21,7 @@ The host-side MATLAB tooling already exists and is partially G6-aware: `Generati
 
 ## Host control options & transports
 
-The host drives the controller with one command stream (`[len, cmd, …]`) over **either transport**: **Ethernet/TCP** (port 62222 — the MATLAB path) or **USB-CDC serial**. The same G6 arena firmware build ([`LED-Display_G6_Firmware_Arena`](https://github.com/reiserlab/LED-Display_G6_Firmware_Arena)) serves both and routes each response back to the transport its command arrived on. Command set: [`g6_03-controller.md`](g6_03-controller.md) § Host Command Summary.
+The host drives the controller with one command stream (`[len, cmd, …]`) over **either transport**: **Ethernet/TCP** (port 62222 — the MATLAB path) or **USB-CDC serial**. The same G6 arena firmware build ([`LED-Display_G6_Firmware_Arena`](https://github.com/reiserlab/LED-Display_G6_Firmware_Arena)) serves both and routes each response back to the transport its command arrived on. Command set: [`g6_03-controller.md`](g6_03-controller.md) § Command Registry.
 
 The serial path enables **browser-based control with no install** — **demonstrated working** on real hardware via the firmware repo's `scripts/web-serial` page (Web Serial API, Chromium). [`webDisplayTools`](https://github.com/reiserlab/webDisplayTools) builds on it:
 
@@ -54,7 +54,7 @@ Same G4 command set, but the host must know it's talking to a G6 controller (via
 - Use G6-compatible pattern sizes (20×20 per panel)
 - Avoid any legacy G4 hardware assumptions.
 
-G6 adds opcode `0x67 = get-controller-info` (single command with version-dispatched response shape) covering both v1 G6-mode detection and v2 capability bitmap. Specification lives in [`g6_03-controller.md`](g6_03-controller.md) § Host Command Summary.
+G6 adds opcode `0xC2 = get-controller-info` (single command with version-dispatched response shape) covering both v1 G6-mode detection and v2 capability bitmap. Specification lives in [`g6_03-controller.md`](g6_03-controller.md) § Command Registry.
 
 ### Pattern and file format expectations
 
@@ -72,7 +72,7 @@ With Mode 5 implemented, the host can additionally compose the following test pa
 
 - `show_panel_IDs` — each panel displays its `panel_id`, useful for verifying panel-map correctness end-to-end.
 
-`all_on` (`0x01, 0xff`) and `all_off` (`0x01, 0x00`) remain as **controller-side opcodes** carried over from slim G4.1 — they work during arena bring-up before the Mode 5 streaming path is fully functional, which is critical for diagnostics. See [`g6_03-controller.md`](g6_03-controller.md) § Host Command Summary.
+`all_on` (`0x01, 0xff`) and `all_off` (`0x01, 0x00`) remain as **controller-side opcodes** carried over from slim G4.1 — they work during arena bring-up before the Mode 5 streaming path is fully functional, which is critical for diagnostics. See [`g6_03-controller.md`](g6_03-controller.md) § Command Registry.
 
 ---
 

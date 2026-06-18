@@ -386,7 +386,7 @@ The G6 v0.1 panel hardware has LED designators in a 20×20 matrix; `pixel[0,0]` 
 - `pixel[19,18]` to LED D340 — 2-level: byte_index=49, bit_in_byte=1, bit 398; 16-level: byte_index=199, even, bits 4…7
 - `pixel[19,19]` to LED D360 — 2-level: byte_index=49, bit_in_byte=0, bit 399; 16-level: byte_index=199, odd, bits 0…3
 
-For the full v0.1 mapping table (400 rows), see [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv); v0.2 / v0.3 mappings pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Questions).
+For the full v0.1 mapping table (400 rows), see [`g6_02-led-mapping-v0p1.csv`](g6_02-led-mapping-v0p1.csv); v0.2 and v0.3 use the same mapping (verified byte-identical to v0.1).
 
 ### Optional: Panel Error Display
 
@@ -775,7 +775,7 @@ Validation is two-layered: per-page CRC32 over the 256 data bytes only (catches 
 
 ### Brick recovery
 
-Single firmware image, no bootloader split. If in-firmware ISP gets corrupted mid-flash, recovery is out of band via BOOTSEL-on-USB at the panel (see [`g6_07-arena-firmware-interface.md`](g6_07-arena-firmware-interface.md)). Controller-side workflow + SD layout in [`g6_03-controller.md`](g6_03-controller.md) § Panel firmware update (ISP).
+Single firmware image, no bootloader split. If in-firmware ISP gets corrupted mid-flash, recovery is out of band via BOOTSEL-on-USB at the panel (see [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md)). Controller-side workflow + SD layout in [`g6_03-controller.md`](g6_03-controller.md) § Panel firmware update (ISP).
 
 ### ISP open questions (design-review)
 
@@ -808,6 +808,7 @@ v1 Triggered + Gated are prototyped (Triggered measured at 865 ± 17 ns trigger-
 | `0x01` / `0x81` | `0x13` | 51 bytes (50 pattern + duty_cycle) | Display 2-Level Grayscale (Gated) | v1 | prototyped |
 | `0x01` / `0x81` | `0x32` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Triggered) | v1 | prototyped |
 | `0x01` / `0x81` | `0x33` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Gated) | v1 | prototyped |
+| `0x01` / `0x81` | `0xC2` | 3 bytes (24-bit LE pattern/slot index) | Panel error display | v1 | optional, tentative — see § Optional: Panel Error Display |
 | `0x02` / `0x82` | `0x0F` | 1 byte (reserved) | Reset PSRAM (clears slots, latch, generation, error) | v2 | |
 | `0x02` / `0x82` | `0x2F` | 1 byte (reserved) | Query PSRAM Status (extended same-window response, 16-byte CS window) | v2 | |
 | `0x02` / `0x82` | `0x3F` | 3 idx + 200 pattern + duty_cycle | Write 16-Level Grayscale to PSRAM | v2 | |
@@ -875,9 +876,8 @@ Modes are encoded in the low nibble of the command byte (`0`=Oneshot, `1`=Persis
 
 ## Open Questions / TBDs
 
-1. **Worked pixel-mapping example pinned to panel v0.1 hardware.** Per-revision LED designator tables pending KiCad source extraction (see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) Open Q #2).
-2. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
-3. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
+1. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
+2. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
 
 ## Implementation status
 

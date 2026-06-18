@@ -14,7 +14,7 @@
  *         --output ../../../docs/development/g6_arena_configs.h
  *
  * STATUS: codegen and hardware YAML data are unvalidated against firmware
- * (2026-05-15). Values mirror docs/development/g6_07-arena-firmware-interface.md
+ * (2026-05-15). Values mirror docs/development/g6_06-arena-firmware-interface.md
  * § Pin assignments. Confirm via a panel-ID bring-up test before relying on
  * SPI/CS bindings for production work.
  */
