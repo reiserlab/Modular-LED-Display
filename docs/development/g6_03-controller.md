@@ -228,6 +228,10 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x86` | delete-pattern-file | `0x03, 0x86, idx_lo, idx_hi` | v2 (G6-new) | Deletes the pattern file at 1-based uint16 `idx`. `idx = 0` deletes `/patterns/pattern.temp` if it exists. Returns an error if `idx > patternCount()` or the target file does not exist. Rescans after deletion. |
 | `0x8A` | get-sd-archive | `0x01, 0x8A` | v2 (G6-new) | Streams the full SD card content (MANIFEST.bin, MANIFEST.txt, all `/patterns/*.pat`) as a ZIP archive (store mode, no compression). Response payload: uint64 LE total byte count followed by raw ZIP data. Only accepted in ALL_OFF state; returns `CE_DISPLAY_ACTIVE` (10) if the display is running. CRC-32 values are computed on-the-fly; data descriptors (PK\x07\x08) carry the final CRC and sizes after each file. |
 | `0x8F` | delete-all-patterns | `0x01, 0x8F` | v2 (G6-new) | Deletes all files in `/patterns` (including `pattern.temp` if present). Rescans after deletion. |
+| `0xA0` | set-ao-voltage | `0x03, 0xA0, mv_lo, mv_hi` | v1 (G6-new) | Set analog output (BNC J27, MCP4725 DAC) to 0–5000 mV. `mv = 0` drives DAC code 0 (0 V). Firmware converts: `dacCode = mv × 4095 / 5000`. |
+| `0xA1` | get-ao-voltage | `0x01, 0xA1` | v1 (G6-new) | Returns the hardware DAC readback as uint16 LE mV (I²C read of MCP4725 register). |
+| `0xAA` | set-digital-out | `0x03, 0xAA, ch, state` | v1 (G6-new) | Drive DO1 (ch=1, BNC J3, Teensy D37, via U2) or DO2 (ch=2, BNC J4, Teensy D35, via U3) HIGH (state ≠ 0) or LOW (state = 0). Level translators initialised as outputs (DIR=HIGH) at boot. |
+| `0xAB` | get-digital-out | `0x01, 0xAB` | v1 (G6-new) | Returns current driven state of DO1 (BNC J3) and DO2 (BNC J4) as two bytes (0 = LOW, 1 = HIGH). |
 | `0xC0` | set-ethernet-ip-address | — | v2 (G6-new) | Reserved — not yet implemented. Paired with `get-ethernet-ip-address`. |
 | `0xC1` | get-ethernet-ip-address | `0x01, 0xC1` | v1 | Returns DHCP-resolved IP as ASCII. |
 | `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap}`, version-dispatched (G6-mode + v2 capability bits). |
@@ -547,6 +551,62 @@ Deletes every file in `/patterns/`, including `pattern.temp` if present, then re
 **Response (success):** `[0x02, 0x00, 0x8F]`
 
 **Response (error):** `[len, err, 0x8F, "Delete-all failed"]`
+
+---
+
+#### 0xA0 set-ao-voltage
+
+Sets the analog output (BNC J27) to a DC level specified in millivolts. The hardware is a MCP4725 12-bit I²C DAC (U85, addr `0x60`) on the controller board. The DAC has no true output-disable, so `mv = 0` is the off state (drives DAC code 0 = 0 V). The commanded level is independent of the display/SPI path and persists while patterns are streaming.
+
+Firmware conversion: `dacCode = mv × 4095 / 5000` (integer arithmetic).
+
+**Command:** `[0x03, 0xA0, mv_lo, mv_hi]` — `mv` uint16 LE, 0–5000 mV.
+
+**Response (success):** `[0x04, 0x00, 0xA0, mv_lo, mv_hi]` — echoes the applied mV as uint16 LE.
+
+**Response (error):** `[len, 0x01, 0xA0, ASCII_msg]` — `mv > 5000` or I²C write failure.
+
+---
+
+#### 0xA1 get-ao-voltage
+
+Reads the MCP4725 DAC register directly over I²C and returns the current output level in millivolts. The 3-byte DAC read response is: byte 0 = status (`[RDY, POR, -, -, PD1, PD0, -, -]`), byte 1 = `D11..D4`, byte 2 = `D3..D0` in the upper nibble. Firmware reconstructs: `dacCode = (byte1 << 4) | (byte2 >> 4)`, then `mv = dacCode × 5000 / 4095`.
+
+**Command:** `[0x01, 0xA1]`
+
+**Response (success):** `[0x04, 0x00, 0xA1, mv_lo, mv_hi]` — uint16 LE mV from hardware DAC register.
+
+**Response (error):** `[len, 0x01, 0xA1, ASCII_msg]` — I²C read returned fewer than 3 bytes.
+
+---
+
+#### 0xAA set-digital-out
+
+Drives one digital output HIGH or LOW. The two outputs use SN74LVC1T45 bidirectional level translators. The DIR pin is held HIGH (Teensy→BNC direction) and initialised at boot, so only the data pin changes. The BNC output is 5 V (translator B-side); the Teensy I/O operates at 3.3 V.
+
+**Command:** `[0x03, 0xAA, ch, state]`
+
+- `ch`: 1 = DO1 (BNC J3, Teensy D37, via U2); 2 = DO2 (BNC J4, Teensy D35, via U3)
+- `state`: 0 = LOW; any non-zero value = HIGH
+
+**Response (success):** `[0x02, 0x00, 0xAA]`
+
+**Response (error):** `[len, 0x01, 0xAA, ASCII_msg]` — `ch` not 1 or 2, or fewer than 2 payload bytes.
+
+---
+
+#### 0xAB get-digital-out
+
+Returns the current driven state of both digital output channels by reading the Teensy data pins directly.
+
+**Command:** `[0x01, 0xAB]`
+
+**Response:** `[0x04, 0x00, 0xAB, do1_state, do2_state]`
+
+- `do1_state`: 0 = LOW, 1 = HIGH (DO1, BNC J3, Teensy D37, via U2)
+- `do2_state`: 0 = LOW, 1 = HIGH (DO2, BNC J4, Teensy D35, via U3)
+
+Both outputs are driven LOW at boot. State reflects the last value written by `set-digital-out` (or the boot default if never set).
 
 ---
 
