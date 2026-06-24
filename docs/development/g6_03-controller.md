@@ -914,6 +914,15 @@ The slim G4.1 controller's `timing.md` covers SD/init only; the following G6 num
 
 Slim G4.1 baseline numbers (for reference, not G6 targets): SD reads ~2 µs cached / ~600 µs at FAT cluster boundaries; pattern-switch latency 1–19 ms; TCP streaming drop rate 0.27 % at 300 Hz / 0 % binary at ~3000 Hz.
 
+**G6 measured transport throughput (128 kB `.pat` upload/download, local 100 Mbps LAN):**
+
+| Direction | USB-CDC serial | TCP |
+|---|---|---|
+| Host → controller (SD write) | ~1370 kB/s | ~84 kB/s |
+| Controller → host (file read) | ~8300 kB/s | ~5000 kB/s |
+
+TCP upload is capped by QNEthernet's receive-buffer management (one TCP segment exposed per `read()` call), not by the network or SD card. For interactive commands — short request/response pairs — neither transport imposes a noticeable delay. See `g6_05-host-software.md` § Transport performance & multi-arena scaling for context on when improving TCP upload throughput would be worth the effort.
+
 ---
 
 ## Open Questions / TBDs

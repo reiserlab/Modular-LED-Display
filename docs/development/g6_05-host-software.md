@@ -30,6 +30,12 @@ The serial path enables **browser-based control with no install** — **demonstr
 
 MATLAB over TCP stays the established path; the browser/serial path is additive. (Tracked in the Linear project *G6 Web Control (CSHL)*.)
 
+### Transport performance & multi-arena scaling
+
+**TCP vs serial throughput.** File uploads to the SD card (e.g. pushing a `.pat` before a trial) run at roughly **84 kB/s over TCP** vs **~1370 kB/s over USB-CDC serial** — a ~16× gap. The bottleneck is QNEthernet's connection receive-buffer: the Teensy exposes approximately one TCP segment (~1460 bytes) at a time to the application, which, combined with SD write latency, caps throughput well below what the network or SD card could sustain. Download (controller → host) is unaffected (~5000 kB/s over TCP). The firmware `README.md` has the full diagnosis and notes where improvements would need to land (QNEthernet `ConnectionManager` or a UDP-based file-transfer path). For interactive trial control — short commands, responses — neither transport imposes a noticeable delay.
+
+**Multi-arena network operation.** TCP's primary advantage over serial is that a **single host machine can drive multiple arena controllers simultaneously** via the Ethernet network, without needing a dedicated USB cable and computer per arena. With the current lab setup — one dedicated machine per arena — this capability is unused and the serial throughput advantage makes USB-CDC the more practical choice for pattern uploads. If future experiments require running many arenas in parallel from a central host, the TCP path becomes the natural fit, and the upload throughput gap would justify the engineering investment in a fix at that point.
+
 ## Anticipated PC host updates for G6 v1
 
 ### Arena configuration for G6 panels
