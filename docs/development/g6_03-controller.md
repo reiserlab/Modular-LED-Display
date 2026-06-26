@@ -61,7 +61,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | Panel-set ordering for parallel transmission | Slim iterates column-major (`SpiManager.cpp:92-99`); G6 spec section 4 calls for panel-set iteration | Resolution pending: either (a) port G4's column-major iteration as-is and update G6 spec § 4 to match, (b) implement panel-set iteration in the controller per current spec, or (c) make ordering configurable per arena. Pick during G6 controller bring-up. |
 | Controller-side parity computation | Not present | See Modify section above. |
 | v2 PSRAM workflow + TSI parsing for Mode 1 | Mode 1 absent (`modes.h:6-10`); no PSRAM-related code anywhere | Adds load-phase logic, `(PatternID, FrameIndex16) → PSRAMSlotIndex24` mapping table, TSI 5-byte record parser, DO/AO output drivers (pin assignments depend on arena hardware). |
-| `g6-panel-storage-mode` host command | Not in `ArenaCommands` enum | Opcode `0x40` assigned (see Command Registry). |
+| `g6-panel-storage-mode` host command | Not in `ArenaCommands` enum | Opcode `0xC7` assigned (see Command Registry). |
 | EINT trigger-line wiring (input GPIO) used by v1 Triggered/Gated | Slim has no input pins beyond CS lines | Single trigger input to be added. Wiring depends on arena hardware. |
 | Magic / format-version field / CRC-8 header + per-frame CRC-16 | None in `PatternHeader.h:6-15` | Adopt v2 layout per `g6_04`: CRC-8/AUTOSAR over the 17-byte header (byte 17) + CRC-16/CCITT trailer per frame (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § CRC-8 algorithm and [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) § Frame Format). |
 | Mode 1 (TSI Position Function) and Mode 5 (Streaming) top-level dispatch | Slim implements only Modes 2/3/4 (`modes.h:6-10`); Mode 5 streaming is partially built via `STREAMING_FRAME` state but no top-level mode dispatch | Add full mode dispatch for Modes 1–5. |
@@ -210,16 +210,23 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 |:-:|---|---|:-:|---|
 | `0x00` | all-off | `0x01, 0x00` | v1 | Arena bring-up; collapses to the `ALL_OFF` state (same as stop-display). |
 | `0x01` | system-reset | `0x01, 0x01` | v1 (G6-new) | Software system reset — acks then triggers SCB_AIRCR SYSRESETREQ. USB/TCP link drops immediately after the ack. |
+| `0x03` | set-pattern-id | `0x03, 0x03, id_lo, id_hi` | v1 (G6-new) | Load a 1-based SD pattern into Mode 3 (Show Frame), parked at frame 0. No auto-advance. Use `set-frame-position (0x70)` to step frames. |
 | `0x06` | switch-grayscale | `0x01, 0x06` | — | **Dropped for G6** — grayscale inferred from stream size / pattern-header `gs_val`. |
 | `0x08` | trial-params | `0x0c, 0x08, …` | v1 | "Combined command": selects Mode 2/3/4 + pattern + timing (12 param bytes). |
 | `0x16` | set-refresh-rate | `0x03, 0x16, lo, hi` | v1 | uint16 Hz. Default from `gs_val`: 300 Hz GS16 / 1000 Hz GS2; host may override. |
 | `0x17` | get-refresh-rate | `0x01, 0x17` | v1 (G6-new) | Returns current refresh rate as uint16 LE Hz. Reflects the last `set-refresh-rate` value, or the mode-derived default if never overridden. |
+| `0x1B` | set-panel-display-mode | `0x02, 0x1B, mode` | v1 (G6-new) | Set the panel display mode: `0` = oneshot, `1` = persist (default), `2` = triggered, `3` = gated. Sticky — applies to every panel-frame the controller transmits (SD frames, streamed frames, ALL_ON). Error-glyph frames are exempt. |
+| `0x1C` | get-panel-display-mode | `0x01, 0x1C` | v1 (G6-new) | Returns the current panel display mode as a single byte (0–3). |
 | `0x30` | stop-display | `0x01, 0x30` | v1 | Also doubles as all-off. |
 | `0x32` | stream-frame | `0x32, len_lo, len_hi, …` | v1 | Mode 5; 3-byte stream header (see below). |
 | `0x33` | get-frames-sent | `0x01, 0x33` | v1 (G6-new) | Returns frames pushed to panels since boot or last `reset-frames-sent` as uint32 LE. Defined in webDisplayTools; firmware implementation pending. |
 | `0x34` | reset-frames-sent | `0x01, 0x34` | v1 (G6-new) | Zeroes the frames-sent counter. Defined in webDisplayTools; firmware implementation pending. |
-| `0x40` | g6-panel-storage-mode | `0x02, 0x40, mode_byte` | v2 (G6-new) | `0` = SD Mode, `1` = Local Storage Mode; triggers the PSRAM load phase. |
-| `0x41` | g6-program-panel | `0x02, 0x41, panel_index, filename[32]` | v2 (G6-new) | Reflash a panel from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). |
+| `0x3A` | display-psram-index | `0x03, 0x3A, idx_lo, idx_hi` | v2 (G6-new) | Show one panel-resident PSRAM frame at uint16 LE index (LAB-41/42; uses the V2 panel-protocol display path). |
+| `0x3B` | psram-play | `0x07, 0x3B, start(2), count(2), fps(2)` | v2 (G6-new) | Auto-advance panel-resident PSRAM frames `[start, start+count)` at `fps` Hz (all uint16 LE). `count = 1` ⇒ static single index. |
+| `0x70` | set-frame-position | `0x03, 0x70, lo, hi` | v1 | Mode 3: host-commanded frame index (uint16). G4-compatible (`setPositionX`). |
+| `0x71` | set-position-y | — | reserved | **Reserved for a future G6 version** — second position axis (= G4 `setPositionY`). Not implemented; held to keep the G4-compatible X/Y position block intact. |
+| `0x72` | get-frame-position | `0x01, 0x72` | v1 (G6-new) | Returns the live playback position (get-position-x): `cur_frame_index` (uint16 LE) + `frame_count` (uint16 LE). Reflects auto-advance in Modes 2/4 and host-set position in Mode 3; `0, 0` when no pattern is open. |
+| `0x73` | get-position-y | — | reserved | **Reserved for a future G6 version** — read-back paired with `set-position-y` (`0x71`). Not implemented. |
 | `0x80` | get-file-count | `0x01, 0x80` | v2 (G6-new) | Returns the number of pattern files on the SD card as uint16 LE. |
 | `0x82` | get-pattern-filename | `0x03, 0x82, idx_lo, idx_hi` | v2 (G6-new) | Returns the filename for the pattern at 1-based uint16 `idx` (same convention as `patternId` in trial-params). Response payload: 1-byte length + ASCII filename chars. |
 | `0x83` | set-pattern-filename | `0x83, idx_lo, idx_hi, len, char0…charN` | v2 (G6-new) | Renames the pattern file at 1-based uint16 `idx` to the name given by `len` (uint8) + ASCII chars. `idx = 0` is a special case: renames `/patterns/pattern.temp` to the given name. Returns an error if `idx > patternCount()` or if the target file does not exist. On success the Teensy re-scans and re-sorts `/patterns`; response payload: uint16 LE new 1-based index of the renamed file in the updated list. |
@@ -230,6 +237,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x8F` | delete-all-patterns | `0x01, 0x8F` | v2 (G6-new) | Deletes all files in `/patterns` (including `pattern.temp` if present). Rescans after deletion. |
 | `0xA0` | set-ao-voltage | `0x03, 0xA0, mv_lo, mv_hi` | v1 (G6-new) | Set analog output (BNC J27, MCP4725 DAC) to 0–5000 mV. `mv = 0` drives DAC code 0 (0 V). Firmware converts: `dacCode = mv × 4095 / 5000`. |
 | `0xA1` | get-ao-voltage | `0x01, 0xA1` | v1 (G6-new) | Returns the hardware DAC readback as uint16 LE mV (I²C read of MCP4725 register). |
+| `0xA2` | set-ao-lut | `[len, 0xA2, mode, step_hz_lo, step_hz_hi, count_lo, count_hi, mv...]` | v1 (G6-new) | Upload an AO lookup table and start playback. `mode` 0 = frame-locked (DAC tracks `LUT[cur_frame_index % count]`); `mode` 1 = time-based (DAC steps at `step_hz` Hz, independent of frames). Max 124 entries per standard 1-byte-length frame. End-of-table wraps (modulo). Stopped by `set-ao-voltage (0xA0)`. |
 | `0xAA` | set-digital-out | `0x03, 0xAA, ch, state` | v1 (G6-new) | Drive DO1 (ch=1, BNC J3, Teensy D37, via U2) or DO2 (ch=2, BNC J4, Teensy D35, via U3) HIGH (state ≠ 0) or LOW (state = 0). Level translators initialised as outputs (DIR=HIGH) at boot. |
 | `0xAB` | get-digital-out | `0x01, 0xAB` | v1 (G6-new) | Returns current driven state of DO1 (BNC J3) and DO2 (BNC J4) as two bytes (0 = LOW, 1 = HIGH). |
 | `0xC0` | set-ethernet-ip-address | — | v2 (G6-new) | Reserved — not yet implemented. Paired with `get-ethernet-ip-address`. |
@@ -239,10 +247,28 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xC4` | get-diagnostic-output | `0x01, 0xC4` | v1 (G6-new) | Returns current diagnostic-output state as a single byte (`0` = muted, `1` = active). Firmware implementation pending. |
 | `0xC5` | set-spi-clock | `0x03, 0xC5, lo, hi` | v1 (G6-new) | uint16 LE MHz (1–30); response payload carries the applied clock as uint16 LE. Defined in webDisplayTools; firmware implementation pending. |
 | `0xC6` | get-spi-clock | `0x01, 0xC6` | v1 (G6-new) | Returns current SPI clock as uint16 LE MHz. Defined in webDisplayTools; firmware implementation pending. |
-| `0x70` | set-frame-position | `0x03, 0x70, lo, hi` | v1 | Mode 3: host-commanded frame index (uint16). |
+| `0xC7` | g6-panel-storage-mode | `0x02, 0xC7, mode_byte` | v2 (G6-new) | `0` = SD Mode, `1` = Local Storage Mode; triggers the PSRAM load phase. Reserved — not yet in firmware. |
+| `0xC8` | g6-program-panel | `0x02, 0xC8, panel_index, filename[32]` | v2 (G6-new) | Reflash a panel from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). Reserved — not yet in firmware. |
 | `0xFF` | all-on | `0x01, 0xff` | v1 | Arena bring-up; canonical for diagnostics. |
 
 **Stream-Frame for G6:** uses a **3-byte stream header** `[0x32, len_lo, len_hi, ...]`. The legacy `analog_x` / `analog_y` bytes are **not used in G6** — experimenters with motion-offset needs use Mode 4 closed-loop or a separate AI-driven workflow. Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 3-byte stream header.
+
+### G4 opcode compatibility & reservations
+
+G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one host→controller link, so G6 occupies the same opcode space a G4 client used. To keep maximum G4 compatibility, retained G4 commands stay on their G4 opcodes (e.g. `set-frame-position 0x70` = G4 `setPositionX`), and **new G6 commands must avoid opcodes G4 already used**.
+
+**Reserved — do not assign to new G6 commands (G4 meaning in parentheses):**
+`0x05` (setPatternAndPositionIDs), `0x07` (combinedCommand), `0x10` (setControlMode), `0x11` (setActiveAOChannels), `0x12` (setFrameRate), `0x13` (setActiveAIChannels), `0x15` (setPatternFunctionID), `0x21` (startDisplay), `0x31` (setAOFunctionID), `0x40` (stopLog), `0x41` (startLog), `0x42` (resetCounter), `0x43` (setRootDirectory), `0x45` (getTreadmillData), `0x46` (getVersion), `0x47` (sendSyncLog), `0x50` (setSPIDebug), `0x66` (get-ethernet-ip — G6 moved this to `0xC1`). `0x71`/`0x73` are reserved for a future G4-compatible position-Y pair (see `0x70`–`0x73`).
+
+> The reserved-future commands `g6-panel-storage-mode` and `g6-program-panel` were moved off `0x40`/`0x41` to `0xC7`/`0xC8` precisely to avoid the G4 `stopLog`/`startLog` collision — the `0x41`→panel-reflash overlap being the dangerous one.
+
+**Known, intentional divergences** (same opcode, different behavior — accepted, not fixed):
+
+| Opcode | G4 | G6 | Note |
+|---|---|---|---|
+| `0x01` | DISPLAY_RESET (reset FPGA display) | SYSTEM_RESET (reboot MCU) | Deliberate repurpose; a G4 client's display-reset triggers a full reboot + link drop. |
+| `0x08` | trial-params: `gain` int16 + trailing `runtime` | trial-params: `gain` int8, no runtime, `rate` int16 | Same intent, different payload layout; G4 12-byte frame misparses. Reconciliation open. |
+| `0x32` | stream-frame with `aox/aoy` header bytes (also dual-used as setAO) | stream-frame, 3-byte header, no `aox/aoy` | Different header; G4 `setAO`-via-`0x32` overload absent (G6 uses `0xA0`). |
 
 ### Per-command wire formats
 
@@ -277,6 +303,22 @@ Triggers a software system reset. The controller sends the ack, flushes its TX b
 
 ---
 
+#### 0x03 set-pattern-id
+
+Load a 1-based SD pattern into **Mode 3 (Show Frame)**, parked at frame 0, with no auto-advance. Intended as the G4-style "load first, then address frames" entry point: call `set-pattern-id`, then use `set-frame-position (0x70)` to display individual frames.
+
+**Command:** `[0x03, 0x03, id_lo, id_hi]` — `id` uint16 LE, 1-based.
+
+**Response (success):** `[0x04, 0x00, 0x03, id_lo, id_hi]` — echoes the 1-based pattern id.
+
+**Response (error):** `[len, 0x01, 0x03, ASCII_msg]` — wrong frame length, or pattern not found / SD read failure.
+
+**Notes:**
+- Equivalent to sending `trial-params (0x08)` with mode=3, `frame_rate=0`, `init_pos=0`, but without the 12-parameter overhead.
+- Pattern files are alphabetically sorted and 1-indexed; ID 0 is invalid and returns an error.
+
+---
+
 #### 0x06 switch-grayscale (dropped)
 
 Recognized only to produce an explicit rejection. Grayscale mode is inferred from frame size or the pattern-header `gs_val` byte.
@@ -299,7 +341,7 @@ Payload bytes after the command byte:
 |---|---|---|---|
 | 0 | `mode` | uint8 | 2 = Open Loop, 3 = Show Frame, 4 = Closed Loop |
 | 1–2 | `pattern_id` | uint16 LE | 1-based SD pattern index |
-| 3–4 | `frame_rate` | uint16 LE | Hz — frame-advance rate for Mode 2 |
+| 3–4 | `frame_rate` | int16 LE | Hz — frame-advance rate for Mode 2. Negative values play in reverse. Sign is ignored in Modes 3 and 4. |
 | 5 | `gain` | int8 | Mode 4 velocity scale: actual gain = `gain / 10` fps/V (e.g. `−20` → −2.0 fps/V) |
 | 6–7 | `init_pos` | uint16 LE | Initial frame index (0-based) |
 | 8+ | reserved | — | Legacy G4 fields; accepted and ignored |
@@ -329,6 +371,37 @@ Returns the currently active refresh rate.
 **Command:** `[0x01, 0x17]`
 
 **Response:** `[0x04, 0x00, 0x17, hz_lo, hz_hi]` — uint16 LE Hz.
+
+---
+
+#### 0x1B set-panel-display-mode
+
+Sets the panel display mode — the `DISP_*` opcode the controller stamps into every panel block it synthesises or patches. The setting is **sticky** (survives mode changes and pattern loads) and takes effect immediately on the currently-buffered frame.
+
+| `mode` | Name | Panel behaviour |
+|---|---|---|
+| `0` | oneshot | Panel renders the frame once, then holds the last pixel state until the next frame arrives |
+| `1` | persist | Panel holds the frame continuously until a new frame is clocked in (default) |
+| `2` | triggered | Panel renders on the rising edge of the external trigger line |
+| `3` | gated | Panel renders while the gate line is asserted |
+
+The error glyph (`showError`) is exempt — it always uses the opcode set by `G6Error::buildErrorFrame`.
+
+**Command:** `[0x02, 0x1B, mode]`
+
+**Response (success):** `[0x03, 0x00, 0x1B, mode]` — echoes the applied mode.
+
+**Response (error):** `[len, 0x01, 0x1B, ASCII_msg]` — `mode > 3` or wrong frame length.
+
+---
+
+#### 0x1C get-panel-display-mode
+
+Returns the current panel display mode (see `set-panel-display-mode`).
+
+**Command:** `[0x01, 0x1C]`
+
+**Response:** `[0x03, 0x00, 0x1C, mode]` — single byte, 0–3.
 
 ---
 
@@ -387,37 +460,63 @@ Zeroes the frames-sent counter.
 
 ---
 
-#### 0x40 g6-panel-storage-mode
+#### 0x3A display-psram-index
 
-Switches the controller between SD Mode and Local Storage Mode. Transitioning to Local Storage Mode (`mode_byte = 1`) triggers the PSRAM load phase. v2 feature — not yet in firmware.
+Shows a single panel-resident PSRAM frame: the controller synthesises one V2 "display PSRAM index" block per panel (all the same index → whole arena shows frame `idx`) and the refresh timer retransmits it. Drives the V2 panel-protocol display path (LAB-41/42); requires the panels to hold their frames locally.
 
-**Command:** `[0x02, 0x40, mode_byte]` — `mode_byte = 0` = SD Mode, `mode_byte = 1` = Local Storage Mode.
+**Command:** `[0x03, 0x3A, idx_lo, idx_hi]` — `idx` uint16 LE.
 
-**Response (success):** `[0x02, 0x00, 0x40]`
+**Response (success):** `[0x02, 0x00, 0x3A]`
+
+**Response (error):** `[len, 0x01, 0x3A, ASCII_msg]` — payload too short.
 
 ---
 
-#### 0x41 g6-program-panel
+#### 0x3B psram-play
 
-Reflashes a single panel from a firmware image on SD. v2 feature — not yet in firmware; see § Panel firmware update (ISP) for the full per-panel workflow.
+Auto-advances panel-resident PSRAM frames over the range `[start, start+count)` at `fps` Hz, reusing the open-loop frame clock. `count = 1` shows a single static index (equivalent to `display-psram-index`). End of range wraps back to `start`.
 
-**Command:** `[len, 0x41, panel_index, filename_chars…]` — `panel_index` uint8 (resolved to a row in `g6_arena_configs.h`); `filename` is a null-terminated ASCII path relative to `/firmware/` (up to 32 chars including the null).
+**Command:** `[0x07, 0x3B, start_lo, start_hi, count_lo, count_hi, fps_lo, fps_hi]` — all uint16 LE.
 
-**Response (success):** `[0x02, 0x00, 0x41]`
+**Response (success):** `[0x02, 0x00, 0x3B]`
 
-**Response (error):** `[len, err, 0x41, ASCII_msg]` — panel index out of range, firmware image not found, footer validation failed, or ISP step failed (includes the last successful step in the message).
+**Response (error):** `[len, 0x01, 0x3B, ASCII_msg]` — payload too short.
 
 ---
 
 #### 0x70 set-frame-position
 
-Mode 3 (Show Frame): commands the controller to display a specific frame of the currently-open pattern. Requires a prior `trial-params` with `mode = 3`.
+Mode 3 (Show Frame): commands the controller to display a specific frame of the currently-open pattern. Requires a prior `trial-params` with `mode = 3`. G4-compatible (`setPositionX`).
 
 **Command:** `[0x03, 0x70, idx_lo, idx_hi]` — `idx` uint16 LE, 0-based frame index.
 
 **Response (success):** `[0x02, 0x00, 0x70]`
 
 **Response (error):** `[len, 0x01, 0x70, ASCII_msg]` — no pattern open, or index ≥ frame count.
+
+---
+
+#### 0x71 set-position-y (reserved)
+
+**Reserved for a future G6 version** — the second position axis, mirroring G4 `setPositionY` (G4 used `0x70`/`0x71` for position X/Y). G6 currently exposes a single frame axis, so this opcode is not implemented and the controller does not handle it today. Held so the X/Y position block (`0x70`–`0x73`) stays G4-aligned.
+
+---
+
+#### 0x72 get-frame-position
+
+Returns the controller's live playback position (get-position-x). Pairs with `set-frame-position (0x70)` and lets a host poll auto-advancing playback (Modes 2/4) to read the current index and detect direction/wrap.
+
+**Command:** `[0x01, 0x72]`
+
+**Response:** `[0x06, 0x00, 0x72, idx_lo, idx_hi, count_lo, count_hi]` — `cur_frame_index` (uint16 LE, 0-based) followed by `frame_count` (uint16 LE). Both are `0` when no pattern is open.
+
+**Error cases:** none; always succeeds.
+
+---
+
+#### 0x73 get-position-y (reserved)
+
+**Reserved for a future G6 version** — read-back paired with `set-position-y` (`0x71`). Not implemented.
 
 ---
 
@@ -580,6 +679,27 @@ Reads the MCP4725 DAC register directly over I²C and returns the current output
 
 ---
 
+#### 0xA2 set-ao-lut
+
+Uploads a lookup table (LUT) of AO mV values and starts playback immediately. The DAC is written to `LUT[0]` on receipt; subsequent updates happen either on every frame load (mode 0) or on a timer (mode 1).
+
+**Command:** `[len, 0xA2, mode, step_hz_lo, step_hz_hi, count_lo, count_hi, mv[0]_lo, mv[0]_hi, ...]`
+
+- `mode` (uint8): `0` = frame-locked (`AO = LUT[cur_frame_index % count]`, updated by `loadFrame()`); `1` = time-based (`AO = LUT[k]` stepped at `step_hz` Hz, free-running, independent of frames).
+- `step_hz` (uint16 LE): step rate for mode 1. Ignored for mode 0. Maximum documented rate: **1000 Hz** (MCP4725 I²C ceiling is ~13 kHz at 400 kHz; 1000 Hz is the safe operating limit).
+- `count` (uint16 LE): number of LUT entries, 1–4096. Practical maximum with standard 1-byte-length framing: **124 entries** (254 − 5 header bytes ÷ 2).
+- `mv[i]` (uint16 LE each): 0–5000 mV per entry.
+
+**End-of-table:** wraps (modulo indexing for both modes).
+
+**Stopping LUT playback:** send `set-ao-voltage (0xA0)` — this drives the DAC to a static level and clears the LUT.
+
+**Response (success):** `[0x04, 0x00, 0xA2, count_lo, count_hi]` — echoes the accepted entry count as uint16 LE.
+
+**Response (error):** `[len, 0x01, 0xA2, ASCII_msg]` — `count = 0`, `count > 4096`, any `mv > 5000`, `mode > 1`, or count/length mismatch.
+
+---
+
 #### 0xAA set-digital-out
 
 Drives one digital output HIGH or LOW. The two outputs use SN74LVC1T45 bidirectional level translators. The DIR pin is held HIGH (Teensy→BNC direction) and initialised at boot, so only the data pin changes. The BNC output is 5 V (translator B-side); the Teensy I/O operates at 3.3 V.
@@ -689,6 +809,28 @@ Returns the current SPI clock rate.
 **Command:** `[0x01, 0xC6]`
 
 **Response:** `[0x04, 0x00, 0xC6, mhz_lo, mhz_hi]` — uint16 LE MHz.
+
+---
+
+#### 0xC7 g6-panel-storage-mode
+
+Switches the controller between SD Mode and Local Storage Mode. Transitioning to Local Storage Mode (`mode_byte = 1`) triggers the PSRAM load phase. v2 feature — not yet in firmware. (Relocated from `0x40`, which collided with the G4 `stopLog` opcode.)
+
+**Command:** `[0x02, 0xC7, mode_byte]` — `mode_byte = 0` = SD Mode, `mode_byte = 1` = Local Storage Mode.
+
+**Response (success):** `[0x02, 0x00, 0xC7]`
+
+---
+
+#### 0xC8 g6-program-panel
+
+Reflashes a single panel from a firmware image on SD. v2 feature — not yet in firmware; see § Panel firmware update (ISP) for the full per-panel workflow. (Relocated from `0x41`, which collided with the G4 `startLog` opcode.)
+
+**Command:** `[len, 0xC8, panel_index, filename_chars…]` — `panel_index` uint8 (resolved to a row in `g6_arena_configs.h`); `filename` is a null-terminated ASCII path relative to `/firmware/` (up to 32 chars including the null).
+
+**Response (success):** `[0x02, 0x00, 0xC8]`
+
+**Response (error):** `[len, err, 0xC8, ASCII_msg]` — panel index out of range, firmware image not found, footer validation failed, or ISP step failed (includes the last successful step in the message).
 
 ---
 
@@ -844,7 +986,7 @@ Mode 1 is invalid in SD Mode.
 
 ### 5. G6-specific controller commands
 
-- **`g6-panel-storage-mode`** (opcode `0x40`) — switches controller from **SD Mode** (default, `mode_byte = 0`) to **Local Storage Mode** (`mode_byte = 1`). When transitioning to Local Storage Mode, triggers the load phase that copies SD patterns into panel PSRAM. Wire form: `[0x02, 0x40, mode_byte]`.
+- **`g6-panel-storage-mode`** (opcode `0xC7`) — switches controller from **SD Mode** (default, `mode_byte = 0`) to **Local Storage Mode** (`mode_byte = 1`). When transitioning to Local Storage Mode, triggers the load phase that copies SD patterns into panel PSRAM. Wire form: `[0x02, 0xC7, mode_byte]`.
 - **`get-controller-info`** (opcode `0xC2`) — returns `{version_byte, capability_bitmap}` with the version byte dispatching the response shape. **Capability bitmap** (8-bit): bit 0 = `g6_mode` (always 1 for any G6 controller), bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 = reserved (transmit as 0; future bits land in a v2 controller-info opcode rev). Request: `[0x01, 0xC2]`. Response: `[0x01, 0xC2, version_byte, capability_byte]` (parity adjusted).
 
 ### 6. Controller Error Display
