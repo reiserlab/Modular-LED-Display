@@ -7,7 +7,7 @@ The version byte (low 7 bits of byte 0) selects a **feature class**, not an impl
 - **v1** (header `0x01`/`0x81`) — Live SPI display. Pattern arrives on each display command. All four display modes × 2L/16L grayscale, plus COMM_CHECK.
 - **v2** (header `0x02`/`0x82`) — PSRAM-backed display. Pattern lives in on-panel PSRAM; display commands reference it by index.
 - **v3** (header `0x03`/`0x83`) — Everything else: diagnostics, panel-flash predefined patterns, reserved range for future grayscale/color extensions.
-- **ISP** (uses v1 header with opcode block `0xE0`–`0xE4`) — In-system programming for panel firmware updates. Namespace-separated from display protocol.
+- **ISP** (uses v1 header with opcode block `0xE4`–`0xE9`) — In-system programming for panel firmware updates: the panel stages the new image in PSRAM, then commits it via the OTA stub (LittleFS + reboot). Namespace-separated from display protocol.
 
 Display commands across v1/v2/v3 share a **low-nibble-mode encoding**:
 
@@ -741,48 +741,54 @@ The remaining `0x20` / `0x40` / `0x80` high-nibble pattern-type ranges are reser
 
 ## In-System Programming (ISP)
 
-Status: **Draft — design-review needed**. ISP commands live in the v1 namespace (header `0x01`/`0x81`); they reflash the running panel image one panel at a time via SPI, selected by chip-select. Reserved opcode block `0xE0–0xEF`. The framing and safety design below has open issues (see § ISP open questions); do not treat as a stable wire surface yet.
+Status: **Implemented — verified end-to-end on hardware** (via `g6-verify-panel`, see g6_03). ISP commands live in the v1 namespace (header `0x01`/`0x81`); they reflash the running panel image one panel at a time via SPI, selected by chip-select. Reserved opcode block `0xE4–0xEF` (the lower `0xE0–0xE3` are left clear of the host-side `set-firmware-file`/`get-firmware-info` opcodes to keep the two namespaces visually distinct).
+
+The panel **stages the entire new image in PSRAM first** (`ISP_WRITE_PAGE`), verifies it there (`ISP_VERIFY_STAGED`), and only then commits (`ISP_COMMIT`). Commit does **not** reprogram flash from the running app (rebooting into a self-rewritten offset-0 image does not survive on the RP2350): instead the panel writes the verified image to a **LittleFS file plus an OTA command** (`PicoOTA`) and reboots. The arduino-pico **OTA stub** (`ota.o`, linked at flash offset 0, runs first on every boot) then copies the staged image into the app region from a minimal early-boot state and boots it. This keeps the running firmware intact for the whole transfer (any failure *before* `ISP_COMMIT` is a safe abort), and the OTA command **persists in LittleFS until the copy succeeds**, so a power loss mid-copy self-heals on the next boot. Requires a LittleFS region on the panel (`board_build.filesystem_size > 0`). BOOTSEL-on-USB remains the out-of-band recovery (see § Brick recovery).
+
+Image integrity rests on **CRC-32 alone** — per-page (into PSRAM), whole-staged-image (`ISP_VERIFY_STAGED`), and the post-install running-app CRC read back on demand via `ISP_VERIFY_CRC` (host command `g6-verify-panel`). There is deliberately no cryptographic signature, board-compatibility tag, or anti-rollback policy: CRC-32 covers the accidental-corruption and truncated-transfer failure modes that matter for a bench instrument.
 
 ### Opcode table
 
 | Cmd | Payload (COPI) | Name | Response payload (CIPO; see § ISP confirmation format below) |
 | :-: | :-- | :-- | :-- |
-| `0xE0` | 16-byte sentinel `"G6PANELISPENTER\0"` + 4-byte unlock token | `ISP_ENTER` | 17 bytes: 4-byte `session_nonce` + 4-byte `flash_size` + 2-byte `page_size` + 2-byte `sector_size` + 4-byte `app_crc32` + 1-byte `bootrom_version` |
-| `0xE1` | 3-byte sector index + 4-byte session nonce | `ISP_ERASE_SECTOR` | 0 bytes (ack only via header + cmd + checksum) |
-| `0xE2` | 3-byte page index + 4-byte session nonce + 256-byte page data + 4-byte page CRC32 over the 256 data bytes only | `ISP_WRITE_PAGE` | 0 bytes (ack only) |
-| `0xE3` | 3-byte start address + 3-byte length + 4-byte session nonce + 4-byte expected CRC32 | `ISP_VERIFY_CRC` | 5 bytes: 1-byte status (`0x00` = pass, `0x01` = mismatch) + 4-byte panel-computed CRC32 |
-| `0xE4` | 4-byte session nonce + 1-byte mode (`0x00` = boot new app; `0x01` = stay in factory bootrom) | `ISP_EXIT_REBOOT` | No response (panel resets) |
+| `0xE4` | 16-byte sentinel `"G6PANELISPENTER\0"` + 4-byte unlock token | `ISP_ENTER` | 17 bytes: 4-byte `session_nonce` + 4-byte `flash_size` + 2-byte `page_size` + 2-byte `sector_size` + 4-byte `app_crc32` + 1-byte `bootrom_version` |
+| `0xE5` | 3-byte page index + 4-byte session nonce + 256-byte page data + 4-byte page CRC32 over the 256 data bytes only | `ISP_WRITE_PAGE` | 0 bytes (ack only). Writes into the **PSRAM staging buffer** — no flash is touched. |
+| `0xE6` | 4-byte session nonce + 3-byte image length + 4-byte expected CRC32 | `ISP_VERIFY_STAGED` | 5 bytes: 1-byte status (`0x00` = pass, `0x01` = mismatch) + 4-byte panel-computed CRC32 over the staged image |
+| `0xE7` | 4-byte session nonce + 3-byte image length | `ISP_COMMIT` | 1 byte status (`0x00` = staged for OTA; nonzero = staging failed). The panel writes the staged image to LittleFS + an OTA command (it may format LittleFS on first use), drives this receipt, then reboots; the OTA stub flashes the image at early-boot. The controller waits a fixed timeout (see § ISP confirmation format) for the LittleFS write before reading the receipt, then for the reboot + copy. |
+| `0xE8` | 3-byte start address + 3-byte length + 4-byte session nonce + 4-byte expected CRC32 | `ISP_VERIFY_CRC` | 5 bytes: 1-byte status (`0x00` = pass, `0x01` = mismatch) + 4-byte panel-computed CRC32 over the flash region read via XIP. Used by `g6-verify-panel` over the running app `[0, image_size)` to confirm an install. |
+| `0xE9` | 4-byte session nonce + 1-byte mode (`0x00` = boot new app; `0x01` = stay in factory bootrom) | `ISP_EXIT_REBOOT` | No response (panel resets). Not used by the normal flow — `ISP_COMMIT` reboots the panel itself. |
 
 ### ISP confirmation format
 
-ISP messages use an **extended confirmation slot** that adds an opcode-specific response payload between the echoed command and the 8-bit CRC-8 checksum (per § CRC-8 algorithm, including the construction-order rule for the parity bit). Format on CIPO during the *next* ISP-armed CS-active window:
+ISP replies use a **two-phase, separate-read** handshake rather than the standard 3-byte same-window confirmation. Each ISP command is one CS-asserted transaction (the controller clocks the COPI message; CIPO is ignored). The panel ingests and processes the command and **arms** a reply; the controller then issues a **second** CS-asserted read transaction (clocking `0x00`) in which the panel drives the armed reply on CIPO from byte 0, feeding the TX FIFO across the window (replies exceed the 8-deep FIFO, so they can't be pre-loaded). Reply framing:
 
 ```
-[header (parity recomputed)] [echoed_cmd] [response_payload_N_bytes] [8-bit checksum]
+[status (1B)] [response_payload (N bytes)] [8-bit CRC-8]
 ```
 
-where `N` depends on `echoed_cmd` (see opcode table, "Response payload" column). The 8-bit CRC-8 checksum covers the CIPO message bytes excluding the CRC byte itself (header + cmd + response_payload). This differs from the standard 3-byte confirmation slot (§ Confirmation message above): standard panel-protocol display/write/reset opcodes keep the 3-byte form. The extended form is used by ISP opcodes and by v2 `0x2F` Query PSRAM Status — both use the same-window pattern documented for `ISP_ENTER` below.
+`status` is `0x00` on success and nonzero on error (bad sentinel/token, nonce mismatch, page-CRC mismatch, out-of-range, staged/flash CRC mismatch). `N` depends on the opcode (see opcode table, "Response payload" column; `ISP_WRITE_PAGE`/`ISP_COMMIT` carry no payload → reply is just `status` + CRC-8). The CRC-8 is CRC-8/AUTOSAR over `status + response_payload`.
 
-For `ISP_ENTER` specifically, the response cannot piggyback on a preceding command (no prior ISP command exists). The controller therefore clocks out exactly `1 + 1 + 17 + 1 = 20` bytes on the SAME `ISP_ENTER` transaction: the panel computes its response during the COPI phase (after parsing payload), then drives MISO during the trailing CIPO byte windows. CS stays asserted for the full 20-byte exchange. All subsequent ISP commands follow the standard "response piggybacks on next ISP command" pattern.
+The separate-read model (rather than a same-window or piggybacked reply) keeps reply timing independent of the panel's per-command processing latency — important because `ISP_ENTER` allocates the PSRAM staging buffer before it can answer. `ISP_EXIT_REBOOT` is the one command with no reply: the panel resets instead.
+
+**`ISP_COMMIT` timing.** Before driving its phase-B receipt, the panel writes the staged image (~130 KB) to LittleFS and the OTA command — and on first use may **format** the LittleFS region — during which it does not service SPI. The controller therefore waits a generous fixed window (`IspController::kCommitWaitMs`, currently 12 s) before reading the receipt, then a further window (`kRebootWaitMs`, 8 s) for the reboot + OTA-stub copy + boot. There is no controller-side post-commit step: the panel reboots itself and the OTA stub installs the image. Confirm the install afterward with `g6-verify-panel` (reads the running app's CRC via `ISP_VERIFY_CRC`); a failed copy self-heals on the next boot (the OTA command persists), and a hard failure is handled via BOOTSEL recovery.
 
 ### State machine
 
-Idle → `ISP_ENTER` → ISP-armed → (`ERASE_SECTOR` × N → `WRITE_PAGE` × N → `VERIFY_CRC` → `EXIT_REBOOT`) → reset. Any non-ISP message in ISP-armed aborts ISP and re-enables normal display.
+Idle → `ISP_ENTER` → ISP-armed → (`WRITE_PAGE` × N → `VERIFY_STAGED` → `COMMIT`) → reset (panel reboots into the OTA stub). Any non-ISP message in ISP-armed aborts ISP and re-enables normal display. `ISP_VERIFY_CRC` is issued separately (via `g6-verify-panel`) to confirm an install; `ISP_EXIT_REBOOT` exists but is not used by the normal flow (`COMMIT` reboots).
 
-The session nonce returned by `ISP_ENTER` is required on every subsequent ISP opcode (`0xE1`, `0xE2`, `0xE3`, `0xE4`) — replay protection against bus noise re-presenting an earlier write payload. Panel rejects ISP commands whose payload nonce doesn't match the active session nonce.
+`WRITE_PAGE` fills the PSRAM staging buffer only; **flash is untouched until the OTA stub runs at the next boot**. An abort (or any failure) before `COMMIT` is therefore safe — the panel still runs the old image. `COMMIT` writes the image to LittleFS + an OTA command and reboots; the install happens in the OTA stub at early-boot, and the OTA command persists until the copy succeeds, so an interrupted copy retries on the next boot rather than bricking.
 
-Validation is two-layered: per-page CRC32 over the 256 data bytes only (catches bus errors mid-upload) and whole-image CRC32 via `ISP_VERIFY_CRC` (catches state-machine bugs).
+The session nonce returned by `ISP_ENTER` is required on every subsequent ISP opcode (`0xE5`–`0xE9`) — replay protection against bus noise re-presenting an earlier write payload. Panel rejects ISP commands whose payload nonce doesn't match the active session nonce.
+
+Validation is three-layered: per-page CRC32 over the 256 data bytes (catches bus errors as each page lands in PSRAM), whole-staged-image CRC32 via `ISP_VERIFY_STAGED` (catches a bad staging buffer *before* commit), and the running-app CRC32 read back via `ISP_VERIFY_CRC` / `g6-verify-panel` after install (confirms the OTA copy).
 
 ### Brick recovery
 
-Single firmware image, no bootloader split. If in-firmware ISP gets corrupted mid-flash, recovery is out of band via BOOTSEL-on-USB at the panel (see [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md)). Controller-side workflow + SD layout in [`g6_03-controller.md`](g6_03-controller.md) § Panel firmware update (ISP).
+Single firmware image, no A/B slot, but the install runs through the arduino-pico OTA stub (`ota.o` at flash offset 0, always linked). PSRAM staging means a failed *transfer* never touches flash; the OTA command in LittleFS **persists until the copy succeeds**, so a power loss during the OTA stub's copy self-heals on the next boot. A hard failure is recovered out of band via BOOTSEL-on-USB at the panel (see [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md)). Requires `board_build.filesystem_size > 0` (LittleFS staging region). Controller-side workflow + SD layout in [`g6_03-controller.md`](g6_03-controller.md) § Panel firmware update (ISP).
 
-### ISP open questions (design-review)
+### Open TBDs
 
-1. **Atomic image staging.** No A/B slot, no "stage entire image before erase" requirement, no rollback path. A read error after `ISP_ERASE_SECTOR` leaves a partially programmed panel.
-2. **Firmware-blob authenticity.** Per-page + whole-image CRC32 catch accidents, not adversarial or wrong-target images. No signature, no board-compatibility tag, no anti-rollback policy.
-3. **ISP-in-v1 vs separate protocol version.** Putting flash-write opcodes in v1 means every future v2/v3/v4 panel firmware must continue to support them. A dedicated ISP protocol (with explicit `BOOT_TO_ISP` transition) would isolate dangerous operations and survive version evolution better. Current choice favors bring-up simplicity; revisit before stable release.
-4. **Mixed-firmware arenas on partial-flash failure.** Sequential one-at-a-time ISP avoids bus-wide damage but creates mixed-version arenas if a mid-arena panel fails. Audit before experiments.
+- **ISP namespace evolution (future decision).** ISP opcodes currently live in the v1 namespace, so every future v2/v3/v4 panel firmware must keep honoring them. A dedicated ISP protocol version with an explicit `BOOT_TO_ISP` transition would isolate the flash-write opcodes behind a mode gate and let ISP version independently. Kept in v1 for now for bring-up simplicity; revisit before a stable release.
 
 ## Master command summary
 
@@ -800,7 +806,7 @@ Two tables: **Must implement** (v1 firmware ship target) and **Specced, deferred
 
 ### Specced, deferred (v1 Triggered/Gated, all v2, all v3, ISP)
 
-v1 Triggered + Gated are prototyped (Triggered measured at 865 ± 17 ns trigger-to-LED latency at 8 kHz on prototype hardware). v2 PSRAM is fully specified and pending firmware implementation. v3 diagnostics + predefined patterns have open semantic questions that must be resolved before implementation. ISP is a draft pending design review.
+v1 Triggered + Gated are prototyped (Triggered measured at 865 ± 17 ns trigger-to-LED latency at 8 kHz on prototype hardware). v2 PSRAM is fully specified and pending firmware implementation. v3 diagnostics + predefined patterns have open semantic questions that must be resolved before implementation. ISP is implemented and verified end-to-end on hardware.
 
 | Byte 0 (header) | Byte 1 (cmd) | Bytes 2+ (payload) | Description | Version | Review notes |
 | :--: | :--: | :-- | :-- | :--: | :-- |
@@ -827,11 +833,12 @@ v1 Triggered + Gated are prototyped (Triggered measured at 865 ± 17 ns trigger-
 | `0x03` / `0x83` | `0x71` | 3 idx + duty_cycle | Display Predefined Pattern (Persistent) | v3 | ⚠ pattern catalog TBD |
 | `0x03` / `0x83` | `0x72` | 3 idx + duty_cycle | Display Predefined Pattern (Triggered) | v3 | ⚠ pattern catalog TBD |
 | `0x03` / `0x83` | `0x73` | 3 idx + duty_cycle | Display Predefined Pattern (Gated) | v3 | ⚠ pattern catalog TBD |
-| `0x01` / `0x81` | `0xE0` | 16-byte sentinel + 4-byte unlock token | `ISP_ENTER` (begin in-system programming session) | v1 (ISP) | draft — design review needed |
-| `0x01` / `0x81` | `0xE1` | 3 sector + 4 nonce | `ISP_ERASE_SECTOR` | v1 (ISP) | draft |
-| `0x01` / `0x81` | `0xE2` | 3 page + 4 nonce + 256 data + 4 CRC32 | `ISP_WRITE_PAGE` | v1 (ISP) | draft |
-| `0x01` / `0x81` | `0xE3` | 3 start + 3 length + 4 nonce + 4 expected CRC32 | `ISP_VERIFY_CRC` | v1 (ISP) | draft |
-| `0x01` / `0x81` | `0xE4` | 4 nonce + 1 mode | `ISP_EXIT_REBOOT` | v1 (ISP) | draft |
+| `0x01` / `0x81` | `0xE4` | 16-byte sentinel + 4-byte unlock token | `ISP_ENTER` (begin in-system programming session) | v1 (ISP) | implemented |
+| `0x01` / `0x81` | `0xE5` | 3 page + 4 nonce + 256 data + 4 CRC32 | `ISP_WRITE_PAGE` (→ PSRAM staging buffer) | v1 (ISP) | implemented |
+| `0x01` / `0x81` | `0xE6` | 4 nonce + 3 image length + 4 expected CRC32 | `ISP_VERIFY_STAGED` (PSRAM staging buffer) | v1 (ISP) | implemented |
+| `0x01` / `0x81` | `0xE7` | 4 nonce + 3 image length | `ISP_COMMIT` (→ LittleFS + OTA command, then reboot) | v1 (ISP) | implemented |
+| `0x01` / `0x81` | `0xE8` | 3 start + 3 length + 4 nonce + 4 expected CRC32 | `ISP_VERIFY_CRC` (flash region via XIP; used by g6-verify-panel) | v1 (ISP) | implemented |
+| `0x01` / `0x81` | `0xE9` | 4 nonce + 1 mode | `ISP_EXIT_REBOOT` (not used by normal flow) | v1 (ISP) | implemented |
 
 ISP opcodes use an extended confirmation slot — see § In-System Programming.
 
