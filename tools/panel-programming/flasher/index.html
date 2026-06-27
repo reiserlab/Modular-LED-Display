@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>G6 Panel Flasher</title>
+<style>
+  :root { --fg:#1a1a1a; --bg:#fafafa; --accent:#2d6cdf; --warn:#b54708; --ok:#067647; --err:#b42318; }
+  * { box-sizing: border-box; }
+  body { font: 16px/1.5 system-ui, sans-serif; color: var(--fg); background: var(--bg);
+         margin: 0; padding: 2rem 1rem; }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  .sub { color: #555; margin: 0 0 1.5rem; }
+  .card { background: #fff; border: 1px solid #e4e4e7; border-radius: 12px;
+          padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .step-n { display:inline-block; width:1.6rem; height:1.6rem; line-height:1.6rem; text-align:center;
+            border-radius:50%; background:var(--accent); color:#fff; font-weight:600; margin-right:.5rem; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid #ccc;
+           padding: .6rem 1.1rem; background: #fff; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .rev-group { display:flex; gap:.75rem; margin:.5rem 0; }
+  .rev-group button { flex:1; padding:.8rem; }
+  .rev-group button[aria-pressed="true"] { outline: 3px solid var(--accent); font-weight:600; }
+  .warn { color: var(--warn); background:#fffaeb; border:1px solid #fedf89; border-radius:8px;
+          padding:.6rem .8rem; font-size:.9rem; }
+  details { font-size:.9rem; margin-top:.5rem; }
+  progress { width:100%; height:1rem; }
+  #log { font: 13px/1.45 ui-monospace, monospace; white-space: pre-wrap; background:#0d1117;
+         color:#c9d1d9; border-radius:8px; padding:.8rem; max-height:220px; overflow:auto; }
+  .status-ok { color: var(--ok); font-weight:600; }
+  .status-err { color: var(--err); font-weight:600; }
+  #unsupported { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>G6 Panel Flasher</h1>
+  <p class="sub">Program a Generation-6 LED display panel over USB — no install, right in your browser.</p>
+
+  <div id="unsupported" class="card warn">
+    <strong>This browser can’t talk to USB devices.</strong> The flasher needs
+    <strong>WebUSB</strong>, which is only in Chrome or Edge (desktop). Please reopen this page there.
+  </div>
+
+  <div id="app">
+    <div class="card">
+      <p><span class="step-n">1</span><strong>Pick the panel revision</strong></p>
+      <div class="rev-group" id="rev-group">
+        <button data-rev="v0.2.1" aria-pressed="false">v0.2.1</button>
+        <button data-rev="v0.3.1" aria-pressed="false">v0.3.1</button>
+      </div>
+      <p class="warn">Flashing the <em>wrong</em> revision produces a non-working panel
+        (it must then be re-flashed with the correct one). If unsure, check the board.</p>
+      <details>
+        <summary>How do I tell which revision I have?</summary>
+        <p>Read the revision printed on the PCB silkscreen / label (<code>v0.2.1</code>
+        vs <code>v0.3.1</code>). A panel already running firmware also reports its
+        revision — this tool verifies it for you after flashing.
+        <!-- TODO: confirm exact silkscreen location/marking from Generation 6/Panels and add a photo. --></p>
+      </details>
+    </div>
+
+    <div class="card">
+      <p><span class="step-n">2</span><strong>Connect &amp; flash</strong></p>
+      <p>Put the panel in <strong>BOOTSEL</strong> mode (hold the BOOTSEL button while
+        plugging in the USB cable), then:</p>
+      <button id="flash-btn" class="primary" disabled>Connect &amp; flash panel</button>
+      <p id="fw-line" class="sub" style="margin:.75rem 0 0;">Firmware: <span id="fw-version">resolving latest…</span></p>
+      <progress id="progress" value="0" max="100" hidden></progress>
+      <p id="status"></p>
+    </div>
+
+    <div class="card">
+      <p><strong>Activity log</strong></p>
+      <div id="log"></div>
+    </div>
+  </div>
+</main>
+<script type="module" src="./flasher.js"></script>
+</body>
+</html>

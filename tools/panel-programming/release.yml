@@ -1,0 +1,95 @@
+# Panel-firmware release: build per-rev UF2s and publish them (plus a manifest)
+# as GitHub Release assets, so g6-flash and the WebUSB flasher never need a
+# PlatformIO toolchain.
+#
+# FINAL HOME: .github/workflows/release.yml in reiserlab/LED-Display_G6_Firmware_Panel
+# (paths below are relative to that repo root, where `panel/platformio.ini` lives).
+#
+# Tag a release to trigger:   git tag panel-fw-v1.0.0 && git push origin panel-fw-v1.0.0
+name: release
+
+on:
+  push:
+    tags: ["panel-fw-v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write  # create the GitHub Release + upload assets
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Keep env names in sync with panel/platformio.ini. Production envs
+          # ONLY — _bcmtest / _spidiag are bench-only and must not be released.
+          - env: pico_v021
+            rev: v0.2.1
+            usb_product: "G6 Panel v0.2"
+          - env: pico_v031
+            rev: v0.3.1
+            usb_product: "G6 Panel v0.3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # PlatformIO drives the build; the panel build also runs
+      # tools/gen_predef_patterns.py (extra_scripts) and enforces the 2 MiB cap,
+      # so an oversize or broken image fails here rather than at flash time.
+      - name: Install PlatformIO
+        run: pip install "platformio>=6.1.19,<7"
+
+      - name: Build ${{ matrix.env }}
+        run: pio run -d panel -e ${{ matrix.env }}
+
+      - name: Stage UF2 as g6-panel-${{ matrix.rev }}.uf2
+        run: |
+          mkdir -p dist
+          cp "panel/.pio/build/${{ matrix.env }}/firmware.uf2" \
+             "dist/g6-panel-${{ matrix.rev }}.uf2"
+          # Per-leg metadata; the release job stitches these into manifest.json.
+          sha=$(sha256sum "dist/g6-panel-${{ matrix.rev }}.uf2" | cut -d' ' -f1)
+          cat > "dist/artifact-${{ matrix.rev }}.json" <<EOF
+          {"rev": "${{ matrix.rev }}", "env": "${{ matrix.env }}",
+           "file": "g6-panel-${{ matrix.rev }}.uf2", "sha256": "$sha",
+           "usb_product": "${{ matrix.usb_product }}"}
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uf2-${{ matrix.rev }}
+          path: dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: incoming
+
+      - name: Assemble manifest.json
+        run: |
+          mkdir -p release
+          cp incoming/*/g6-panel-*.uf2 release/
+          python3 - <<'PY'
+          import glob, json, os
+          version = os.environ.get("GITHUB_REF_NAME", "dev")
+          artifacts = [json.load(open(f)) for f in sorted(glob.glob("incoming/*/artifact-*.json"))]
+          json.dump({"version": version, "artifacts": artifacts},
+                    open("release/manifest.json", "w"), indent=2)
+          print(open("release/manifest.json").read())
+          PY
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/g6-panel-*.uf2
+            release/manifest.json
+          fail_on_unmatched_files: true
+          generate_release_notes: true
