@@ -248,7 +248,10 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xC5` | set-spi-clock | `0x03, 0xC5, lo, hi` | v1 (G6-new) | uint16 LE MHz (1–30); response payload carries the applied clock as uint16 LE. Defined in webDisplayTools; firmware implementation pending. |
 | `0xC6` | get-spi-clock | `0x01, 0xC6` | v1 (G6-new) | Returns current SPI clock as uint16 LE MHz. Defined in webDisplayTools; firmware implementation pending. |
 | `0xC7` | g6-panel-storage-mode | `0x02, 0xC7, mode_byte` | v2 (G6-new) | `0` = SD Mode, `1` = Local Storage Mode; triggers the PSRAM load phase. Reserved — not yet in firmware. |
-| `0xC8` | g6-program-panel | `0x02, 0xC8, panel_index, filename[32]` | v2 (G6-new) | Reflash a panel from `/firmware/<filename>` on SD. See § Panel firmware update (ISP). Reserved — not yet in firmware. |
+| `0xC8` | g6-program-panel | `0x02, 0xC8, panel_number` | v2 (G6-new) | Reflash a panel from the single firmware image on SD (`/firmware/panel.bin`). `panel_number` is **1-based** (matches the panel-map labels). See § Panel firmware update (ISP). Requires ALL_OFF. |
+| `0xC9` | g6-verify-panel | `0x02, 0xC9, panel_number` | v2 (G6-new) | CRC the panel's **running** app flash (`ISP_ENTER` + `ISP_VERIFY_CRC`) against the `/firmware/panel.bin` footer; confirms an install. `panel_number` **1-based**. No reboot. Requires ALL_OFF. See § Panel firmware update (ISP). |
+| `0xE0` | set-firmware-file | `0xE0, len_b0…len_b7, file_data…` | v2 (G6-new) | Uploads the firmware image to `/firmware/panel.bin`, overwriting the previous one (only one firmware is held at a time). Opcode-first framing; 8-byte (uint64 LE) length prefix. Companion to `g6-program-panel (0xC8)`. |
+| `0xE3` | get-firmware-info | `0x01, 0xE3` | v2 (G6-new) | Returns the 32-byte footer of `/firmware/panel.bin` (`magic`, `version`, `image_crc32`, `image_size`) — firmware metadata without the image bytes. |
 | `0xFF` | all-on | `0x01, 0xff` | v1 | Arena bring-up; canonical for diagnostics. |
 
 **Stream-Frame for G6:** uses a **3-byte stream header** `[0x32, len_lo, len_hi, ...]`. The legacy `analog_x` / `analog_y` bytes are **not used in G6** — experimenters with motion-offset needs use Mode 4 closed-loop or a separate AI-driven workflow. Frame-data bytes follow `frame_size = 4 + (num_panels × block_size)` with `block_size = 53` (GS2) or `203` (GS16). For a 2×10 G6 arena: 1064 B (GS2) / 4064 B (GS16) of frame data plus the 3-byte stream header.
@@ -274,8 +277,8 @@ G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one
 
 Each command is listed in ascending opcode order. Framing conventions:
 
-- **Standard framing** (all commands except `stream-frame`, `set-pattern-filename`, `set-pattern-file`): command is `[length, cmd, params…]` where `length` counts the bytes after the length prefix. Response is `[length, status, echo_cmd, payload…]` where `status = 0` is success and `status ≠ 0` is an error.
-- **Opcode-first framing** (`0x32 stream-frame`, `0x83 set-pattern-filename`, `0x85 set-pattern-file`): command starts with the opcode byte directly, no length prefix; see each entry.
+- **Standard framing** (all commands except `stream-frame`, `set-pattern-filename`, `set-pattern-file`, `set-firmware-file`): command is `[length, cmd, params…]` where `length` counts the bytes after the length prefix. Response is `[length, status, echo_cmd, payload…]` where `status = 0` is success and `status ≠ 0` is an error.
+- **Opcode-first framing** (`0x32 stream-frame`, `0x83 set-pattern-filename`, `0x85 set-pattern-file`, `0xE0 set-firmware-file`): command starts with the opcode byte directly, no length prefix; see each entry.
 - **Bulk response** (`0x84 get-pattern-file`, `0x8A get-sd-archive`): a standard framed header carries the total byte count; raw bytes follow the header with no additional framing.
 - All multi-byte integers are little-endian unless stated otherwise.
 - Success responses with no data payload: `[0x02, 0x00, cmd]` (length = 2, status = 0, echo = cmd, empty payload).
@@ -824,13 +827,49 @@ Switches the controller between SD Mode and Local Storage Mode. Transitioning to
 
 #### 0xC8 g6-program-panel
 
-Reflashes a single panel from a firmware image on SD. v2 feature — not yet in firmware; see § Panel firmware update (ISP) for the full per-panel workflow. (Relocated from `0x41`, which collided with the G4 `startLog` opcode.)
+Reflashes a single panel from the firmware image on SD; see § Panel firmware update (ISP) for the full per-panel workflow. The image must already exist at `/firmware/panel.bin` (upload via `set-firmware-file (0xE0)`). Requires ALL_OFF. Blocks for ~20 s (the panel writes to LittleFS, reboots, and the OTA stub installs the image). (Relocated from `0x41`, which collided with the G4 `startLog` opcode.)
 
-**Command:** `[len, 0xC8, panel_index, filename_chars…]` — `panel_index` uint8 (resolved to a row in `g6_arena_configs.h`); `filename` is a null-terminated ASCII path relative to `/firmware/` (up to 32 chars including the null).
+**Command:** `[0x02, 0xC8, panel_number]` — `panel_number` uint8, **1-based** (matches the panel-map labels); the controller converts to the 0-based row in `g6_arena_configs.h` (`row*10 + col`). `panel_number = 0` is rejected.
 
-**Response (success):** `[0x02, 0x00, 0xC8]`
+**Response (success):** `[len, 0x00, 0xC8, ASCII_msg]` — e.g. `panel N flashed via OTA (<bytes> bytes); rebooting + applying update` (N is the 1-based number).
 
-**Response (error):** `[len, err, 0xC8, ASCII_msg]` — panel index out of range, firmware image not found, footer validation failed, or ISP step failed (includes the last successful step in the message).
+**Response (error):** `[len, err, 0xC8, ASCII_msg]` — panel number 0 / out of range, firmware image not found, footer validation failed, or an ISP step failed (the message names the step reached). Confirm the install with `g6-verify-panel (0xC9)`.
+
+---
+
+#### 0xC9 g6-verify-panel
+
+Reads the panel's **running** application flash CRC and compares it to the `/firmware/panel.bin` footer — the way to confirm a `g6-program-panel` install actually took (the boot banner is unreliable to capture). Runs `ISP_ENTER` + `ISP_VERIFY_CRC` over `[0, image_size)`; no reboot, no flash write. Requires ALL_OFF.
+
+**Command:** `[0x02, 0xC9, panel_number]` — **1-based** (same convention as `0xC8`).
+
+**Response (success / MATCH):** `[len, 0x00, 0xC9, ASCII_msg]` — `panel N running-app CRC=0x… expected=0x… -> MATCH (this firmware is installed)`.
+
+**Response (mismatch / error):** `[len, err, 0xC9, ASCII_msg]` — CRC mismatch (a different image is running), or `ISP_ENTER: no valid reply` (panel not running ISP firmware / wiring).
+
+---
+
+#### 0xE0 set-firmware-file
+
+Uploads the firmware image to `/firmware/panel.bin` on the controller's SD, overwriting any previous one — only a single firmware is held at a time, so no filename is needed. Opcode-first framing (no length prefix), with an 8-byte length, mirroring `set-pattern-file (0x85)`.
+
+**Command:** `[0xE0, len_b0…len_b7, file_data…]` — `len` is the uint64 LE byte count of `file_data`.
+
+**Response (success):** `[0x06, 0x00, 0xE0, crc_b0…crc_b3]` — uint32 LE CRC-32 of the stored bytes, so the host can confirm the upload before issuing `g6-program-panel`.
+
+**Response (error):** `[len, err, 0xE0, ASCII_msg]` — SD write failure or out-of-space.
+
+---
+
+#### 0xE3 get-firmware-info
+
+Returns metadata about the firmware image currently on the controller, without transferring the image itself: the 32-byte footer that ends `/firmware/panel.bin` (`magic`, `version`, `image_crc32`, `image_size`). Lets the host answer "what firmware is loaded?" cheaply. Standard framing.
+
+**Command:** `[0x01, 0xE3]`.
+
+**Response (success):** `[0x22, 0x00, 0xE3, footer_b0…footer_b31]` — the 32-byte footer copied verbatim from the end of `/firmware/panel.bin`.
+
+**Response (error):** `[len, err, 0xE3, ASCII_msg]` — no firmware image present, or footer validation failed.
 
 ---
 
@@ -1022,23 +1061,51 @@ v1, v2, and v3 are being designed together. Controller-side additions across the
 
 ## Panel firmware update (ISP)
 
-The controller reflashes panel firmware over SPI one panel at a time. Panel-side protocol surface is in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § In-System Programming (ISP).
+The controller reflashes panel firmware over SPI one panel at a time. The panel stages the image in PSRAM, then commits it via the OTA stub (LittleFS + reboot) — panel-side protocol surface is in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § In-System Programming (ISP). Verified end-to-end on hardware (confirmed by `g6-verify-panel` CRC readback). This is distinct from the out-of-band WebUSB/BOOTSEL flasher (`webDisplayTools/flasher/`), which programs a panel plugged directly into USB.
 
-**SD layout:** `/firmware/panel_<semver>.bin` — multiple versions coexist; the host names which `.bin` to flash via `g6-program-panel`. Each image ends with a 32-byte footer `{magic, version, image_crc32, image_size}`; the controller validates the footer before any SPI traffic.
+**Getting an image onto the controller:** the host uploads the firmware image with `set-firmware-file (0xE0)` (overwriting the previous one) and can check what's loaded with `get-firmware-info (0xE3)` (returns the footer — version, CRC, size — not the image bytes); `g6-program-panel (0xC8)` then flashes it to the selected panel.
 
-**Per-panel workflow** (target panel selected by `panel_index`, which the controller resolves to a row in [`g6_arena_configs.h`](g6_arena_configs.h)):
+**SD layout:** a single firmware image at `/firmware/panel.bin` — only one firmware is held on the controller at a time. Each image ends with a 32-byte footer `{magic, version, image_crc32, image_size}`; the controller validates the footer before any SPI traffic. Its version is read from the footer, not the filename.
+
+**Per-panel workflow** (the host selects the target by **1-based** `panel_number`; the controller converts it to the 0-based `panel_index` = row in [`g6_arena_configs.h`](g6_arena_configs.h)):
 
 1. Assert the targeted panel's CS only; all other CS lines inactive.
 2. `ISP_ENTER` → record session nonce.
-3. `ISP_ERASE_SECTOR` over the affected flash range.
-4. Stream `ISP_WRITE_PAGE` page-by-page with per-page CRC.
-5. `ISP_VERIFY_CRC` over the full programmed range, using the footer's `image_crc32`.
-6. `ISP_EXIT_REBOOT` (mode `0x00`).
-7. Wait for panel boot, then `COMM_CHECK` to confirm.
+3. Stream the image into the panel's PSRAM staging buffer page-by-page with `ISP_WRITE_PAGE` (per-page CRC).
+4. `ISP_VERIFY_STAGED` over the staged image, using the footer's `image_crc32`. On mismatch, abort — no flash has been touched, so the panel still runs its old firmware.
+5. `ISP_COMMIT` → the panel writes the staged image to a LittleFS file + an OTA command (`PicoOTA`) and replies with a receipt, then reboots. The controller waits a fixed window for the LittleFS write before reading the receipt (`IspController::kCommitWaitMs`, ~12 s — the panel may format LittleFS on first use), then a further window for the reboot + OTA-stub install + boot (`kRebootWaitMs`, ~8 s). The actual flash write is done by the arduino-pico OTA stub at early-boot — see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § ISP.
+6. (Optional, separate command) `g6-verify-panel (0xC9)` → `ISP_ENTER` + `ISP_VERIFY_CRC` over the running app `[0, image_size)` confirms the installed image's CRC against the footer.
 
-Sequential, one panel at a time — no parallel ISP across buses. On any failure the controller aborts, reports the failed `panel_index` and the last successful step; remaining panels are not auto-attempted.
+Sequential, one panel at a time — no parallel ISP across buses. On any failure the controller aborts, reports the failed panel number (1-based) and the last successful step; remaining panels are not auto-attempted. The install runs through the OTA stub and its OTA command persists in LittleFS until the copy succeeds, so an interrupted copy retries on the next boot; a hard failure is recovered via BOOTSEL-on-USB (see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § Brick recovery). The panel needs a LittleFS region (`board_build.filesystem_size > 0`).
 
 ISP primitives may be reused for v3's deferred predefined-pattern programming mechanism (separate flash region).
+
+`g6-program-panel (0xC8)` blocks until the reboot + install window elapses, then returns a single pass/fail; the host confirms the install out-of-band with `g6-verify-panel (0xC9)`.
+
+### Bench validation procedure
+
+Staged so each step de-risks the next; also the regression checklist after changes. Commands shown for the v0.2.1 panel (`pico_v021` / `image21` / `dist/panel_v0.2.1.bin`); use `pico_v031` / `image31` for v0.3.1. Requires `pixi` in both firmware trees, a Chrome/Edge browser (Web Serial), and USB to **both** the panel (BOOTSEL connector — the recovery path) and the Teensy. A logic analyzer on the panel SPI lines (SCK/COPI/CIPO/CS) helps for step 4.
+
+0. **Build.** `cd "Generation 6/Panel-Firmware" && pixi run image21` (compiles the panel build and wraps it in the ISP footer → `dist/panel_v0.2.1.bin`; record the printed `version` / `image_size` / `image_crc32`). Then `cd ../Arena-Firmware && pixi run build`.
+1. **USB-flash the panel, then the controller.** The panel must already run this ISP-capable firmware before it can receive ISP commands. `cd "Generation 6/Panel-Firmware" && pixi run deploy21a` (panel, over USB/BOOTSEL — see `pixi.toml` for the per-serial deploy tasks); `cd ../Arena-Firmware && pixi run deploy` (Teensy). Confirm the panel boots/displays normally and the Teensy enumerates as USB serial.
+2. **SD path (no SPI, no brick risk).** Serve the console (`cd "Generation 6/webDisplayTools" && python -m http.server 8080` → `http://localhost:8080/arena_console.html`), **Connect** to the Teensy, ensure the display is **stopped** (`0xE0`/`0xC8`/`0xC9` are rejected with `CE_DISPLAY_ACTIVE` while running). In the **firmware** row click **Upload .bin** → `dist/panel_v0.2.1.bin`; expect `stored, CRC-32 0x…` then auto-**Info** `on SD: <version> (<size> B)`. ✅ Pass = the CRC-32 and size match what `make_isp_image.py` printed in step 0.
+3. **Full ISP round-trip.** With the display stopped, set the **panel number** (1-based — the same number the console panel-map shows; the controller converts it to the 0-based `ArenaConfig.h` index `row×10 + col`). Click **Flash panel**; the controller runs `ISP_ENTER → ISP_WRITE_PAGE×N → ISP_VERIFY_STAGED → ISP_COMMIT`, then waits out the reboot+install. Expect `panel N flashed via OTA (<bytes> bytes); rebooting + applying update`.
+4. **Confirm the install** with **Verify panel** (`g6-verify-panel`, 0xC9): it reads the panel's *running* app-flash CRC and compares it to the footer → `running-app CRC=0x… expected=0x… -> MATCH`. This — not the boot banner — is the reliable tell-tale (the panel's 2 s Serial-wait races USB re-enumeration, so the one-shot banner is easy to miss). To exercise a real change, ISP-flash a build whose source differs from what's installed and confirm the CRC moves.
+
+A failure *before* `ISP_COMMIT` never touches flash (panel keeps its old firmware). The OTA copy self-heals an interrupted install on the next boot; a hard failure (corrupt LittleFS) is recovered by holding BOOTSEL and USB-reflashing: `cd "Generation 6/Panel-Firmware" && pixi run pio run -d panel -e pico_v021 -t upload`.
+
+### ISP debug checkpoints (logic analyzer)
+
+- `ISP_ENTER` COPI: header `0x01`/`0x81`, cmd `0xE4`, then the 16-byte `G6PANELISPENTER\0` sentinel + 4-byte token `ISP!`.
+- The **phase-B read** after each command: the panel drives a multi-byte reply `[status][payload…][crc8]` on CIPO. **All-zeros CIPO** here points at the wired-OR MISO decode / return-path timing (see [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md)), not the ISP logic. A non-ISP panel at that index is silent on `0xE4` → `ISP_ENTER: no reply`.
+
+### Bench-tunable parameters
+
+- **ISP SPI clock:** `IspController::kIspClockMhz` = 2 MHz — conservative to avoid the high-clock CIPO realign; raise only after readback is proven.
+- **Inter-phase delay:** `IspController::readResp` waits ~300 µs between a command and its reply read (`ISP_ENTER` is worst case — it `pmalloc`s the PSRAM staging buffer). Increase if the first reply byte is missed.
+- **Commit / reboot waits:** `kCommitWaitMs` (~12 s, covers the LittleFS write + a first-use **format**) and `kRebootWaitMs` (~8 s, reboot + OTA copy + boot). Size up for multi-hundred-KB images.
+- **LittleFS region required:** `board_build.filesystem_size = 512k` in `panel/platformio.ini`. With FS=0 there is nowhere to stage and `ISP_COMMIT` fails (status 8). The panel mounts/formats LittleFS **lazily at COMMIT** (loop context) — doing it in `setup()` deadlocks `idleOtherCore`.
+- **`ISP_ENTER` `app_crc32`** is a placeholder (returns 0); use `g6-verify-panel` to read the running-app CRC instead.
 
 ---
 
