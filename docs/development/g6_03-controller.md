@@ -215,7 +215,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x08` | trial-params | `0x0c, 0x08, …` | v1 | "Combined command": selects Mode 2/3/4 + pattern + timing (12 param bytes). |
 | `0x16` | set-refresh-rate | `0x03, 0x16, lo, hi` | v1 | uint16 Hz. Default from `gs_val`: 300 Hz GS16 / 1000 Hz GS2; host may override. |
 | `0x17` | get-refresh-rate | `0x01, 0x17` | v1 (G6-new) | Returns current refresh rate as uint16 LE Hz. Reflects the last `set-refresh-rate` value, or the mode-derived default if never overridden. |
-| `0x1B` | set-panel-display-mode | `0x02, 0x1B, mode` | v1 (G6-new) | Set the panel display mode: `0` = oneshot, `1` = persist (default), `2` = triggered, `3` = gated. Sticky — applies to every panel-frame the controller transmits (SD frames, streamed frames, ALL_ON). Error-glyph frames are exempt. |
+| `0x1B` | set-panel-display-mode | `0x02, 0x1B, mode` | v1 (G6-new) | Set the panel display mode: `0` = oneshot (default), `1` = persist, `2` = triggered, `3` = gated. Sticky — applies to every panel-frame the controller transmits (SD frames, streamed frames, ALL_ON). Error-glyph frames are exempt. |
 | `0x1C` | get-panel-display-mode | `0x01, 0x1C` | v1 (G6-new) | Returns the current panel display mode as a single byte (0–3). |
 | `0x30` | stop-display | `0x01, 0x30` | v1 | Also doubles as all-off. |
 | `0x32` | stream-frame | `0x32, len_lo, len_hi, …` | v1 | Mode 5; 3-byte stream header (see below). |
@@ -383,10 +383,12 @@ Sets the panel display mode — the `DISP_*` opcode the controller stamps into e
 
 | `mode` | Name | Panel behaviour |
 |---|---|---|
-| `0` | oneshot | Panel renders the frame once, then holds the last pixel state until the next frame arrives |
-| `1` | persist | Panel holds the frame continuously until a new frame is clocked in (default) |
+| `0` | oneshot | Panel runs a single scan, then idles dark until the next frame is clocked in (default) — the controller re-clocks at `set-refresh-rate` to sustain a static image |
+| `1` | persist | Panel holds the frame continuously until a new frame is clocked in |
 | `2` | triggered | Panel renders on the rising edge of the external trigger line |
 | `3` | gated | Panel renders while the gate line is asserted |
+
+**Why oneshot is the default:** v1 pattern files carry the oneshot opcode (`0x10`/`0x30`) in every panel block ([g6_04](g6_04-pattern-file-format.md)), and the controller forwards SD and streamed blocks verbatim — so with no `set-panel-display-mode` command sent, the whole path runs oneshot. It matches the canonical model where the controller drives each displayed frame explicitly (Mode 2 auto-advance / Mode 3 host-commanded, re-clocked at `set-refresh-rate` `0x16`), one command per intended stimulus event. `persist` is opt-in: the panel self-refreshes a single loaded frame without the controller re-streaming it.
 
 The error glyph (`showError`) is exempt — it always uses the opcode set by `G6Error::buildErrorFrame`.
 
