@@ -233,6 +233,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x84` | get-pattern-file | `0x84, idx_lo, idx_hi` | v2 (G6-new) | Returns the full content of the pattern file at 1-based uint16 `idx`. Response payload: uint64 LE length prefix followed by file data. |
 | `0x85` | set-pattern-file | `0x85, idx_lo, idx_hi, len_b0…len_b7, file_data…` | v2 (G6-new) | Overwrites the content of the pattern file at 1-based uint16 `idx`. Uses 8-byte (uint64 LE) length prefix after the index; `len` = file size in bytes. `idx = 0` is a special case: writes the file data to `/patterns/pattern.temp` (creating or overwriting it). Returns an error if `idx > patternCount()`. |
 | `0x86` | delete-pattern-file | `0x03, 0x86, idx_lo, idx_hi` | v2 (G6-new) | Deletes the pattern file at 1-based uint16 `idx`. `idx = 0` deletes `/patterns/pattern.temp` if it exists. Returns an error if `idx > patternCount()` or the target file does not exist. Rescans after deletion. |
+| `0x88` | get-pattern-info | `0x03, 0x88, idx_lo, idx_hi` | v2 (G6-new) | Returns cheap header metadata for the pattern at 1-based uint16 `idx` — frame count, `gs_val`, geometry, Arena/Observer IDs, file size, and the frame-0/panel-0 `duty_cycle` byte — without the `0x84` bulk download (which stalls on large patterns, see #16). Response payload: 12-byte little-endian struct. Safe to call while a pattern is playing. |
 | `0x8A` | get-sd-archive | `0x01, 0x8A` | v2 (G6-new) | Streams the full SD card content (MANIFEST.bin, MANIFEST.txt, all `/patterns/*.pat`) as a ZIP archive (store mode, no compression). Response payload: uint64 LE total byte count followed by raw ZIP data. Only accepted in ALL_OFF state; returns `CE_DISPLAY_ACTIVE` (10) if the display is running. CRC-32 values are computed on-the-fly; data descriptors (PK\x07\x08) carry the final CRC and sizes after each file. |
 | `0x8F` | delete-all-patterns | `0x01, 0x8F` | v2 (G6-new) | Deletes all files in `/patterns` (including `pattern.temp` if present). Rescans after deletion. |
 | `0xA0` | set-ao-voltage | `0x03, 0xA0, mv_lo, mv_hi` | v1 (G6-new) | Set analog output (BNC J27, MCP4725 DAC) to 0–5000 mV. `mv = 0` drives DAC code 0 (0 V). Firmware converts: `dacCode = mv × 4095 / 5000`. |
@@ -624,6 +625,31 @@ Deletes the pattern file at the given index. Rescans and re-sorts `/patterns/` a
 **Response (success):** `[0x02, 0x00, 0x86]`
 
 **Response (error):** `[len, err, 0x86, "Delete failed"]` — `idx > pattern_count`, or target file does not exist (including `idx = 0` when `pattern.temp` is absent).
+
+---
+
+#### 0x88 get-pattern-info
+
+Returns cheap header metadata for a pattern — for a host-side preview UI (e.g. the Arena Console pattern browser) that needs frame count, geometry, and brightness without paying for the full `0x84` bulk download, which stalls on large patterns (see #16). Reads the header through a **separate file handle**, so it is safe to call while a pattern is open and playing in Mode 2/3/4 — it never touches the display's live file position.
+
+**Command:** `[0x03, 0x88, idx_lo, idx_hi]` — `idx` uint16 LE, 1-based; **`idx = 0` is rejected**.
+
+**Response (success):** `[0x0E, 0x00, 0x88, frame_count_lo, frame_count_hi, gs_val, rows, cols, arena_id, observer_id, size_b0, size_b1, size_b2, size_b3, duty_cycle]`
+
+| Payload field | Size | Description |
+|---|---|---|
+| `frame_count` | 2 | uint16 LE, number of frames in the pattern |
+| `gs_val` | 1 | `1` = GS2 (2-level), `2` = GS16 (16-level) |
+| `rows` | 1 | Panel-grid row count (pattern-header `RowCount`) |
+| `cols` | 1 | Panel-grid column count (pattern-header `ColCount`) |
+| `arena_id` | 1 | 6-bit V2 Arena ID (pattern-header bytes 4–5) |
+| `observer_id` | 1 | 6-bit V2 Observer ID — host-side metadata only, not interpreted by the controller |
+| `file_size` | 4 | uint32 LE, total file size in bytes |
+| `duty_cycle` | 1 | Last byte of frame 0's panel-0 block — the per-LED brightness value used by that frame (see [`g6_04-pattern-file-format.md`](g6_04-pattern-file-format.md) § Duty Cycle Value) |
+
+The 12-byte payload is a fixed little-endian struct in the field order above.
+
+**Response (error):** `[len, err, 0x88, ASCII_msg]` — `idx = 0` or `idx > pattern_count` (`CE_BAD_PARAM`), no SD card (`CE_SD_NOT_PRESENT`), file missing/unreadable or file too small to contain a frame-0 duty_cycle byte (`CE_SD_FILE_ERROR`), or header magic/version/CRC-8 mismatch, zero declared frames, or invalid `gs_val` (`CE_HEADER_CRC`).
 
 ---
 
