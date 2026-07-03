@@ -219,8 +219,8 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x1C` | get-panel-display-mode | `0x01, 0x1C` | v1 (G6-new) | Returns the current panel display mode as a single byte (0–3). |
 | `0x30` | stop-display | `0x01, 0x30` | v1 | Also doubles as all-off. |
 | `0x32` | stream-frame | `0x32, len_lo, len_hi, …` | v1 | Mode 5; 3-byte stream header (see below). |
-| `0x33` | get-frames-sent | `0x01, 0x33` | v1 (G6-new) | Returns frames pushed to panels since boot or last `reset-frames-sent` as uint32 LE. Defined in webDisplayTools; firmware implementation pending. |
-| `0x34` | reset-frames-sent | `0x01, 0x34` | v1 (G6-new) | Zeroes the frames-sent counter. Defined in webDisplayTools; firmware implementation pending. |
+| `0x33` | get-frames-sent | `0x01, 0x33` | v1 (G6-new) | Returns frames pushed to panels since boot or last `reset-frames-sent` as uint32 LE. |
+| `0x34` | reset-frames-sent | `0x01, 0x34` | v1 (G6-new) | Zeroes the frames-sent counter. |
 | `0x3A` | display-psram-index | `0x03, 0x3A, idx_lo, idx_hi` | v2 (G6-new) | Show one panel-resident PSRAM frame at uint16 LE index (LAB-41/42; uses the V2 panel-protocol display path). |
 | `0x3B` | psram-play | `0x07, 0x3B, start(2), count(2), fps(2)` | v2 (G6-new) | Auto-advance panel-resident PSRAM frames `[start, start+count)` at `fps` Hz (all uint16 LE). `count = 1` ⇒ static single index. |
 | `0x70` | set-frame-position | `0x03, 0x70, lo, hi` | v1 | Mode 3: host-commanded frame index (uint16). G4-compatible (`setPositionX`). |
@@ -233,20 +233,25 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x84` | get-pattern-file | `0x84, idx_lo, idx_hi` | v2 (G6-new) | Returns the full content of the pattern file at 1-based uint16 `idx`. Response payload: uint64 LE length prefix followed by file data. |
 | `0x85` | set-pattern-file | `0x85, idx_lo, idx_hi, len_b0…len_b7, file_data…` | v2 (G6-new) | Overwrites the content of the pattern file at 1-based uint16 `idx`. Uses 8-byte (uint64 LE) length prefix after the index; `len` = file size in bytes. `idx = 0` is a special case: writes the file data to `/patterns/pattern.temp` (creating or overwriting it). Returns an error if `idx > patternCount()`. |
 | `0x86` | delete-pattern-file | `0x03, 0x86, idx_lo, idx_hi` | v2 (G6-new) | Deletes the pattern file at 1-based uint16 `idx`. `idx = 0` deletes `/patterns/pattern.temp` if it exists. Returns an error if `idx > patternCount()` or the target file does not exist. Rescans after deletion. |
+| `0x88` | get-pattern-info | `0x03, 0x88, idx_lo, idx_hi` | v2 (G6-new) | Cheap pattern-metadata preview for 1-based uint16 `idx` — no bulk download, no `ALL_OFF` requirement. Response payload: 12 bytes (`frame_count` u16 LE, `gs_val` u8, `rows` u8, `cols` u8, `arena_id` u8, `observer_id` u8, `file_size` u32 LE, `duty_cycle` u8). |
 | `0x8A` | get-sd-archive | `0x01, 0x8A` | v2 (G6-new) | Streams the full SD card content (MANIFEST.bin, MANIFEST.txt, all `/patterns/*.pat`) as a ZIP archive (store mode, no compression). Response payload: uint64 LE total byte count followed by raw ZIP data. Only accepted in ALL_OFF state; returns `CE_DISPLAY_ACTIVE` (10) if the display is running. CRC-32 values are computed on-the-fly; data descriptors (PK\x07\x08) carry the final CRC and sizes after each file. |
 | `0x8F` | delete-all-patterns | `0x01, 0x8F` | v2 (G6-new) | Deletes all files in `/patterns` (including `pattern.temp` if present). Rescans after deletion. |
-| `0xA0` | set-ao-voltage | `0x03, 0xA0, mv_lo, mv_hi` | v1 (G6-new) | Set analog output (BNC J27, MCP4725 DAC) to 0–5000 mV. `mv = 0` drives DAC code 0 (0 V). Firmware converts: `dacCode = mv × 4095 / 5000`. |
+| `0xA0` | set-ao-voltage | `0x03, 0xA0, mv_lo, mv_hi` | v1 (G6-new) | Set analog output (BNC J27, MCP4725 DAC) to 0–5000 mV. `mv = 0` drives DAC code 0 (0 V). Firmware converts: `dacCode = mv × 4095 / 5000`. Refused (error) while AO mode (`0xA3`) is `frame_number`. |
 | `0xA1` | get-ao-voltage | `0x01, 0xA1` | v1 (G6-new) | Returns the hardware DAC readback as uint16 LE mV (I²C read of MCP4725 register). |
-| `0xA2` | set-ao-lut | `[len, 0xA2, mode, step_hz_lo, step_hz_hi, count_lo, count_hi, mv...]` | v1 (G6-new) | Upload an AO lookup table and start playback. `mode` 0 = frame-locked (DAC tracks `LUT[cur_frame_index % count]`); `mode` 1 = time-based (DAC steps at `step_hz` Hz, independent of frames). Max 124 entries per standard 1-byte-length frame. End-of-table wraps (modulo). Stopped by `set-ao-voltage (0xA0)`. |
-| `0xAA` | set-digital-out | `0x03, 0xAA, ch, state` | v1 (G6-new) | Drive DO1 (ch=1, BNC J3, Teensy D37, via U2) or DO2 (ch=2, BNC J4, Teensy D35, via U3) HIGH (state ≠ 0) or LOW (state = 0). Level translators initialised as outputs (DIR=HIGH) at boot. |
-| `0xAB` | get-digital-out | `0x01, 0xAB` | v1 (G6-new) | Returns current driven state of DO1 (BNC J3) and DO2 (BNC J4) as two bytes (0 = LOW, 1 = HIGH). |
+| `0xA2` | set-ao-lut | `[len, 0xA2, mode, step_hz_lo, step_hz_hi, count_lo, count_hi, mv...]` | v1 (G6-new) | Upload an AO lookup table and start playback. `mode` 0 = frame-locked (DAC tracks `LUT[cur_frame_index % count]`); `mode` 1 = time-based (DAC steps at `step_hz` Hz, independent of frames). Max 124 entries per standard 1-byte-length frame. End-of-table wraps (modulo). Stopped by `set-ao-voltage (0xA0)`. Refused (error) while AO mode (`0xA3`) is `frame_number`. |
+| `0xA3` | set-ao-mode | `0x02, 0xA3, mode` | v1 (G6-new) | `mode` 0 = programmable (AO driven by `0xA0`/`0xA2`); `mode` 1 = frame_number (DAC tracks the open pattern's frame index, 0 V = frame 0 .. 5 V = last frame, normalized; updated on every frame load in Modes 2/3/4). Entering mode 1 stops any active LUT playback and immediately reflects the current frame. |
+| `0xA4` | get-analog-in | `0x01, 0xA4` | v1 (G6-new) | Returns Analog In 1 (BNC J28/D14) and Analog In 2 (BNC J29/D15) as two int16 LE mV — same OPA2277 ±10 V front-end mapping Mode 4 uses. Bench diagnostic; front-end offset/scale calibration TBD. |
+| `0xAA` | set-digital-out | `0x03, 0xAA, ch, state` | v1 (G6-new) | Drive DO1 (ch=1, BNC J3, Teensy D37, via U2) or DO2 (ch=2, BNC J4, Teensy D35, via U3) HIGH (state ≠ 0) or LOW (state = 0). Requires role (`0xAC`) `out_programmable`; an unconfigured (`off`) port auto-promotes, but `in_trigger`/`out_debug_framescan` refuse (error) to protect the trigger route / scan gate. |
+| `0xAB` | get-digital-out | `0x01, 0xAB` | v1 (G6-new) | Returns the raw data-pin state of DO1 and DO2 as two bytes (0 = LOW, 1 = HIGH), regardless of role — meaning depends on the port's current role (`0xAC`/`0xAD`). |
+| `0xAC` | set-dio-role | `0x03, 0xAC, port, role` | v1 (G6-new) | `port` 1\|2 ("Digital IO 1/2 (5V)" BNC); `role` 0=off, 1=in_trigger, 2=out_programmable, 3=out_debug_framescan (gates a pulse per SPI frame envelope). Explicit role changes are the only way into `in_trigger`/`out_debug_framescan`; `set-digital-out (0xAA)` auto-promotes `off` to `out_programmable`. |
+| `0xAD` | get-dio-role | `0x01, 0xAD` | v1 (G6-new) | Returns `[role1, level1, role2, level2]` — `level` is a live pin read (driven latch in output roles, translated BNC level in input roles), a free trigger-line readback. |
 | `0xC0` | set-ethernet-ip-address | — | v2 (G6-new) | Reserved — not yet implemented. Paired with `get-ethernet-ip-address`. |
 | `0xC1` | get-ethernet-ip-address | `0x01, 0xC1` | v1 | Returns DHCP-resolved IP as ASCII. |
-| `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap}`, version-dispatched (G6-mode + v2 capability bits). |
+| `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap, mac[6]}`, version-dispatched (G6-mode + v2 capability bits). Trailing 6 raw MAC bytes (tolerant, additive — see below) are the controller's physical-setup identity for run-provenance logging. |
 | `0xC3` | set-diagnostic-output | `0x02, 0xC3, on` | v1 (G6-new) | Mute (`0`) / unmute (`1`) `DEBUG_SERIAL` diagnostics on USB-CDC. See § 7 Utility Commands. |
-| `0xC4` | get-diagnostic-output | `0x01, 0xC4` | v1 (G6-new) | Returns current diagnostic-output state as a single byte (`0` = muted, `1` = active). Firmware implementation pending. |
-| `0xC5` | set-spi-clock | `0x03, 0xC5, lo, hi` | v1 (G6-new) | uint16 LE MHz (1–30); response payload carries the applied clock as uint16 LE. Defined in webDisplayTools; firmware implementation pending. |
-| `0xC6` | get-spi-clock | `0x01, 0xC6` | v1 (G6-new) | Returns current SPI clock as uint16 LE MHz. Defined in webDisplayTools; firmware implementation pending. |
+| `0xC4` | get-diagnostic-output | `0x01, 0xC4` | v1 (G6-new) | Returns current diagnostic-output state as a single byte (`0` = muted, `1` = active). |
+| `0xC5` | set-spi-clock | `0x03, 0xC5, lo, hi` | v1 (G6-new) | uint16 LE MHz (1–30, clamped); response payload carries the applied clock as uint16 LE. |
+| `0xC6` | get-spi-clock | `0x01, 0xC6` | v1 (G6-new) | Returns current SPI clock as uint16 LE MHz. |
 | `0xC7` | g6-panel-storage-mode | `0x02, 0xC7, mode_byte` | v2 (G6-new) | `0` = SD Mode, `1` = Local Storage Mode; triggers the PSRAM load phase. Reserved — not yet in firmware. |
 | `0xC8` | g6-program-panel | `0x02, 0xC8, panel_number` | v2 (G6-new) | Reflash a panel from the single firmware image on SD (`/firmware/panel.bin`). `panel_number` is **1-based** (matches the panel-map labels). See § Panel firmware update (ISP). Requires ALL_OFF. |
 | `0xC9` | g6-verify-panel | `0x02, 0xC9, panel_number` | v2 (G6-new) | CRC the panel's **running** app flash (`ISP_ENTER` + `ISP_VERIFY_CRC`) against the `/firmware/panel.bin` footer; confirms an install. `panel_number` **1-based**. No reboot. Requires ALL_OFF. See § Panel firmware update (ISP). |
@@ -627,6 +632,29 @@ Deletes the pattern file at the given index. Rescans and re-sorts `/patterns/` a
 
 ---
 
+#### 0x88 get-pattern-info
+
+Cheap per-pattern metadata preview — header fields plus the first frame's duty cycle — without downloading the file (`get-pattern-file (0x84)`) or requiring `ALL_OFF`.
+
+**Command:** `[0x03, 0x88, idx_lo, idx_hi]` — `idx` uint16 LE, 1-based (same convention as `get-pattern-filename`).
+
+**Response (success):** `[0x0D, 0x00, 0x88, frame_count_lo, frame_count_hi, gs_val, rows, cols, arena_id, observer_id, file_size_b0..b3, duty_cycle]` — 12-byte payload:
+
+| Payload byte(s) | Field | Description |
+|---|---|---|
+| 0–1 | `frame_count` | uint16 LE, frames in the pattern |
+| 2 | `gs_val` | Grayscale mode (GS2/GS16) |
+| 3 | `rows` | Pattern geometry (rows) |
+| 4 | `cols` | Pattern geometry (cols) |
+| 5 | `arena_id` | Header Arena ID |
+| 6 | `observer_id` | Header Observer ID |
+| 7–10 | `file_size` | uint32 LE, file size in bytes |
+| 11 | `duty_cycle` | Frame-0 duty cycle (cheap preview value) |
+
+**Response (error):** `[len, err, 0x88, "pattern info read failed"]` — `idx = 0`/`idx > pattern_count`, or a header/CRC read failure (`err` = the same `ControllerError` code `get-pattern-file`/SD playback would raise).
+
+---
+
 #### 0x8A get-sd-archive
 
 Streams the full SD card content as a ZIP archive (store mode, no compression). Only accepted in `ALL_OFF` state. Like `get-pattern-file`, the response is a framed header followed by bulk raw bytes.
@@ -666,9 +694,9 @@ Firmware conversion: `dacCode = mv × 4095 / 5000` (integer arithmetic).
 
 **Command:** `[0x03, 0xA0, mv_lo, mv_hi]` — `mv` uint16 LE, 0–5000 mV.
 
-**Response (success):** `[0x04, 0x00, 0xA0, mv_lo, mv_hi]` — echoes the applied mV as uint16 LE.
+**Response (success):** `[0x04, 0x00, 0xA0, mv_lo, mv_hi]` — echoes the applied mV as uint16 LE. Also stops any active LUT playback (`0xA2`).
 
-**Response (error):** `[len, 0x01, 0xA0, ASCII_msg]` — `mv > 5000` or I²C write failure.
+**Response (error):** `[len, 0x01, 0xA0, ASCII_msg]` — `mv > 5000`, I²C write failure, or AO mode (`0xA3`) is `frame_number` (`"AO is in frame_number mode - SET_AO_MODE (0xA3) 0 first"`).
 
 ---
 
@@ -701,37 +729,95 @@ Uploads a lookup table (LUT) of AO mV values and starts playback immediately. Th
 
 **Response (success):** `[0x04, 0x00, 0xA2, count_lo, count_hi]` — echoes the accepted entry count as uint16 LE.
 
-**Response (error):** `[len, 0x01, 0xA2, ASCII_msg]` — `count = 0`, `count > 4096`, any `mv > 5000`, `mode > 1`, or count/length mismatch.
+**Response (error):** `[len, 0x01, 0xA2, ASCII_msg]` — `count = 0`, `count > 4096`, any `mv > 5000`, `mode > 1`, count/length mismatch, or AO mode (`0xA3`) is `frame_number` (`"AO is in frame_number mode - SET_AO_MODE (0xA3) 0 first"`).
+
+---
+
+#### 0xA3 set-ao-mode
+
+Selects what drives the analog output: direct host control, or the currently-playing pattern's frame index.
+
+**Command:** `[0x02, 0xA3, mode]`
+
+- `mode` (uint8): `0` = programmable — AO driven by `set-ao-voltage (0xA0)` / `set-ao-lut (0xA2)`. `1` = frame_number — the DAC tracks the open pattern's live frame index, normalized `0 V` (frame 0) .. `5 V` (last frame); updated on every frame load in Modes 2/3/4.
+
+Entering mode 1 stops any active LUT playback and immediately writes the DAC to reflect the current frame (or `0 V` if no pattern is open).
+
+**Response (success):** `[0x02, 0x00, 0xA3]`
+
+**Response (error):** `[len, 0x01, 0xA3, ASCII_msg]` — `mode > 1`.
+
+---
+
+#### 0xA4 get-analog-in
+
+Reads both analog input BNCs. Bench diagnostic — front-end offset/scale calibration is TBD (§ Mode 4).
+
+**Command:** `[0x01, 0xA4]`
+
+**Response:** `[0x06, 0x00, 0xA4, ain1_lo, ain1_hi, ain2_lo, ain2_hi]`
+
+- `ain1`, `ain2` (int16 LE mV each): Analog In 1 (BNC J28, Teensy D14) and Analog In 2 (BNC J29, Teensy D15). Both share the OPA2277 front-end mapping ±10 V → 0..3.3 V at the ADC, midscale = 0 V — the same math Mode 4 uses.
 
 ---
 
 #### 0xAA set-digital-out
 
-Drives one digital output HIGH or LOW. The two outputs use SN74LVC1T45 bidirectional level translators. The DIR pin is held HIGH (Teensy→BNC direction) and initialised at boot, so only the data pin changes. The BNC output is 5 V (translator B-side); the Teensy I/O operates at 3.3 V.
+Drives one digital IO port HIGH or LOW. The two ports use SN74LVC1T45 bidirectional level translators; the BNC side is 5 V, the Teensy I/O side is 3.3 V. Gated by the port's role (`0xAC`/`0xAD`): only meaningful — and only accepted — when the translator is in the Teensy→BNC direction.
 
 **Command:** `[0x03, 0xAA, ch, state]`
 
-- `ch`: 1 = DO1 (BNC J3, Teensy D37, via U2); 2 = DO2 (BNC J4, Teensy D35, via U3)
+- `ch`: 1 = Digital IO 1 (BNC J3, Teensy D37, via U2); 2 = Digital IO 2 (BNC J4, Teensy D35, via U3)
 - `state`: 0 = LOW; any non-zero value = HIGH
 
-**Response (success):** `[0x02, 0x00, 0xAA]`
+**Response (success):** `[0x02, 0x00, 0xAA]`. An `off` (unconfigured) port auto-promotes to `out_programmable` on first use.
 
-**Response (error):** `[len, 0x01, 0xAA, ASCII_msg]` — `ch` not 1 or 2, or fewer than 2 payload bytes.
+**Response (error):** `[len, 0x01, 0xAA, ASCII_msg]` — `ch` not 1 or 2, fewer than 2 payload bytes, or the port's role is `in_trigger`/`out_debug_framescan` (`"Digital IO <ch> role is <role> - SET_DIO_ROLE (0xAC) it to out_programmable first"` — refused rather than silently reconfigured, since flipping the translator direction here would destroy the trigger route / scan gate).
 
 ---
 
 #### 0xAB get-digital-out
 
-Returns the current driven state of both digital output channels by reading the Teensy data pins directly.
+Returns the raw Teensy data-pin state for both digital IO ports, independent of role.
 
 **Command:** `[0x01, 0xAB]`
 
 **Response:** `[0x04, 0x00, 0xAB, do1_state, do2_state]`
 
-- `do1_state`: 0 = LOW, 1 = HIGH (DO1, BNC J3, Teensy D37, via U2)
-- `do2_state`: 0 = LOW, 1 = HIGH (DO2, BNC J4, Teensy D35, via U3)
+- `do1_state`: 0 = LOW, 1 = HIGH (Digital IO 1, BNC J3, Teensy D37, via U2)
+- `do2_state`: 0 = LOW, 1 = HIGH (Digital IO 2, BNC J4, Teensy D35, via U3)
 
-Both outputs are driven LOW at boot. State reflects the last value written by `set-digital-out` (or the boot default if never set).
+The value's meaning depends on the port's current role: in an output role (`out_programmable`/`out_debug_framescan`) it's the driven level (host-set via `0xAA`, or SPI-frame-gated); in `off`/`in_trigger` it's a pass-through read of whatever the BNC/EINT side is presenting. Use `get-dio-role (0xAD)` to also learn the role each state applies to.
+
+---
+
+#### 0xAC set-dio-role
+
+Configures what a digital IO port does: pass-through disabled, external trigger input, host-programmable output, or an SPI-frame-gated debug output. Ports are 1-based on the wire (matching the board's "Digital IO 1/2 (5V)" BNC silkscreen and the `0xAA`/`0xAB` channel numbering).
+
+**Command:** `[0x03, 0xAC, port, role]`
+
+- `port`: 1 or 2
+- `role`: `0` = off (translator B→A, data pin hi-Z, BNC ignored); `1` = in_trigger (pin configured as `off`; on port 2 the BNC additionally feeds the panels' EINT net via U3 B→A + J30 shunt — the external trigger route); `2` = out_programmable (translator A→B, host drives the BNC via `0xAA`); `3` = out_debug_framescan (output, gated by `SpiManager` per SPI frame transfer — a per-frame scan-timing pulse)
+
+Boot defaults (before any `0xAC` call): port 1 = `out_programmable` driving LOW (historic bench behavior); port 2 = `in_trigger` (the external trigger route to the panels' EINT net).
+
+**Response (success):** `[0x02, 0x00, 0xAC]`
+
+**Response (error):** `[len, 0x01, 0xAC, ASCII_msg]` — `port` not 1 or 2, or `role > 3`.
+
+---
+
+#### 0xAD get-dio-role
+
+Returns each port's configured role plus a live pin read, in one call.
+
+**Command:** `[0x01, 0xAD]`
+
+**Response:** `[0x06, 0x00, 0xAD, role1, level1, role2, level2]`
+
+- `role1`, `role2` (uint8, `0`–`3`): current role of port 1 / port 2, per `set-dio-role (0xAC)`.
+- `level1`, `level2` (uint8, `0`/`1`): live read of the port's data pin — the driven latch in an output role, the translated BNC level in an input role. A free trigger-line readback that doesn't require switching the port to an output role first.
 
 ---
 
@@ -753,16 +839,19 @@ Returns the DHCP-resolved IP address as an ASCII string.
 
 #### 0xC2 get-controller-info
 
-Returns the controller version byte and capability bitmap. Use this to detect G6 mode and v2/v3 feature availability before issuing feature-gated commands.
+Returns the controller version byte, capability bitmap, and physical-setup identity (Ethernet MAC). Use this to detect G6 mode and v2/v3 feature availability before issuing feature-gated commands, and to tag run logs with which physical controller ran them.
 
 **Command:** `[0x01, 0xC2]`
 
-**Response:** `[0x04, 0x00, 0xC2, version, capability]`
+**Response:** `[0x0A, 0x00, 0xC2, version, capability, mac0, mac1, mac2, mac3, mac4, mac5]`
 
 | Payload byte | Field | Description |
 |---|---|---|
 | 0 | `version` | Controller capability generation |
 | 1 | `capability` | Bitmap — see below |
+| 2–7 | `mac[6]` | Ethernet MAC, raw bytes (Teensy 4.1 burned-in unique ID via QNEthernet — sourced fresh on every call, valid even when the Ethernet link is down) |
+
+`mac[6]` is a tolerant, additive extension: a host that predates it reads only bytes 0–1 and is unaffected by the longer payload.
 
 **Capability bitmap (bit 0 = LSB):**
 
