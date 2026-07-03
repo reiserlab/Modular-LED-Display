@@ -1,7 +1,10 @@
 # G6 — Panel Programming (flashing tools)
 
-Source: G6 panel programming streamlining work; grounds against [`reiserlab/LED-Display_G6_Firmware_Panel`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel) (`panel/platformio.ini`, `panel/tools/deploy*.sh`, `pixi.toml`).
-Status: **Specified** — design + reference implementation staged at [`tools/panel-programming/`](../../tools/panel-programming/); pending relocation into the firmware/web submodule repos and end-to-end hardware validation.
+Source: G6 panel programming streamlining work; grounds against [`reiserlab/LED-Display_G6_Firmware_Panel`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel) (`panel/platformio.ini`, `panel/tools/g6_flash.py`, `pixi.toml`).
+Status: **Specified** — `g6-flash` CLI and the release/diag build pipeline live in
+`panel/tools/` (firmware repo); the WebUSB flasher lives in webDisplayTools' `flasher/`.
+End-to-end hardware validation and cutting the first `panel-fw-v*` release are still open
+(see Open Questions / TBDs).
 
 This file specifies how G6 panels get their firmware: a `g6-flash` command-line tool
 and a zero-install WebUSB browser flasher, both fed by CI-published, prebuilt UF2
@@ -31,15 +34,17 @@ USB identities (from `panel/platformio.ini`): VID `0x2E8A`; running firmware PID
 `0x0009` (USB-serial, product `G6 Panel v0.2` / `G6 Panel v0.3`); BOOTSEL PID `0x000f`
 (mass-storage + PICOBOOT).
 
-### Why not the existing `deploy*.sh`
+### Why not the retired `deploy*.sh`
 
-`panel/tools/deploy.sh` / `deploy_all.sh` drive `pio … -t upload` and match panels only
-in **USB-serial mode** — so they **cannot flash a blank/BOOTSEL board** (the common case
-for a freshly assembled panel), require a full PlatformIO build env, and `deploy_all.sh`
-is sequential. The tools below use **`picotool`**, which can reboot a running panel into
-BOOTSEL itself (`reboot -f -u`) *and* flash a board already in BOOTSEL — one code path for
-both new and old panels — and consume prebuilt UF2s so no build env is needed. The legacy
-scripts remain for the firmware-developer `pio` flow.
+`panel/tools/deploy.sh` / `deploy_all.sh` used to drive `pio … -t upload` and matched
+panels only in **USB-serial mode** — so they **could not flash a blank/BOOTSEL board**
+(the common case for a freshly assembled panel), required a full PlatformIO build env,
+and `deploy_all.sh` flashed sequentially. The tools below use **`picotool`**, which can
+reboot a running panel into BOOTSEL itself (`reboot -f -u`) *and* flash a board already
+in BOOTSEL — one code path for both new and old panels — and consume prebuilt UF2s so no
+build env is needed. Both scripts have since been retired: their functionality (build a
+local env, flash one panel by USB serial or all panels of a rev) now lives in `g6-flash`
+itself, driven by the `deploy*`/`deploy*a`/`deploy*a-diag` pixi tasks (`pixi.toml`).
 
 ---
 
@@ -47,33 +52,54 @@ scripts remain for the firmware-developer `pio` flow.
 
 CI builds and publishes per-rev UF2s so neither tool needs PlatformIO.
 
-- Workflow: `.github/workflows/release.yml` in the firmware repo (reference copy at
-  [`tools/panel-programming/release.yml`](../../tools/panel-programming/release.yml)).
-  Triggers on tag `panel-fw-v*` (and manual dispatch).
-- Matrix over the **production envs only** (`pico_v021`, `pico_v031` — never the
-  `_bcmtest` / `_spidiag` bench builds, which carry a `*** DO NOT DEPLOY ***` banner).
-  Build via `pio run -d panel -e <env>`; the build already runs
-  `tools/gen_predef_patterns.py` and enforces the 2 MiB cap, so a broken/oversize image
-  fails in CI.
-- Release assets: `g6-panel-v0.2.1.uf2`, `g6-panel-v0.3.1.uf2`, and a **`manifest.json`**:
+- Workflow: `.github/workflows/release.yml` in the firmware repo. Triggers on tag
+  `panel-fw-v*` (and manual dispatch).
+- The release catalog isn't a hardcoded list — `panel/tools/build_release.py`
+  discovers it from `panel/platformio.ini` itself: an env belongs to the
+  **release** group if it `extends = common` (a deployable hardware-rev
+  build — currently `pico_v021`, `pico_v031`); an env that instead `extends`
+  another `pico_v*` env (`_bcmtest`, `_spidiag`, or any future variant)
+  belongs to the separate **diag** group (`pixi run diag`) —
+  bench/diagnostic builds, never published by CI, which only ever runs
+  `pixi run release`. Adding a new hardware rev or variant to
+  `platformio.ini` with the right `extends` is the only thing needed for it
+  to show up in the right group automatically. CI installs pixi
+  (`prefix-dev/setup-pixi`, `locked: true`) instead of a separate
+  `pip install platformio`, so it resolves the exact same PlatformIO (and
+  Python) versions as running `pixi run release` on a bench machine, and a
+  developer can preview the whole release payload locally before ever
+  pushing a tag. The build already runs `tools/gen_predef_patterns.py` and
+  enforces the 2 MiB cap, so a broken/oversize image fails before it's ever
+  staged.
+- Release assets: `g6-panel-v0.2.1.uf2`, `g6-panel-v0.3.1.uf2`, their ISP-footer
+  `.bin` counterparts (`pixi run release` always builds both formats — one build
+  pipeline, not two), and a **`manifest.json`**:
 
   ```json
   { "version": "panel-fw-v1.0.0",
     "artifacts": [
-      { "rev": "v0.2.1", "env": "pico_v021", "file": "g6-panel-v0.2.1.uf2",
-        "sha256": "…", "usb_product": "G6 Panel v0.2" },
-      { "rev": "v0.3.1", "env": "pico_v031", "file": "g6-panel-v0.3.1.uf2",
-        "sha256": "…", "usb_product": "G6 Panel v0.3" } ] }
+      { "rev": "v0.2.1", "env": "pico_v021", "variant": "production",
+        "label": "v0.2.1 — Production", "usb_product": "G6 Panel v0.2", "default": false,
+        "uf2": { "file": "g6-panel-v0.2.1.uf2", "sha256": "…" },
+        "bin": { "file": "g6-panel-v0.2.1.bin", "sha256": "…" } },
+      { "rev": "v0.3.1", "env": "pico_v031", "variant": "production",
+        "label": "v0.3.1 — Production", "usb_product": "G6 Panel v0.3", "default": true,
+        "uf2": { "file": "g6-panel-v0.3.1.uf2", "sha256": "…" },
+        "bin": { "file": "g6-panel-v0.3.1.bin", "sha256": "…" } } ] }
   ```
 
-  `usb_product` drives post-flash verification; `sha256` is checked on download.
+  `usb_product` drives post-flash verification; `sha256` is checked on download. `bin` is the
+  ISP-footer image for the arena controller's over-SPI push — that path is out of scope for this
+  doc (see [`g6_03-controller.md`](g6_03-controller.md) § Panel firmware update (ISP)) —
+  `g6-flash`/the WebUSB flasher only ever look at `uf2`.
 
 ## B. `g6-flash` CLI (bench)
 
-Reference: [`tools/panel-programming/g6_flash.py`](../../tools/panel-programming/g6_flash.py);
-final home `panel/tools/g6_flash.py`. Python 3, stdlib-only; needs `picotool` on PATH
-(add to `pixi.toml [dependencies]`, conda-forge has it). Linux (enumerates via sysfs,
-like the by-id scripts).
+Location: `panel/tools/g6_flash.py` (firmware repo). Python 3, stdlib-only; needs `picotool`, which is
+**not** a conda-forge package so it isn't a pinned `pixi.toml` dependency — the tool
+prefers the copy PlatformIO already vendors under `~/.platformio/packages/tool-picotool*/`
+(present for anyone who's run `pixi run release`/`diag`, which build via `pio`
+under the hood), falling back to PATH. Linux (enumerates via sysfs, like the by-id scripts).
 
 Per panel: if it is running firmware, `picotool reboot -f -u --bus B --address A` →
 wait for BOOTSEL; then `picotool load [-x] --bus B --address A <uf2>`; then (when executed)
@@ -98,15 +124,18 @@ g6_flash.py --rev v0.3.1 --uf2 panel/.pio/build/pico_v031/firmware.uf2   # local
 g6_flash.py --list                       # show connected panels
 ```
 
-Suggested `pixi.toml` tasks (replacing the hardcoded-serial demo tasks):
-`flash21 = "python panel/tools/g6_flash.py --rev v0.2.1"`,
-`flash31 = "python panel/tools/g6_flash.py --rev v0.3.1"`.
+The firmware repo's `pixi.toml` wraps this into `flash21-github-release`/`flash31-github-release`
+(flash the latest published release, no local build) and `flash21`/`flash31` (build
+the full release catalog first via `depends-on = ["release"]`, then flash the resulting
+`dist/g6-panel-<rev>.uf2`) — see `pixi.toml`'s own comments for the exact task definitions.
 
 ## C. WebUSB browser flasher (nontechnical users)
 
-Reference: [`tools/panel-programming/flasher/`](../../tools/panel-programming/flasher/);
-final home `flasher/` in [`reiserlab/webDisplayTools`](https://github.com/reiserlab/webDisplayTools),
-served over GitHub Pages (WebUSB requires a secure context). **Chromium/Edge only.**
+Location: `flasher/` in [`reiserlab/webDisplayTools`](https://github.com/reiserlab/webDisplayTools),
+served over GitHub Pages (WebUSB requires a secure context). **Chromium/Edge only.** This
+section describes the core design (WebUSB/PICOBOOT mechanics); the live tool's UI/catalog
+features (build dropdown grouping, local dev builds, etc.) have continued to evolve past it —
+see `flasher/flasher.js` itself for current behavior.
 
 A standalone static page (plain HTML + ES module, no build step), separate from the
 existing Web *Serial* arena console — bootloader flashing needs Web **USB** (the RP2350
@@ -125,21 +154,19 @@ the latest release via the same `manifest.json`, so the page auto-tracks new fir
 
 - Mandatory, deliberate rev selection; neither tool guesses.
 - Both read back the post-flash USB product string and prefix-match it against the
-  manifest's `usb_product` (`G6 Panel v0.2` / `v0.3`, same casing as `deploy.sh`), so a
-  wrong-rev flash is caught immediately on the bench rather than in an arena.
+  manifest's `usb_product` (`G6 Panel v0.2` / `v0.3`), so a wrong-rev flash is caught
+  immediately on the bench rather than in an arena.
 - PCB-identification guidance is shown in both UIs.
 
 ---
 
 ## Current state
 
-Design and reference implementations are complete and staged in the parent repo at
-[`tools/panel-programming/`](../../tools/panel-programming/) (the firmware and webDisplayTools
-submodules are separate repos). A maintainer relocates them to their final homes —
-`panel/tools/g6_flash.py`, `.github/workflows/release.yml`, webDisplayTools `flasher/` —
-and adds the `picotool` dependency + `flash*` tasks to the firmware `pixi.toml`. No
-firmware release has been cut yet, so the tools' default download path is untested until
-the first `panel-fw-v*` tag.
+`g6-flash` (`panel/tools/g6_flash.py`), the release/diag build pipeline
+(`panel/tools/build_release.py`, `.github/workflows/release.yml`, `pixi.toml`), and the
+WebUSB flasher (webDisplayTools `flasher/`) are implemented in their final homes (`picotool`
+is not pinned as a `pixi.toml` dependency — see §B). No firmware release has been cut yet,
+so the tools' default download path is untested until the first `panel-fw-v*` tag.
 
 ## Open Questions / TBDs
 
@@ -150,8 +177,8 @@ the first `panel-fw-v*` tag.
   framing against real RP2350 hardware and the picoflash reference.
 - **End-to-end hardware validation** — verify against the two bench panels
   (`319A5199EE357F77` v0.2.1, `A5D4B82BA2B9FB51` v0.3.1): a re-flash of a running board
-  (cross-checked vs `pixi run deploy31a`), and a blank/BOOTSEL board (the new capability),
-  plus the rev-guard abort path.
+  (cross-checked vs a direct `g6_flash.py --serial <SERIAL>` call), and a blank/BOOTSEL
+  board (the new capability), plus the rev-guard abort path.
 - **Optional** — a firmware serial command to reboot-to-BOOTSEL would let the web tool
   auto-enter BOOTSEL via a Web Serial pre-step, removing the manual hold-BOOTSEL step.
 
@@ -164,4 +191,4 @@ the first `panel-fw-v*` tag.
 - [`g6_05-host-software.md`](g6_05-host-software.md) — host transports; webDisplayTools
   Web Serial console (distinct from this WebUSB flasher).
 - Firmware build/flash: `Generation 6/Panel-Firmware/README.md`, `panel/platformio.ini`,
-  `panel/tools/deploy.sh`, `pixi.toml`.
+  `panel/tools/g6_flash.py`, `pixi.toml`.
