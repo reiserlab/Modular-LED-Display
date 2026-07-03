@@ -34,17 +34,20 @@ USB identities (from `panel/platformio.ini`): VID `0x2E8A`; running firmware PID
 `0x0009` (USB-serial, product `G6 Panel v0.2` / `G6 Panel v0.3`); BOOTSEL PID `0x000f`
 (mass-storage + PICOBOOT).
 
-### Why not the retired `deploy*.sh`
+### Why not the retired `deploy*.sh` / `monitor.sh`
 
 `panel/tools/deploy.sh` / `deploy_all.sh` used to drive `pio … -t upload` and matched
-panels only in **USB-serial mode** — so they **could not flash a blank/BOOTSEL board**
-(the common case for a freshly assembled panel), required a full PlatformIO build env,
-and `deploy_all.sh` flashed sequentially. The tools below use **`picotool`**, which can
-reboot a running panel into BOOTSEL itself (`reboot -f -u`) *and* flash a board already
-in BOOTSEL — one code path for both new and old panels — and consume prebuilt UF2s so no
-build env is needed. Both scripts have since been retired: their functionality (build a
-local env, flash one panel by USB serial or all panels of a rev) now lives in `g6-flash`
-itself, driven by the `deploy*`/`deploy*a`/`deploy*a-diag` pixi tasks (`pixi.toml`).
+panels only in **USB-serial mode** on Linux — so they **could not flash a blank/BOOTSEL
+board** (the common case for a freshly assembled panel), required a full PlatformIO
+build env, and `deploy_all.sh` flashed sequentially. On Linux, `g6-flash` uses
+**`picotool`** instead, which can reboot a running panel into BOOTSEL itself
+(`reboot -f -u`) *and* flash a board already in BOOTSEL — one code path for both new and
+old panels — and consumes prebuilt UF2s so no build env is needed. `deploy.sh` had grown
+a macOS branch too (1200-baud BOOTSEL touch + UF2 copy to `/Volumes/RP2350`, since
+picotool's libusb backend can't reliably claim a CDC interface macOS's own kernel driver
+already owns); `g6-flash` ports that mechanism verbatim as its macOS path (see §B). Both
+`deploy*.sh` and `monitor.sh` (superseded by `panel/tools/monitor.py`, cross-platform via
+`pyserial`) have since been retired.
 
 ---
 
@@ -95,24 +98,39 @@ CI builds and publishes per-rev UF2s so neither tool needs PlatformIO.
 
 ## B. `g6-flash` CLI (bench)
 
-Location: `panel/tools/g6_flash.py` (firmware repo). Python 3, stdlib-only; needs `picotool`, which is
-**not** a conda-forge package so it isn't a pinned `pixi.toml` dependency — the tool
-prefers the copy PlatformIO already vendors under `~/.platformio/packages/tool-picotool*/`
-(present for anyone who's run `pixi run release`/`diag`, which build via `pio`
-under the hood), falling back to PATH. Linux (enumerates via sysfs, like the by-id scripts).
+Location: `panel/tools/g6_flash.py` (firmware repo). Python 3, stdlib-only except for
+`pyserial` on macOS (already pulled in transitively by `platformio`). Linux and macOS
+are supported with two different device models; Windows is not.
 
-Per panel: if it is running firmware, `picotool reboot -f -u --bus B --address A` →
-wait for BOOTSEL; then `picotool load [-x] --bus B --address A <uf2>`; then (when executed)
-wait for re-enumeration as PID `0x0009` and confirm the product string matches `--rev`.
+**Linux** — enumerates via sysfs (like the retired by-id scripts) and flashes with
+`picotool`, which is **not** a conda-forge package so it isn't a pinned `pixi.toml`
+dependency — the tool prefers the copy PlatformIO already vendors under
+`~/.platformio/packages/tool-picotool*/` (present for anyone who's run `pixi run
+release`/`diag`, which build via `pio` under the hood), falling back to PATH. Per panel:
+if it is running firmware, `picotool reboot -f -u --bus B --address A` → wait for
+BOOTSEL; then `picotool load [-x] --bus B --address A <uf2>`; then (when executed) wait
+for re-enumeration as PID `0x0009` and confirm the product string matches `--rev`.
+**Identity = sysfs USB port path** (e.g. `3-1.4`), which is stable across the BOOTSEL↔app
+re-enumeration; bus/address (busnum/devnum) target picotool. Batch: enumerate all
+VID-`0x2E8A` boards, flash in parallel (`--jobs`, default 4), end-of-run summary.
+**Realistic ceiling ~10–20 panels per externally-powered hub** — the limit is post-flash
+LED-matrix inrush + USB re-enumeration, not flashing. `--no-exec` loads without running,
+so trays can be power-cycled in small groups.
 
-- **Identity = sysfs USB port path** (e.g. `3-1.4`), which is stable across the
-  BOOTSEL↔app re-enumeration; bus/address (busnum/devnum) target picotool.
+**macOS** — no picotool: its libusb backend can't reliably claim a CDC interface macOS's
+own kernel driver already owns. Instead, a 1200-baud DTR touch (the earlephilhower/Arduino
+convention for a buttonless BOOTSEL reset) followed by a plain UF2 copy to the
+`/Volumes/RP2350` mass-storage mount — the mechanism the retired `deploy.sh` validated.
+That mount can't disambiguate multiple simultaneous boards, so macOS flashes **exactly
+one panel per invocation** — no "flash every connected panel of a rev", no parallel
+batch, no `--no-exec`. Boards running firmware are enumerated via `pyserial` (matching
+VID/PID/serial, same as `monitor.py`); post-flash verification keys off the USB serial
+known *before* the touch (device paths aren't stable across the re-enumeration), so a
+blank/already-BOOTSEL board (no prior serial) flashes but can't be verified this way.
+
+Both platforms share:
 - `--rev {v0.2.1,v0.3.1}` is **mandatory**. A running board whose current product string
   disagrees with `--rev` triggers a loud abort (override with `--force`).
-- Batch: enumerate all VID-`0x2E8A` boards, flash in parallel (`--jobs`, default 4),
-  end-of-run summary. **Realistic ceiling ~10–20 panels per externally-powered hub** —
-  the limit is post-flash LED-matrix inrush + USB re-enumeration, not flashing. `--no-exec`
-  loads without running, so trays can be power-cycled in small groups.
 - Firmware source: default = latest GitHub Release (manifest + sha256-checked UF2, cached
   under `~/.cache/g6-flash/`); `--fw-version <tag>` pins a release; `--uf2 <path>` flashes
   a local build.
@@ -165,8 +183,11 @@ the latest release via the same `manifest.json`, so the page auto-tracks new fir
 `g6-flash` (`panel/tools/g6_flash.py`), the release/diag build pipeline
 (`panel/tools/build_release.py`, `.github/workflows/release.yml`, `pixi.toml`), and the
 WebUSB flasher (webDisplayTools `flasher/`) are implemented in their final homes (`picotool`
-is not pinned as a `pixi.toml` dependency — see §B). No firmware release has been cut yet,
-so the tools' default download path is untested until the first `panel-fw-v*` tag.
+is not pinned as a `pixi.toml` dependency — see §B). macOS flashing (1200-baud touch + UF2
+copy) ports the retired `deploy.sh`'s mechanism, itself hardware-validated, but is
+unverified in `g6-flash`'s own code path beyond a mocked-pyserial logic test (see Open
+Questions). No firmware release has been cut yet, so the tools' default download path is
+untested until the first `panel-fw-v*` tag.
 
 ## Open Questions / TBDs
 
@@ -179,6 +200,10 @@ so the tools' default download path is untested until the first `panel-fw-v*` ta
   (`319A5199EE357F77` v0.2.1, `A5D4B82BA2B9FB51` v0.3.1): a re-flash of a running board
   (cross-checked vs a direct `g6_flash.py --serial <SERIAL>` call), and a blank/BOOTSEL
   board (the new capability), plus the rev-guard abort path.
+- **macOS validation** — `g6-flash`'s macOS path (1200-baud touch + UF2 copy) has not
+  been run against real hardware; only checked with a mocked-pyserial logic test. Verify
+  the touch/mount/copy sequence and post-flash serial-based verification on an actual Mac
+  + bench panel before relying on it.
 - **Optional** — a firmware serial command to reboot-to-BOOTSEL would let the web tool
   auto-enter BOOTSEL via a Web Serial pre-step, removing the manual hold-BOOTSEL step.
 
