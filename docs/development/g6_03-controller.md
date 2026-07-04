@@ -743,7 +743,7 @@ Selects what drives the analog output: direct host control, or the currently-pla
 
 - `mode` (uint8): `0` = programmable — AO driven by `set-ao-voltage (0xA0)` / `set-ao-lut (0xA2)`. `1` = frame_number — the DAC tracks the open pattern's live frame index, normalized `0 V` (frame 0) .. `5 V` (last frame); updated on every frame load in Modes 2/3/4.
 
-Entering mode 1 stops any active LUT playback and immediately writes the DAC to reflect the current frame (or `0 V` if no pattern is open).
+Entering mode 1 stops any active LUT playback and immediately writes the DAC to reflect the current frame (a single-frame pattern maps to `0 V`); if no pattern is open, the DAC is left unchanged until the next pattern load.
 
 **Response (success):** `[0x02, 0x00, 0xA3]`
 
@@ -802,7 +802,7 @@ Configures what a digital IO port does: pass-through disabled, external trigger 
 - `port`: 1 or 2
 - `role`: `0` = off (translator B→A, data pin hi-Z, BNC ignored); `1` = in_trigger (pin configured as `off`; on port 2 the BNC additionally feeds the panels' EINT net via U3 B→A + J30 shunt — the external trigger route); `2` = out_programmable (translator A→B, host drives the BNC via `0xAA`); `3` = out_debug_framescan (output, gated by `SpiManager` per SPI frame transfer — a per-frame scan-timing pulse)
 
-Boot defaults (before any `0xAC` call): port 1 = `out_programmable` driving LOW (historic bench behavior); port 2 = `in_trigger` (the external trigger route to the panels' EINT net).
+Boot defaults (before any `0xAC` call): port 1 = `out_programmable` driving LOW (historic bench behavior); port 2 = `in_trigger` (the external trigger route to the panels' EINT net). Hardware note: with the J30 shunt installed, port 2's translator A-net feeds the panels' EINT fanout through R216 **regardless of role** — an `out_programmable` port 2 pulses the panel trigger net whenever it toggles; firmware cannot prevent this.
 
 **Response (success):** `[0x02, 0x00, 0xAC]`
 
@@ -864,7 +864,8 @@ Returns the controller version byte, capability bitmap, and physical-setup ident
 | 2 | `mode_1_tsi` | Mode 1 / TSI file playback supported |
 | 3 | `v3_triggered` | v3 Triggered mode supported |
 | 4 | `v3_gated` | v3 Gated mode supported |
-| 5–7 | reserved | Transmit as 0 |
+| 5 | `io_ext` | Extended I/O command set supported: `set-dio-role (0xAC)`, `get-dio-role (0xAD)`, `set-ao-mode (0xA3)`, `get-analog-in (0xA4)`. Hosts MUST gate those commands on this bit — pre-`io_ext` firmware treats them as unknown opcodes (error + `CE 01` glyph). |
+| 6–7 | reserved | Transmit as 0 |
 
 ---
 
@@ -1119,7 +1120,7 @@ Mode 1 is invalid in SD Mode.
 ### 5. G6-specific controller commands
 
 - **`g6-panel-storage-mode`** (opcode `0xC7`) — switches controller from **SD Mode** (default, `mode_byte = 0`) to **Local Storage Mode** (`mode_byte = 1`). When transitioning to Local Storage Mode, triggers the load phase that copies SD patterns into panel PSRAM. Wire form: `[0x02, 0xC7, mode_byte]`.
-- **`get-controller-info`** (opcode `0xC2`) — returns `{version_byte, capability_bitmap}` with the version byte dispatching the response shape. **Capability bitmap** (8-bit): bit 0 = `g6_mode` (always 1 for any G6 controller), bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 = reserved (transmit as 0; future bits land in a v2 controller-info opcode rev). Request: `[0x01, 0xC2]`. Response: `[0x01, 0xC2, version_byte, capability_byte]` (parity adjusted).
+- **`get-controller-info`** (opcode `0xC2`) — returns `{version_byte, capability_bitmap}` with the version byte dispatching the response shape. **Capability bitmap** (8-bit): bit 0 = `g6_mode` (always 1 for any G6 controller), bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bit 5 = `io_ext` (extended I/O command set: 0xAC/0xAD/0xA3/0xA4), bits 6–7 = reserved (transmit as 0; future bits land in a v2 controller-info opcode rev). Request: `[0x01, 0xC2]`. Response: `[0x01, 0xC2, version_byte, capability_byte]` (parity adjusted).
 
 ### 6. Controller Error Display
 
