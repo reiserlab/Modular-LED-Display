@@ -275,7 +275,6 @@ G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one
 | Opcode | G4 | G6 | Note |
 |---|---|---|---|
 | `0x01` | DISPLAY_RESET (reset FPGA display) | SYSTEM_RESET (reboot MCU) | Deliberate repurpose; a G4 client's display-reset triggers a full reboot + link drop. |
-| `0x08` | trial-params: `gain` int16 + trailing `runtime` | trial-params: `gain` int8, no runtime, `rate` int16 | Same intent, different payload layout; G4 12-byte frame misparses. Reconciliation open. |
 | `0x32` | stream-frame with `aox/aoy` header bytes (also dual-used as setAO) | stream-frame, 3-byte header, no `aox/aoy` | Different header; G4 `setAO`-via-`0x32` overload absent (G6 uses `0xA0`). |
 
 ### Per-command wire formats
@@ -341,7 +340,7 @@ Recognized only to produce an explicit rejection. Grayscale mode is inferred fro
 
 Selects the display mode (2/3/4), opens the named SD pattern, and arms the refresh timer.
 
-**Command:** `[len, 0x08, mode, pat_id_lo, pat_id_hi, rate_lo, rate_hi, gain, init_lo, init_hi, …]`
+**Command:** `[len, 0x08, mode, pat_id_lo, pat_id_hi, rate_lo, rate_hi, init_lo, init_hi, gain_lo, gain_hi, dur_lo, dur_hi]`
 
 Payload bytes after the command byte:
 
@@ -350,11 +349,11 @@ Payload bytes after the command byte:
 | 0 | `mode` | uint8 | 2 = Open Loop, 3 = Show Frame, 4 = Closed Loop |
 | 1–2 | `pattern_id` | uint16 LE | 1-based SD pattern index |
 | 3–4 | `frame_rate` | int16 LE | Hz — frame-advance rate for Mode 2. Negative values play in reverse. Sign is ignored in Modes 3 and 4. |
-| 5 | `gain` | int8 | Mode 4 velocity scale: actual gain = `gain / 10` fps/V (e.g. `−20` → −2.0 fps/V) |
-| 6–7 | `init_pos` | uint16 LE | Initial frame index (0-based) |
-| 8+ | reserved | — | Legacy G4 fields; accepted and ignored |
+| 5–6 | `init_pos` | uint16 LE | Initial frame index (0-based) |
+| 7–8 | `gain` | int16 LE | Mode 4 velocity scale: actual gain = `gain / 10` fps/V (e.g. `−20` → −2.0 fps/V) |
+| 9–10 | `duration` | uint16 LE | Controller-run trial length, in 10 ms ticks. `0` = no auto-stop; the controller reverts to ALL_OFF on its own when the duration elapses. |
 
-Minimum payload: 8 bytes (offsets 0–7). Full G4-legacy form sends 12 param bytes (`length = 0x0D`).
+Frame length is always `0x0C` (12 = cmd + 11 param bytes); all 11 param bytes are required.
 
 **Response (success):** `[0x02, 0x00, 0x08]`
 
