@@ -49,8 +49,8 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | CS-line count and pin matrix | Hard-coded 5×6 GPIO map for G4.1 wiring in `panel_set_select_pins[5][6]` (`constants.h:77-83`); `region_count_per_frame=2` (`constants.h:68`) | Re-wire for G6 arena (`Generation 6/Arena/` `v1.1.7` production); count and per-row count depend on arena geometry. |
 | `fillBufferAllOn` duty_cycle values (1 grayscale, 50 binary) | `SpiManager.cpp:170-193` | Re-derive for G6 panel-protocol v1 duty_cycle semantics. |
 | `STREAM_FRAME_CMD` payload size | `CommandProcessor.cpp:140-190`: 7-byte header + frame data; `analog_x`/`analog_y` bytes parsed and logged but unused | G6 frame data sizes differ (binary 51 B/panel × N or grayscale 201 B/panel × N at panel level; on-disk panel block 53/203 — pick which the wire format uses). Decide whether `analog_x`/`analog_y` survive G4→G6. |
-| Refresh-rate defaults (400 Hz greenscale / 1200 Hz binary) | `constants.h:110-111` | Reconcile with G6 panel BCM/bit-plane timing budgets — currently unmeasured. |
-| `TRIAL_PARAMS_CMD` (0x08) payload (12 param bytes) | `CommandProcessor.cpp:83-115` | G6 may need an extra byte (panel-mask override or trigger config). |
+| Refresh-rate defaults (400 Hz greenscale / 1100 Hz binary) | `constants.h:122-123` | Reconcile with G6 panel BCM/bit-plane timing budgets — currently unmeasured. |
+| `TRIAL_PARAMS_CMD` (0x08) payload (12 param bytes) | `CommandProcessor.cpp:83-115` | Resolved: canonical 11-param layout adopted (issue #4); the extra 12th byte became the optional per-trial duty (#33). |
 | `grayscale_value` on-disk byte encoding | Pattern header byte 4 = `0x10` greenscale, `0x02` binary (`CommandProcessor.cpp:300-310`); clashes with command parameter values `1`/`0` (`constants.h:95-96`) | G6 should pick one encoding and document. |
 
 **New for G6 (must be added; not in slim):**
@@ -152,7 +152,7 @@ The controller must support **G4 display Modes 2, 3, 4, and 5:**
 - **Mode 3 (host-commanded position)**
   - Host gives frame index via `set-frame-position`; controller loads → slices → sends.
 - **Mode 4 (Closed Loop Velocity)**
-  - Controller samples **AIN0** (Teensy D14, BNC J28, ±10 V via OPA2277 → 0–3.3 V at ADC) at **500 Hz**, computes frame rate as `fps = AI_voltage × 100 × gain / 10` where `gain` is the signed 8-bit byte from `trial-params` encoded as **10× the actual scaling factor** (e.g., `gain = -20` represents -2.0 fps/V scaling for typical G3-flight-arena behavior). 1 V at the AI input therefore maps to 100 base counts, scaled by gain to yield signed fps. Integrates fps over time to advance frame index, then loads → slices → sends. AIN1 (D15, J29) unused for Mode 4 (available for experimenter).
+  - Controller samples **AIN0** (Teensy D14, BNC J28, ±10 V via OPA2277 → 0–3.3 V at ADC) at **500 Hz**, computes frame rate as `fps = AI_voltage × 100 × gain / 10` where `gain` is the signed 16-bit field (int16 LE) from `trial-params` encoded as **10× the actual scaling factor** (e.g., `gain = -20` represents -2.0 fps/V scaling for typical G3-flight-arena behavior). 1 V at the AI input therefore maps to 100 base counts, scaled by gain to yield signed fps. Integrates fps over time to advance frame index, then loads → slices → sends. AIN1 (D15, J29) unused for Mode 4 (available for experimenter).
 - **Mode 5 (Streaming)**
   - Host sends raw arena frames; controller slices → packs → sends immediately.
 
@@ -212,7 +212,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x01` | system-reset | `0x01, 0x01` | v1 (G6-new) | Software system reset — acks then triggers SCB_AIRCR SYSRESETREQ. USB/TCP link drops immediately after the ack. |
 | `0x03` | set-pattern-id | `0x03, 0x03, id_lo, id_hi` | v1 (G6-new) | Load a 1-based SD pattern into Mode 3 (Show Frame), parked at frame 0. No auto-advance. Use `set-frame-position (0x70)` to step frames. |
 | `0x06` | switch-grayscale | `0x01, 0x06` | — | **Dropped for G6** — grayscale inferred from stream size / pattern-header `gs_val`. |
-| `0x08` | trial-params | `0x0c, 0x08, …` | v1 | "Combined command": selects Mode 2/3/4 + pattern + timing (12 param bytes). |
+| `0x08` | trial-params | `0x0c` or `0x0d, 0x08, …` | v1 | "Combined command": selects Mode 2/3/4 + pattern + timing (11 param bytes, + optional 12th = per-trial duty, #33). |
 | `0x16` | set-refresh-rate | `0x03, 0x16, lo, hi` | v1 | uint16 Hz. Default from `gs_val`: 400 Hz GS16 / 1200 Hz GS2; host may override. |
 | `0x17` | get-refresh-rate | `0x01, 0x17` | v1 (G6-new) | Returns current refresh rate as uint16 LE Hz. Reflects the last `set-refresh-rate` value, or the mode-derived default if never overridden. |
 | `0x1B` | set-panel-display-mode | `0x02, 0x1B, mode` | v1 (G6-new) | Set the panel display mode: `0` = oneshot (default), `1` = persist, `2` = triggered, `3` = gated. Sticky — applies to every panel-frame the controller transmits (SD frames, streamed frames, ALL_ON). Error-glyph frames are exempt. |
@@ -275,7 +275,6 @@ G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one
 | Opcode | G4 | G6 | Note |
 |---|---|---|---|
 | `0x01` | DISPLAY_RESET (reset FPGA display) | SYSTEM_RESET (reboot MCU) | Deliberate repurpose; a G4 client's display-reset triggers a full reboot + link drop. |
-| `0x08` | trial-params: `gain` int16 + trailing `runtime` | trial-params: `gain` int8, no runtime, `rate` int16 | Same intent, different payload layout; G4 12-byte frame misparses. Reconciliation open. |
 | `0x32` | stream-frame with `aox/aoy` header bytes (also dual-used as setAO) | stream-frame, 3-byte header, no `aox/aoy` | Different header; G4 `setAO`-via-`0x32` overload absent (G6 uses `0xA0`). |
 
 ### Per-command wire formats
@@ -322,7 +321,7 @@ Load a 1-based SD pattern into **Mode 3 (Show Frame)**, parked at frame 0, with 
 **Response (error):** `[len, 0x01, 0x03, ASCII_msg]` — wrong frame length, or pattern not found / SD read failure.
 
 **Notes:**
-- Equivalent to sending `trial-params (0x08)` with mode=3, `frame_rate=0`, `init_pos=0`, but without the 12-parameter overhead.
+- Equivalent to sending `trial-params (0x08)` with mode=3, `frame_rate=0`, `init_pos=0`, but without the full trial-params frame. Declares no per-trial duty: the pattern's stored `duty_cycle` is used (any duty from a previous trial is cleared).
 - Pattern files are alphabetically sorted and 1-indexed; ID 0 is invalid and returns an error.
 
 ---
@@ -341,7 +340,7 @@ Recognized only to produce an explicit rejection. Grayscale mode is inferred fro
 
 Selects the display mode (2/3/4), opens the named SD pattern, and arms the refresh timer.
 
-**Command:** `[len, 0x08, mode, pat_id_lo, pat_id_hi, rate_lo, rate_hi, gain, init_lo, init_hi, …]`
+**Command:** `[len, 0x08, mode, pat_id_lo, pat_id_hi, rate_lo, rate_hi, init_lo, init_hi, gain_lo, gain_hi, dur_lo, dur_hi[, duty]]`
 
 Payload bytes after the command byte:
 
@@ -350,11 +349,23 @@ Payload bytes after the command byte:
 | 0 | `mode` | uint8 | 2 = Open Loop, 3 = Show Frame, 4 = Closed Loop |
 | 1–2 | `pattern_id` | uint16 LE | 1-based SD pattern index |
 | 3–4 | `frame_rate` | int16 LE | Hz — frame-advance rate for Mode 2. Negative values play in reverse. Sign is ignored in Modes 3 and 4. |
-| 5 | `gain` | int8 | Mode 4 velocity scale: actual gain = `gain / 10` fps/V (e.g. `−20` → −2.0 fps/V) |
-| 6–7 | `init_pos` | uint16 LE | Initial frame index (0-based) |
-| 8+ | reserved | — | Legacy G4 fields; accepted and ignored |
+| 5–6 | `init_pos` | uint16 LE | Initial frame index (0-based) |
+| 7–8 | `gain` | int16 LE | Mode 4 velocity scale: actual gain = `gain / 10` fps/V (e.g. `−20` → −2.0 fps/V) |
+| 9–10 | `duration` | uint16 LE | Controller-run trial length, in 10 ms ticks. `0` = no auto-stop; the controller reverts to ALL_OFF on its own when the duration elapses. |
+| 11 | `duty` | uint8 | **Optional.** `0` = every frame uses its stored `duty_cycle` (identical to omitting the byte); `1–255` = display every frame of **this trial** at this duty (#33). |
 
-Minimum payload: 8 bytes (offsets 0–7). Full G4-legacy form sends 12 param bytes (`length = 0x0D`).
+Frame length is `0x0C` (12 = cmd + 11 param bytes), or `0x0D` (13) when a per-trial duty is appended. The first 11 param bytes are required; shorter frames are rejected.
+
+**Per-trial duty** (issue #33, Arena-Firmware PR #39): the override is applied at
+transmit time — the controller rewrites the trailing `duty_cycle` byte of every
+v1 panel block (re-stamping header parity) as frames are loaded from SD. The
+pattern file is never modified, and `get-pattern-info (0x88)` continues to
+report the stored value. The setting is scoped to the trial that declared it:
+each `trial-params` re-declares it, `set-pattern-id (0x03)` declares none
+(stored duty), and `all-off (0x00)` clears it. It covers Modes 2/3/4, including
+Mode-3 frame stepping via `set-frame-position (0x70)`. This is deliberately
+**not** a sticky global setting — the brightness of a trial always appears in
+the command that started it.
 
 **Response (success):** `[0x02, 0x00, 0x08]`
 
