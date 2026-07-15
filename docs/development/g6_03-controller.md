@@ -235,7 +235,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x86` | delete-pattern-file | `0x03, 0x86, idx_lo, idx_hi` | v2 (G6-new) | Deletes the pattern file at 1-based uint16 `idx`. `idx = 0` deletes `/patterns/pattern.temp` if it exists. Returns an error if `idx > patternCount()` or the target file does not exist. Rescans after deletion. |
 | `0x88` | get-pattern-info | `0x03, 0x88, idx_lo, idx_hi` | v2 (G6-new) | Returns cheap header metadata for the pattern at 1-based uint16 `idx` — frame count, `gs_val`, geometry, Arena/Observer IDs, file size, and the frame-0/panel-0 `duty_cycle` byte — without the `0x84` bulk download (which stalls on large patterns, see #16). Response payload: 12-byte little-endian struct. Safe to call while a pattern is playing. |
 | `0x8A` | get-sd-archive | `0x01, 0x8A` | v2 (G6-new) | Streams the full SD card content (MANIFEST.bin, MANIFEST.txt, all `/patterns/*.pat`) as a ZIP archive (store mode, no compression). Response payload: uint64 LE total byte count followed by raw ZIP data. Only accepted in ALL_OFF state; returns `CE_DISPLAY_ACTIVE` (10) if the display is running. CRC-32 values are computed on-the-fly; data descriptors (PK\x07\x08) carry the final CRC and sizes after each file. |
-| `0x8F` | delete-all-patterns | `0x01, 0x8F` | v2 (G6-new) | Deletes all files in `/patterns` (including `pattern.temp` if present). Rescans after deletion. |
+| `0x8F` | purge-memory | `0x01, 0x8F` | v2 (G6-new) | Formats the SD card, wiping everything: `/patterns`, `/firmware/panel.bin`, and both manifests. Only accepted in `ALL_OFF` state; returns `CE_DISPLAY_ACTIVE` (10) if the display is running. Rewrites a fresh empty manifest afterward; `/patterns` and `/firmware` are recreated lazily by the next `0x85`/`0x83`/`0xE0` write, not by this command. |
 | `0xA0` | set-ao-voltage | `0x03, 0xA0, mv_lo, mv_hi` | v1 (G6-new) | Set analog output (BNC J27, MCP4725 DAC) to 0–5000 mV. `mv = 0` drives DAC code 0 (0 V). Firmware converts: `dacCode = mv × 4095 / 5000`. Refused (error) while AO mode (`0xA3`) is `frame_number`. |
 | `0xA1` | get-ao-voltage | `0x01, 0xA1` | v1 (G6-new) | Returns the hardware DAC readback as uint16 LE mV (I²C read of MCP4725 register). |
 | `0xA2` | set-ao-lut | `[len, 0xA2, mode, step_hz_lo, step_hz_hi, count_lo, count_hi, mv...]` | v1 (G6-new) | Upload an AO lookup table and start playback. `mode` 0 = frame-locked (DAC tracks `LUT[cur_frame_index % count]`); `mode` 1 = time-based (DAC steps at `step_hz` Hz, independent of frames). Max 124 entries per standard 1-byte-length frame. End-of-table wraps (modulo). Stopped by `set-ao-voltage (0xA0)`. Refused (error) while AO mode (`0xA3`) is `frame_number`. |
@@ -676,15 +676,19 @@ Streams the full SD card content as a ZIP archive (store mode, no compression). 
 
 ---
 
-#### 0x8F delete-all-patterns
+#### 0x8F purge-memory
 
-Deletes every file in `/patterns/`, including `pattern.temp` if present, then rewrites the manifest. Can take several seconds on a populated SD card — use a host-side timeout of at least 10 s.
+Formats the SD card (`SD.format()`), then rewrites a fresh empty manifest. This wipes the *entire* card, not just the pattern library: `/patterns/*`, `/firmware/panel.bin` (the panel ISP image), and both manifests are all gone afterward. `/patterns` and `/firmware` are not recreated here — `SET_PATTERN_FILE_CMD` (`0x85`), `SET_PATTERN_FILENAME_CMD` (`0x83`), and `SET_FIRMWARE_FILE_CMD` (`0xE0`) each recreate their own target directory on demand if it's missing.
+
+Only accepted in `ALL_OFF` state (returns `CE_DISPLAY_ACTIVE`, error 10, otherwise) and refused outright while any download/upload/archive transfer is active (error 1, `"A transfer is in progress"`), same as `delete-pattern-file`'s blanket guard.
+
+A full-card format is much slower than the old per-file delete it replaced — use a host-side timeout well beyond the ~10-15 s that sufficed before; it scales with card capacity.
 
 **Command:** `[0x01, 0x8F]`
 
 **Response (success):** `[0x02, 0x00, 0x8F]`
 
-**Response (error):** `[len, err, 0x8F, "Delete-all failed"]`
+**Response (error):** `[len, err, 0x8F, "Purge-memory failed"]`
 
 ---
 
