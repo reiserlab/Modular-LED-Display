@@ -49,7 +49,7 @@ Inventory of the slim G4.1 controller used to produce the four classifications b
 | CS-line count and pin matrix | Hard-coded 5×6 GPIO map for G4.1 wiring in `panel_set_select_pins[5][6]` (`constants.h:77-83`); `region_count_per_frame=2` (`constants.h:68`) | Re-wire for G6 arena (`Generation 6/Arena/` `v1.1.7` production); count and per-row count depend on arena geometry. |
 | `fillBufferAllOn` duty_cycle values (1 grayscale, 50 binary) | `SpiManager.cpp:170-193` | Re-derive for G6 panel-protocol v1 duty_cycle semantics. |
 | `STREAM_FRAME_CMD` payload size | `CommandProcessor.cpp:140-190`: 7-byte header + frame data; `analog_x`/`analog_y` bytes parsed and logged but unused | G6 frame data sizes differ (binary 51 B/panel × N or grayscale 201 B/panel × N at panel level; on-disk panel block 53/203 — pick which the wire format uses). Decide whether `analog_x`/`analog_y` survive G4→G6. |
-| Refresh-rate defaults (300 Hz greenscale / 1000 Hz binary) | `constants.h:122-123` | Reconcile with G6 panel BCM/bit-plane timing budgets — currently unmeasured. |
+| Refresh-rate defaults (300 Hz greenscale / 1000 Hz binary) | `constants.h:122-123` | Resolved: G6 adopted 400 Hz GS16 / 1200 Hz GS2 defaults for the 4×10 arena (see `set-refresh-rate` 0x16 below). |
 | `TRIAL_PARAMS_CMD` (0x08) payload (12 param bytes) | `CommandProcessor.cpp:83-115` | Resolved: canonical 11-param layout adopted (issue #4); the extra 12th byte became the optional per-trial duty (#33). |
 | `grayscale_value` on-disk byte encoding | Pattern header byte 4 = `0x10` greenscale, `0x02` binary (`CommandProcessor.cpp:300-310`); clashes with command parameter values `1`/`0` (`constants.h:95-96`) | G6 should pick one encoding and document. |
 
@@ -213,7 +213,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x03` | set-pattern-id | `0x03, 0x03, id_lo, id_hi` | v1 (G6-new) | Load a 1-based SD pattern into Mode 3 (Show Frame), parked at frame 0. No auto-advance. Use `set-frame-position (0x70)` to step frames. |
 | `0x06` | switch-grayscale | `0x01, 0x06` | — | **Dropped for G6** — grayscale inferred from stream size / pattern-header `gs_val`. |
 | `0x08` | trial-params | `0x0c` or `0x0d, 0x08, …` | v1 | "Combined command": selects Mode 2/3/4 + pattern + timing (11 param bytes, + optional 12th = per-trial duty, #33). |
-| `0x16` | set-refresh-rate | `0x03, 0x16, lo, hi` | v1 | uint16 Hz. Default from `gs_val`: 300 Hz GS16 / 1000 Hz GS2; host may override. |
+| `0x16` | set-refresh-rate | `0x03, 0x16, lo, hi` | v1 | uint16 Hz. Default from `gs_val`: 400 Hz GS16 / 1200 Hz GS2; host may override. |
 | `0x17` | get-refresh-rate | `0x01, 0x17` | v1 (G6-new) | Returns current refresh rate as uint16 LE Hz. Reflects the last `set-refresh-rate` value, or the mode-derived default if never overridden. |
 | `0x1B` | set-panel-display-mode | `0x02, 0x1B, mode` | v1 (G6-new) | Set the panel display mode: `0` = oneshot (default), `1` = persist, `2` = triggered, `3` = gated. Sticky — applies to every panel-frame the controller transmits (SD frames, streamed frames, ALL_ON). Error-glyph frames are exempt. |
 | `0x1C` | get-panel-display-mode | `0x01, 0x1C` | v1 (G6-new) | Returns the current panel display mode as a single byte (0–3). |
@@ -235,7 +235,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0x86` | delete-pattern-file | `0x03, 0x86, idx_lo, idx_hi` | v2 (G6-new) | Deletes the pattern file at 1-based uint16 `idx`. `idx = 0` deletes `/patterns/pattern.temp` if it exists. Returns an error if `idx > patternCount()` or the target file does not exist. Rescans after deletion. |
 | `0x88` | get-pattern-info | `0x03, 0x88, idx_lo, idx_hi` | v2 (G6-new) | Returns cheap header metadata for the pattern at 1-based uint16 `idx` — frame count, `gs_val`, geometry, Arena/Observer IDs, file size, and the frame-0/panel-0 `duty_cycle` byte — without the `0x84` bulk download (which stalls on large patterns, see #16). Response payload: 12-byte little-endian struct. Safe to call while a pattern is playing. |
 | `0x8A` | get-sd-archive | `0x01, 0x8A` | v2 (G6-new) | Streams the full SD card content (MANIFEST.bin, MANIFEST.txt, all `/patterns/*.pat`) as a ZIP archive (store mode, no compression). Response payload: uint64 LE total byte count followed by raw ZIP data. Only accepted in ALL_OFF state; returns `CE_DISPLAY_ACTIVE` (10) if the display is running. CRC-32 values are computed on-the-fly; data descriptors (PK\x07\x08) carry the final CRC and sizes after each file. |
-| `0x8F` | delete-all-patterns | `0x01, 0x8F` | v2 (G6-new) | Deletes all files in `/patterns` (including `pattern.temp` if present). Rescans after deletion. |
+| `0x8F` | purge-memory | `0x01, 0x8F` | v2 (G6-new) | Formats the SD card, wiping everything: `/patterns`, `/firmware/panel.bin`, and both manifests. Only accepted in `ALL_OFF` state; returns `CE_DISPLAY_ACTIVE` (10) if the display is running. Rewrites a fresh empty manifest afterward; `/patterns` and `/firmware` are recreated lazily by the next `0x85`/`0x83`/`0xE0` write, not by this command. |
 | `0xA0` | set-ao-voltage | `0x03, 0xA0, mv_lo, mv_hi` | v1 (G6-new) | Set analog output (BNC J27, MCP4725 DAC) to 0–5000 mV. `mv = 0` drives DAC code 0 (0 V). Firmware converts: `dacCode = mv × 4095 / 5000`. Refused (error) while AO mode (`0xA3`) is `frame_number`. |
 | `0xA1` | get-ao-voltage | `0x01, 0xA1` | v1 (G6-new) | Returns the hardware DAC readback as uint16 LE mV (I²C read of MCP4725 register). |
 | `0xA2` | set-ao-lut | `[len, 0xA2, mode, step_hz_lo, step_hz_hi, count_lo, count_hi, mv...]` | v1 (G6-new) | Upload an AO lookup table and start playback. `mode` 0 = frame-locked (DAC tracks `LUT[cur_frame_index % count]`); `mode` 1 = time-based (DAC steps at `step_hz` Hz, independent of frames). Max 124 entries per standard 1-byte-length frame. End-of-table wraps (modulo). Stopped by `set-ao-voltage (0xA0)`. Refused (error) while AO mode (`0xA3`) is `frame_number`. |
@@ -687,15 +687,19 @@ Streams the full SD card content as a ZIP archive (store mode, no compression). 
 
 ---
 
-#### 0x8F delete-all-patterns
+#### 0x8F purge-memory
 
-Deletes every file in `/patterns/`, including `pattern.temp` if present, then rewrites the manifest. Can take several seconds on a populated SD card — use a host-side timeout of at least 10 s.
+Formats the SD card (`SD.format()`), then rewrites a fresh empty manifest. This wipes the *entire* card, not just the pattern library: `/patterns/*`, `/firmware/panel.bin` (the panel ISP image), and both manifests are all gone afterward. `/patterns` and `/firmware` are not recreated here — `SET_PATTERN_FILE_CMD` (`0x85`), `SET_PATTERN_FILENAME_CMD` (`0x83`), and `SET_FIRMWARE_FILE_CMD` (`0xE0`) each recreate their own target directory on demand if it's missing.
+
+Only accepted in `ALL_OFF` state (returns `CE_DISPLAY_ACTIVE`, error 10, otherwise) and refused outright while any download/upload/archive transfer is active (error 1, `"A transfer is in progress"`), same as `delete-pattern-file`'s blanket guard.
+
+A full-card format is much slower than the old per-file delete it replaced — use a host-side timeout well beyond the ~10-15 s that sufficed before; it scales with card capacity.
 
 **Command:** `[0x01, 0x8F]`
 
 **Response (success):** `[0x02, 0x00, 0x8F]`
 
-**Response (error):** `[len, err, 0x8F, "Delete-all failed"]`
+**Response (error):** `[len, err, 0x8F, "Purge-memory failed"]`
 
 ---
 
