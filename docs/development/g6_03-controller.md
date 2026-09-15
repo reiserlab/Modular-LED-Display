@@ -244,10 +244,14 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xA5` | get-analog-in-raw | `0x01, 0xA5` | v1 (G6-new, `ai_cal`) | Both inputs as raw ADC counts, two uint16 LE (one 16×-averaged 12-bit conversion each) — the units the calibration points are recorded in. |
 | `0xA6` | set-analog-cal | `[len, 0xA6, ch, action, (mv_lo, mv_hi)]` | v1 (G6-new, `ai_cal`) | Per-board two-point calibration of channel `ch` 1\|2: `action` 0 = sample the 0 V point (BNC ground cap on), 1 = sample the +10 V point (BNC open — the input floats at the 10 V reference), 2 = set deadband (`mv` 0–2000), `0xFF` = clear the points. Persists to EEPROM (+ SD JSON mirror) and replies with the record. |
 | `0xA7` | get-analog-cal | `0x01, 0xA7` | v1 (G6-new, `ai_cal`) | The 18-byte calibration record: `[version, adc_bits, source, flags]` + 2 × `[valid, raw_open u16, raw_gnd u16, deadband_mv u16]`. |
+| `0xA8` | set-telemetry | `0x04, 0xA8, flags, rate_lo, rate_hi` or `0x02, 0xA8, flags` | v1 (G6-new, Arena-Firmware #56) | Controller telemetry ring (issue #50 Mode-3 reliability): `flags` bit0 = record events (default ON at boot), bit7 = synthetic producer at `rate` records/s (bench), bit4 = watchdog bits present (bit6 = watchdog off, bit5 = starve drill); bits 1–3 reserved. Layout and semantics: Arena-Firmware README § Telemetry ring. **Deployed** on the CSHL controllers and polled by Studio ≥ 0.79 — see the `0xA_` block note below. |
+| `0xA9` | get-telemetry-block | `0x08, 0xA9, ack_seq(u32), max_bytes(u16), flags` | v1 (G6-new, Arena-Firmware #56) | Frees ring records with `seq ≤ ack_seq`, then replies with an 18-byte versioned header + whole records from the read cursor (not freed until acked). Layout: Arena-Firmware `src/Telemetry.h`, decoder `tests/telemetry_codec.py`. |
 | `0xAA` | set-digital-out | `0x03, 0xAA, ch, state` | v1 (G6-new) | Drive DO1 (ch=1, BNC J3, Teensy D37, via U2) or DO2 (ch=2, BNC J4, Teensy D35, via U3) HIGH (state ≠ 0) or LOW (state = 0). Requires role (`0xAC`) `out_programmable`; an unconfigured (`off`) port auto-promotes, but `in_trigger`/`out_debug_framescan` refuse (error) to protect the trigger route / scan gate. |
 | `0xAB` | get-digital-out | `0x01, 0xAB` | v1 (G6-new) | Returns the raw data-pin state of DO1 and DO2 as two bytes (0 = LOW, 1 = HIGH), regardless of role — meaning depends on the port's current role (`0xAC`/`0xAD`). |
 | `0xAC` | set-dio-role | `0x03, 0xAC, port, role` | v1 (G6-new) | `port` 1\|2 ("Digital IO 1/2 (5V)" BNC); `role` 0=off, 1=in_trigger, 2=out_programmable, 3=out_debug_framescan (gates a pulse per SPI frame envelope). Explicit role changes are the only way into `in_trigger`/`out_debug_framescan`; `set-digital-out (0xAA)` auto-promotes `off` to `out_programmable`. |
 | `0xAD` | get-dio-role | `0x01, 0xAD` | v1 (G6-new) | Returns `[role1, level1, role2, level2]` — `level` is a live pin read (driven latch in output roles, translated BNC level in input roles), a free trigger-line readback. |
+| `0xB0` | get-i2c-scan | `0x01, 0xB0` | v1 (G6-new) | Scan the Qwiic/STEMMA QT jack's I²C bus (arena_12-18 J2 = Teensy `Wire1`, D17/D16, 3.3 V). Returns `[count, addr…]`, the 7-bit addresses (`0x08`–`0x77`) that ACK. `status 1` on hardware variants without the jack. |
+| `0xB1` | i2c-transfer | `[len, 0xB1, addr, wlen, w…, rlen]` | v1 (G6-new) | Generic write-then-read on the Qwiic bus: writes `wlen` bytes to 7-bit `addr`, then reads `rlen` (≤ 64) bytes under a repeated start; returns the bytes read. `wlen = 0` = plain read, `rlen = 0` = plain write, both 0 = ACK probe. Status 2 address NACK, 3 data NACK, 4 bus error/timeout, 5 short read. Sensor-agnostic — register maps live in the host (LAB-211). |
 | `0xC0` | set-ethernet-ip-address | — | v2 (G6-new) | Reserved — not yet implemented. Paired with `get-ethernet-ip-address`. |
 | `0xC1` | get-ethernet-ip-address | `0x01, 0xC1` | v1 | Returns DHCP-resolved IP as ASCII. |
 | `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap, mac[6]}`, version-dispatched (G6-mode + v2 capability bits). Trailing 6 raw MAC bytes (tolerant, additive — see below) are the controller's physical-setup identity for run-provenance logging. |
@@ -258,6 +262,11 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xC7` | g6-panel-storage-mode | `0x02, 0xC7, mode_byte` | v2 (G6-new) | `0` = SD Mode, `1` = Local Storage Mode; triggers the PSRAM load phase. Reserved — not yet in firmware. |
 | `0xC8` | g6-program-panel | `0x02, 0xC8, panel_number` | v2 (G6-new) | Reflash a panel from the single firmware image on SD (`/firmware/panel.bin`). `panel_number` is **1-based** (matches the panel-map labels). See § Panel firmware update (ISP). Requires ALL_OFF. |
 | `0xC9` | g6-verify-panel | `0x02, 0xC9, panel_number` | v2 (G6-new) | CRC the panel's **running** app flash (`ISP_ENTER` + `ISP_VERIFY_CRC`) against the `/firmware/panel.bin` footer; confirms an install. `panel_number` **1-based**. No reboot. Requires ALL_OFF. See § Panel firmware update (ISP). |
+| `0xCA` | get-health | `0x01, 0xCA` | v1 (G6-new, Arena-Firmware #56) | Read-only, O(1) controller health: loop/SD/SPI/USB counters + reset-surviving breadcrumb; 66-byte LE payload (issue #50). Gated on capability bit 7 in that firmware — see the bit-7 note below. Layout: Arena-Firmware README § Health. |
+| `0xCB` | get-firmware-version | `0x01, 0xCB` | v1 (G6-new, Arena-Firmware #56) | Build identity `{ver, rows, cols, flags, sha[8], date[10], branch[24]}` = 46 bytes, compiled in from git; `flags` bits gate `0xCC`/`0xCD`/`0xCE`. Also the first runtime-visible report of the flashed `ARENA_HW_*` geometry (`rows`, `cols`). |
+| `0xCC` | get-crashreport | `0x01, 0xCC` | v1 (G6-new, Arena-Firmware #56) | Raw 128 B of the PJRC CrashReport OCRAM region (`arm_fault_info_struct` + breadcrumbs); never cleared by the read. Gate on `0xCB` flags bit 3. |
+| `0xCD` | get-sd-info | `0x01, 0xCD` | v1 (G6-new, Arena-Firmware #56) | SD card identity + volume geometry, 30 bytes (`card_type`, `fat_type`, sectors, bytes/cluster, CID…, `sd_diag`). Gate on `0xCB` flags bit 5. |
+| `0xCE` | set-sd-diag | `0x02, 0xCE, flags` | v1 (G6-new, Arena-Firmware #56) | Bench A/B switches for the SD fast path (bit0 legacy seek, bit1 no same-index skip); echoes the flags; readback in `0xCD` byte 29. Gate on `0xCB` flags bit 6. |
 | `0xE0` | set-firmware-file | `0xE0, len_b0…len_b7, file_data…` | v2 (G6-new) | Uploads the firmware image to `/firmware/panel.bin`, overwriting the previous one (only one firmware is held at a time). Opcode-first framing; 8-byte (uint64 LE) length prefix. Companion to `g6-program-panel (0xC8)`. |
 | `0xE3` | get-firmware-info | `0x01, 0xE3` | v2 (G6-new) | Returns the 32-byte footer of `/firmware/panel.bin` (`magic`, `version`, `image_crc32`, `image_size`) — firmware metadata without the image bytes. |
 | `0xFF` | all-on | `0x01, 0xff` | v1 | Arena bring-up; canonical for diagnostics. |
@@ -273,7 +282,13 @@ G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one
 
 > The reserved-future commands `g6-panel-storage-mode` and `g6-program-panel` were moved off `0x40`/`0x41` to `0xC7`/`0xC8` precisely to avoid the G4 `stopLog`/`startLog` collision — the `0x41`→panel-reflash overlap being the dangerous one.
 
-**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA9` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration; `0xA8`/`0xA9` reserved for the sampled block stream — `set-ai-stream` / `get-ai-block`), `0xAA`–`0xAF` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role; `0xAE`/`0xAF` free). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. New I/O commands take the free slots of their sub-block rather than starting another block below `0xC0`.
+**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA7` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration), `0xA8`/`0xA9` **telemetry** (`set-telemetry` / `get-telemetry-block`, Arena-Firmware #56), `0xAA`–`0xAF` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role; `0xAE`/`0xAF` free). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xA8`/`0xA9`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. The block is now full apart from `0xAE`/`0xAF`; I/O commands that need more than those two slots start a new block (see `0xB_`, `0xD_`) rather than displacing a deployed opcode.
+
+> **Collision to resolve in review (2026-09-15):** an earlier draft of this rule reserved `0xA8`/`0xA9` for a sampled analog-input block stream (`set-ai-stream` / `get-ai-block`, LAB-209). Arena-Firmware #56 ships `set-telemetry` / `get-telemetry-block` on those same opcodes, running on the CSHL controllers since 2026-09-13 and polled by Studio ≥ 0.79, with the values baked into the soak-test corpus — relocating telemetry was considered and rejected. The AI block stream therefore needs a different pair when it is implemented (`0xAE`/`0xAF` if it is to stay in the I/O block, else a free block).
+
+**The `0xB_` block — external sensors on the Qwiic/STEMMA QT jack** (arena_12-18 J2, `Wire1`): `0xB0`/`0xB1` are the generic I²C bridge (`get-i2c-scan` / `i2c-transfer`); `0xB2`–`0xBF` are **reserved for sensor-level commands** (e.g. a calibrated light read once LAB-211 selects a part) and must not be used for unrelated features. The firmware carries no sensor-specific code; register maps live host-side.
+
+**`0xCA`–`0xCE`** are the Arena-Firmware #56 health / build-identity / crash-report / SD-info cluster (see the table). `0x90`–`0x9F` and `0xD0`–`0xDF` are free; `0xD_` is the natural home for further diagnostics next to that cluster.
 
 **Known, intentional divergences** (same opcode, different behavior — accepted, not fixed):
 
@@ -885,6 +900,44 @@ Returns each port's configured role plus a live pin read, in one call.
 
 ---
 
+#### 0xA8 set-telemetry / 0xA9 get-telemetry-block
+
+Controller telemetry ring (Arena-Firmware #56, issue #50). Wire forms are in the registry table; the record layout, the 18-byte block header and the ack/cursor semantics are specified in the Arena-Firmware README § Telemetry ring and `src/Telemetry.h`, with `tests/telemetry_codec.py` as the reference decoder. Not duplicated here until that firmware is merged.
+
+---
+
+#### 0xB0 get-i2c-scan
+
+Scans the I²C bus on the Qwiic / STEMMA QT jack. arena_12-18 v1.0 routes J2 to Teensy `Wire1` (SDA → D17/SDA1, SCL → D16/SCL1) at 3.3 V with no on-board pull-ups (the breakouts supply theirs); the firmware runs the bus at 100 kHz. The jack is separate from the MCP4725 AO DAC on `Wire` (D18/D19), so `0x60` must never appear in a scan.
+
+**Command:** `[0x01, 0xB0]`
+
+**Response:** `[len, 0x00, 0xB0, count, addr0…addrN]` — `count` (uint8) then the 7-bit addresses in `0x08`–`0x77` that ACKed a zero-length write, ascending.
+
+**Response (error):** `[len, 0x01, 0xB0, ASCII_msg]` — the flashed hardware variant has no Qwiic jack (`arena_10-10`, `G6_2x10`). Presence is not advertised in the capability bitmap; hosts probe with this command instead.
+
+Blocks the controller's command loop for the scan (~12 ms with the bus empty). Bench/diagnostic use.
+
+---
+
+#### 0xB1 i2c-transfer
+
+Generic write-then-read to one device on the Qwiic bus. The firmware carries no sensor knowledge; a host implements a sensor's register map on top of this (LAB-211: TSL2591, VEML7700, AS7343, PCA9548 mux).
+
+**Command:** `[len, 0xB1, addr, wlen, w0…w(wlen−1), rlen]` — `len = 4 + wlen`.
+
+- `addr` (uint8): 7-bit address, `≤ 0x7F`.
+- `wlen` (uint8), `w…`: bytes written first (typically a register pointer; `≤ 45` given the 1-byte length prefix).
+- `rlen` (uint8, `≤ 64`): bytes to read after the write, under a **repeated start** (no STOP between). `wlen = 0` is a plain read, `rlen = 0` a plain write, both zero an ACK probe of `addr`.
+
+**Response (success):** `[2 + rlen, 0x00, 0xB1, r0…r(rlen−1)]` — the bytes read; empty payload when `rlen = 0`.
+
+**Response (error):** `[len, status, 0xB1, ASCII_msg]` — `status` 1 bad framing (`len ≠ 4 + wlen`, `rlen > 64`, `addr > 0x7F`, no jack on this variant), 2 address NACK, 3 data NACK, 4 bus error / timeout (the Teensy `Wire` driver times out at 50 ms and recovers a stuck bus itself), 5 short read.
+
+Blocks the command loop for the transaction (~0.1 ms per byte at 100 kHz). Bench/diagnostic use; a firmware-side sensor driver would use `0xB2`+.
+
+---
+
 #### 0xC0 set-ethernet-ip-address
 
 Reserved — not yet implemented. No wire form defined.
@@ -928,7 +981,7 @@ Returns the controller version byte, capability bitmap, and physical-setup ident
 | 4 | `v3_gated` | v3 Gated mode supported |
 | 5 | `io_ext` | Extended I/O command set supported: `set-dio-role (0xAC)`, `get-dio-role (0xAD)`, `set-ao-mode (0xA3)`, `get-analog-in (0xA4)`. Hosts MUST gate those commands on this bit — pre-`io_ext` firmware treats them as unknown opcodes (error + `CE 01` glyph). |
 | 6 | `ai_cal` | Per-board analog-input calibration: `get-analog-in-raw (0xA5)`, `set-analog-cal (0xA6)`, `get-analog-cal (0xA7)`, and the `flags` byte on `0xA4`. Same gating rule as `io_ext`. |
-| 7 | reserved | Transmit as 0. **Last free bit of this byte.** Proposed extension rule (not yet implemented, for review): bit 7 = `cap_ext`, meaning a second capability byte follows the MAC at payload byte 8 — the same tolerant-extension pattern the MAC uses, so `version` stays 1 and old hosts are unaffected. The first candidate for a bit in that byte is the sampled analog block stream (`0xA8`/`0xA9`). |
+| 7 | reserved | Transmit as 0. **Last free bit of this byte.** Proposed extension rule (not yet implemented, for review): bit 7 = `cap_ext`, meaning a second capability byte follows the MAC at payload byte 8 — the same tolerant-extension pattern the MAC uses, so `version` stays 1 and old hosts are unaffected. The first candidate for a bit in that byte is the sampled analog block stream. **Conflict to resolve in review (2026-09-15):** Arena-Firmware #56 already transmits bit 7 = `health` (`0x80`, advertising `get-health 0xCA` / `get-firmware-version 0xCB`) and that firmware runs on the CSHL controllers — so `cap_ext` cannot take bit 7 as proposed. Options: have `0xCB` (whose `flags` byte already gates `0xCC`–`0xCE`) serve as the extension vector instead of a second capability byte, or move `cap_ext` under the `health` bit. The Qwiic jack (`0xB0`/`0xB1`) deliberately takes no bit — hosts probe `0xB0`. |
 
 ---
 
