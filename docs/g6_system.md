@@ -77,15 +77,15 @@ Within the folder, the main functional areas are:
 
 This is currently the main scripting and experiment-side software module under `Generation 6/*`.
 
-### [webDisplayTools]({{site.baseurl}}/Generation%206/webDisplayTools/)
+### [webDisplayTools](https://reiserlab.github.io/webDisplayTools/)
 
-`Generation 6/webDisplayTools/` provides browser-based tools for design, visualization, and validation. Its published tools currently include:
+`Generation 6/webDisplayTools/` provides browser-based tools for running experiments, design, visualization, and validation. The tools are served live at [reiserlab.github.io/webDisplayTools](https://reiserlab.github.io/webDisplayTools/), the version the rigs run; a testing build of the next release is at [/next/](https://reiserlab.github.io/webDisplayTools/next/). They include:
 
-- a pattern editor
-- an arena layout editor
-- a 3D arena viewer
+- **Arena Studio**: run protocols on the arena, edit them, and control the arena directly (console)
+- **Pattern Designer**: generate and edit patterns
+- an arena layout editor and a 3D arena viewer
 - a pattern icon generator
-- a G6 panel editor
+- a G6 panel pattern editor and a panel firmware flasher
 
 The web tools are designed to stay consistent with the MATLAB reference workflow, and the repository includes validation tests comparing JavaScript calculations against MATLAB outputs.
 

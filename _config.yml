@@ -16,7 +16,6 @@ exclude: [
     "Generation 4/Firmware-Arena/.pixi",
     "Generation 6/Arena-Firmware/.pixi",
     "Generation 6/Panel-Firmware/.pixi",
-    "Generation 6/webDisplayTools/.pixi",
     # Phase-1 G6 dev docs — work-in-progress, not for the public site
     # (matches the docs/development convention used by submodules)
     "docs/development",
@@ -124,16 +123,9 @@ exclude: [
     "Generation 6/maDisplayTools/tests",
     "Generation 6/maDisplayTools/docs/development",
     "Generation 6/maDisplayTools/configs",
-    ## G6 webDisplayTools
-    "Generation 6/webDisplayTools/TESTING.md",
-    "Generation 6/webDisplayTools/CLAUDE.md",
-    "Generation 6/webDisplayTools/CHANGELOG.md",
-    "Generation 6/webDisplayTools/docs/development",
-    "Generation 6/webDisplayTools/node_modules",
-    "Generation 6/webDisplayTools/tests",
-    "Generation 6/webDisplayTools/course",
-    "Generation 6/webDisplayTools/fictrac-bridge",
-    "Generation 6/webDisplayTools/docs/protocol-pattern-workflow.md",
+    ## G6 webDisplayTools: the tools are served live at https://reiserlab.github.io/webDisplayTools/
+    ## (Production + /next/). A pinned copy here would lag and share that origin's browser storage.
+    "Generation 6/webDisplayTools",
     "CLAUDE.md",
   ]
 
