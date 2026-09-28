@@ -284,7 +284,7 @@ G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one
 
 > The reserved-future commands `g6-panel-storage-mode` and `g6-program-panel` were moved off `0x40`/`0x41` to `0xC7`/`0xC8` precisely to avoid the G4 `stopLog`/`startLog` collision — the `0x41`→panel-reflash overlap being the dangerous one.
 
-**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA7` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration), `0xA8`/`0xA9` **telemetry** (`set-telemetry` / `get-telemetry-block`, Arena-Firmware #56), `0xAA`–`0xAF` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role; `0xAE`/`0xAF` free). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xA8`/`0xA9`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. The block is now full apart from `0xAE`/`0xAF`; I/O commands that need more than those two slots start a new block (see `0xB_`, `0xD_`) rather than displacing a deployed opcode. `0xA8`/`0xA9` are not available to the sampled analog-input block stream (`ai_stream`, feature bit 2 — see § 0xC2); if two codes suffice it is to use `0xAE`/`0xAF`.
+**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA7` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration), `0xA8`/`0xA9` **telemetry** (`set-telemetry` / `get-telemetry-block`, Arena-Firmware #56), `0xAA`–`0xAD` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role), `0xAE`/`0xAF` **earmarked for the sampled analog-input block stream** (`ai_stream`, feature bit 2 — see § 0xC2; unassigned until that family ships). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xA8`/`0xA9`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. The block is full; I/O commands beyond `ai_stream` start a new block (see `0xB_`, `0xD_`) rather than displacing a deployed opcode.
 
 **The `0xB_` block — external sensors on the Qwiic/STEMMA QT jack** (arena_12-18 J2, `Wire1`): `0xB0`/`0xB1` are the generic I²C bridge (`get-i2c-scan` / `i2c-transfer`); `0xB2`–`0xBF` are **reserved for sensor-level commands** (e.g. a calibrated light read once LAB-211 selects a part) and must not be used for unrelated features. The firmware carries no sensor-specific code; register maps live host-side.
 
@@ -308,7 +308,7 @@ Legacy pairs that predate rule 2, kept as shipped: `0x1B`/`0x1C`, `0xC3`/`0xC4`,
 | `0x00`–`0x7F` | G4-compatible core: display, modes, refresh, streaming, frame position | Gaps only — check the G4-reserved list first; prefer a high block for new families |
 | `0x80`–`0x8F` | SD card / pattern files | `0x81`, `0x87`, `0x89`, `0x8B`–`0x8E` |
 | `0x90`–`0x9F` | unassigned | all |
-| `0xA0`–`0xAF` | analog / digital I/O, telemetry | `0xAE`, `0xAF` |
+| `0xA0`–`0xAF` | analog / digital I/O, telemetry | `0xAE`, `0xAF` — earmarked for `ai_stream` |
 | `0xB0`–`0xBF` | Qwiic sensor jack | `0xB2`–`0xBF`, sensor commands only |
 | `0xC0`–`0xCF` | controller / system / single-panel ISP | `0xCF` |
 | `0xD0`–`0xDF` | panel fleet | `0xD2`–`0xDF` |
@@ -1018,7 +1018,7 @@ This byte is full. New command families get a bit in the feature bitmap instead;
 
 | Bit | Name | Commands | Firmware |
 |---|---|---|---|
-| 0 | `panel_inventory` | `panel-inventory-scan (0xD0)`, `get-panel-inventory (0xD1)` | Arena-Firmware #59 — pending (the PR currently carries a pre-spec draft on `0xCF`) |
+| 0 | `panel_inventory` | `panel-inventory-scan (0xD0)`, `get-panel-inventory (0xD1)` | Arena-Firmware #59 — pending |
 | 1 | `qwiic_i2c` | `get-i2c-scan (0xB0)`, `i2c-transfer (0xB1)`; set only on hardware with the Qwiic jack (arena_12-18) | Arena-Firmware #58 — pending; until a build sets this bit, send `0xB0` only to firmware known to carry the bridge |
 | 2 | `ai_stream` | sampled analog-input block stream (opcodes not yet assigned; `0xAE`/`0xAF` if two codes suffice) | not implemented |
 | 3–31 | reserved | — | Transmit as 0 |
