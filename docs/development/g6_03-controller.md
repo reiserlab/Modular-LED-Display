@@ -1389,10 +1389,10 @@ ISP primitives may be reused for v3's deferred predefined-pattern programming me
 
 ### Boot panel inventory
 
-**Status: specified; firmware implementation pending** (Arena-Firmware #59 implements this behavior on a pre-spec `0xCF` opcode, renumbering to `0xD0`/`0xD1` + feature bit 0).
+**Status: specified; firmware in review** (Arena-Firmware #59, stacked on #62).
 
 1. **Power settle.** Before bringing up the SPI peripherals or driving any CS line, the controller waits `panel_power_settle_ms` (500 ms, bench-tunable) so panel supplies are up before the bus is driven.
-2. **Presence scan.** One `COMM_CHECK` exchange per panel, with a short per-panel timeout so absent panels cost ~50 ms each, not a stall.
+2. **Late boot blank, then presence scan.** About 3.5 s after reset, past the 3 s error window a controller reset can leave panels in (they show a PE glyph and drop every message), and only while the display is `ALL_OFF`: the controller repeats the boot blank, then sends one `COMM_CHECK` exchange per panel, with a short per-panel timeout so absent panels cost ~50 ms each, not a stall. If panels are still absent it blanks and rescans once more, 4 s later. Until then `0xD1` reports `presence_valid` clear.
 3. **Fingerprint sweep.** For every responding panel: `ISP_ENTER`, then `ISP_VERIFY_CRC` over `[0, fp_len)` (see `0xD1`). Runs from the main loop, one panel per pass, only while the display is `ALL_OFF`; a running display pauses it. No `ISP_EXIT_REBOOT` is sent, so panels do not reboot. On the panel side ENTER only arms a session — the PSRAM staging buffer is reserved once at panel boot (`Panel-Firmware/panel/src/isp.cpp`, `Isp::init`), and ISP opcodes do not retire the post-flash boot indicator (`isp_logic.h`, `retires_boot_indicator`).
 
 Hosts read the result with `get-panel-inventory (0xD1)`. On firmware with a hardware watchdog (Arena-Firmware #56), rescans (`0xD0`) and fingerprint steps must run inside the long-operation watchdog window — a fingerprint step on an unresponsive panel can take ~3.4 s.
