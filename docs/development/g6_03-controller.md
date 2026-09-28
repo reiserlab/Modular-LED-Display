@@ -941,6 +941,8 @@ Scans the I²C bus on the Qwiic / STEMMA QT jack. arena_12-18 v1.0 routes J2 to 
 
 **Response (error):** `[len, 0x01, 0xB0, ASCII_msg]` — the flashed hardware variant has no Qwiic jack (`arena_10-10`, `G6_2x10`). Gate on feature bit 1 (`qwiic_i2c`, § 0xC2) rather than probing; see that table for firmware that predates the bit.
 
+**Response (bus fault):** `[len, 0x04, 0xB0, ASCII_msg]` — a bus error, or a scan still running after 500 ms, aborts the scan (a stuck bus costs the I²C driver up to ~66 ms per address, which would otherwise outlast the controller watchdog).
+
 Blocks the controller's command loop for the scan (~12 ms with the bus empty). Bench/diagnostic use.
 
 ---
@@ -1017,7 +1019,7 @@ This byte is full. New command families get a bit in the feature bitmap instead;
 | Bit | Name | Commands | Firmware |
 |---|---|---|---|
 | 0 | `panel_inventory` | `panel-inventory-scan (0xD0)`, `get-panel-inventory (0xD1)` | Arena-Firmware #59 — pending (the PR currently carries a pre-spec draft on `0xCF`) |
-| 1 | `qwiic_i2c` | `get-i2c-scan (0xB0)`, `i2c-transfer (0xB1)` | Arena-Firmware #58 — pending; until a build sets this bit, send `0xB0` only to firmware known to carry the bridge |
+| 1 | `qwiic_i2c` | `get-i2c-scan (0xB0)`, `i2c-transfer (0xB1)`; set only on hardware with the Qwiic jack (arena_12-18) | Arena-Firmware #58 — pending; until a build sets this bit, send `0xB0` only to firmware known to carry the bridge |
 | 2 | `ai_stream` | sampled analog-input block stream (opcodes not yet assigned; `0xAE`/`0xAF` if two codes suffice) | not implemented |
 | 3–31 | reserved | — | Transmit as 0 |
 
