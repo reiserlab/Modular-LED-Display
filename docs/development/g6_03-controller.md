@@ -254,7 +254,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xB1` | i2c-transfer | `[len, 0xB1, addr, wlen, w…, rlen]` | v1 (G6-new) | Generic write-then-read on the Qwiic bus: writes `wlen` bytes to 7-bit `addr`, then reads `rlen` (≤ 64) bytes under a repeated start; returns the bytes read. `wlen = 0` = plain read, `rlen = 0` = plain write, both 0 = ACK probe. Status 2 address NACK, 3 data NACK, 4 bus error/timeout, 5 short read. Sensor-agnostic — register maps live in the host (LAB-211). |
 | `0xC0` | set-ethernet-ip-address | — | v2 (G6-new) | Reserved — not yet implemented. Paired with `get-ethernet-ip-address`. |
 | `0xC1` | get-ethernet-ip-address | `0x01, 0xC1` | v1 | Returns DHCP-resolved IP as ASCII. |
-| `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap, mac[6]}`, version-dispatched (G6-mode + v2 capability bits). Trailing 6 raw MAC bytes (tolerant, additive — see below) are the controller's physical-setup identity for run-provenance logging. |
+| `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap, mac[6]}` plus an optional feature bitmap `[N, features[N]]`, version-dispatched (G6-mode + v2 capability bits). Trailing 6 raw MAC bytes (tolerant, additive — see below) are the controller's physical-setup identity for run-provenance logging; the feature bitmap advertises command families added after the capability byte filled up. |
 | `0xC3` | set-diagnostic-output | `0x02, 0xC3, on` | v1 (G6-new) | Mute (`0`) / unmute (`1`) `DEBUG_SERIAL` diagnostics on USB-CDC. See § 7 Utility Commands. |
 | `0xC4` | get-diagnostic-output | `0x01, 0xC4` | v1 (G6-new) | Returns current diagnostic-output state as a single byte (`0` = muted, `1` = active). |
 | `0xC5` | set-spi-clock | `0x03, 0xC5, lo, hi` | v1 (G6-new) | uint16 LE MHz (1–30, clamped); response payload carries the applied clock as uint16 LE. |
@@ -284,7 +284,7 @@ G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one
 
 > The reserved-future commands `g6-panel-storage-mode` and `g6-program-panel` were moved off `0x40`/`0x41` to `0xC7`/`0xC8` precisely to avoid the G4 `stopLog`/`startLog` collision — the `0x41`→panel-reflash overlap being the dangerous one.
 
-**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA7` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration), `0xA8`/`0xA9` **telemetry** (`set-telemetry` / `get-telemetry-block`, Arena-Firmware #56), `0xAA`–`0xAF` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role; `0xAE`/`0xAF` free). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xA8`/`0xA9`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. The block is now full apart from `0xAE`/`0xAF`; I/O commands that need more than those two slots start a new block (see `0xB_`, `0xD_`) rather than displacing a deployed opcode. The sampled analog-input block stream (`ai_stream`, feature bit 2 — see § 0xC2) takes `0xAE`/`0xAF` rather than `0xA8`/`0xA9`, which Arena-Firmware #56 telemetry already occupies.
+**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA7` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration), `0xA8`/`0xA9` **telemetry** (`set-telemetry` / `get-telemetry-block`, Arena-Firmware #56), `0xAA`–`0xAF` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role; `0xAE`/`0xAF` free). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xA8`/`0xA9`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. The block is now full apart from `0xAE`/`0xAF`; I/O commands that need more than those two slots start a new block (see `0xB_`, `0xD_`) rather than displacing a deployed opcode. `0xA8`/`0xA9` are not available to the sampled analog-input block stream (`ai_stream`, feature bit 2 — see § 0xC2); if two codes suffice it is to use `0xAE`/`0xAF`.
 
 **The `0xB_` block — external sensors on the Qwiic/STEMMA QT jack** (arena_12-18 J2, `Wire1`): `0xB0`/`0xB1` are the generic I²C bridge (`get-i2c-scan` / `i2c-transfer`); `0xB2`–`0xBF` are **reserved for sensor-level commands** (e.g. a calibrated light read once LAB-211 selects a part) and must not be used for unrelated features. The firmware carries no sensor-specific code; register maps live host-side.
 
@@ -939,7 +939,7 @@ Scans the I²C bus on the Qwiic / STEMMA QT jack. arena_12-18 v1.0 routes J2 to 
 
 **Response:** `[len, 0x00, 0xB0, count, addr0…addrN]` — `count` (uint8) then the 7-bit addresses in `0x08`–`0x77` that ACKed a zero-length write, ascending.
 
-**Response (error):** `[len, 0x01, 0xB0, ASCII_msg]` — the flashed hardware variant has no Qwiic jack (`arena_10-10`, `G6_2x10`). Presence is not advertised in the capability bitmap; hosts probe with this command instead.
+**Response (error):** `[len, 0x01, 0xB0, ASCII_msg]` — the flashed hardware variant has no Qwiic jack (`arena_10-10`, `G6_2x10`). Gate on feature bit 1 (`qwiic_i2c`, § 0xC2) rather than probing; see that table for firmware that predates the bit.
 
 Blocks the controller's command loop for the scan (~12 ms with the bus empty). Bench/diagnostic use.
 
@@ -995,7 +995,7 @@ Returns the controller version byte, capability bitmap, and physical-setup ident
 | 8 | `feature_count` | N = number of feature-bitmap bytes that follow (firmware sends 4) |
 | 9 … 8+N | `features[N]` | Feature bitmap — see below |
 
-`mac[6]` and the feature bitmap are tolerant, additive extensions: a host that predates them reads only bytes 0–1 (or 0–7) and is unaffected by the longer payload. **Presence is signalled by length, not by a capability bit:** feature k is present iff the payload is at least 9 bytes, `k < 8 × N`, and bit `k % 8` of `features[k / 8]` is set. A shorter payload means every feature bit reads 0.
+`mac[6]` and the feature bitmap are tolerant, additive extensions: a host that predates them reads only bytes 0–1 (or 0–7) and is unaffected by the longer payload. **Presence is signalled by length, not by a capability bit:** feature k is present iff the payload is at least `9 + N` bytes, `k < 8 × N`, and bit `k % 8` of `features[k / 8]` is set. A payload shorter than 9 bytes, or shorter than `9 + N`, means every feature bit reads 0.
 
 **Capability bitmap (bit 0 = LSB):**
 
@@ -1112,7 +1112,7 @@ Re-probes the panel fleet and replaces the stored inventory. Gate on feature bit
 
 Requires `ALL_OFF` (else status `CE_DISPLAY_ACTIVE` = 10) and no SD transfer in flight (else status 1). Other `action` values → status 1. Any scan discards the previous fingerprints.
 
-**Response:** the `0xD1` reply for `first = 0`.
+**Response:** `[len, 0x00, 0xD0, <0xD1 payload for first = 0>]` — the standard echo of the command byte, carrying the same payload as `0xD1`.
 
 ---
 
