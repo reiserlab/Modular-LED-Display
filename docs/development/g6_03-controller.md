@@ -152,7 +152,7 @@ The controller must support **G4 display Modes 2, 3, 4, and 5:**
 - **Mode 3 (host-commanded position)**
   - Host gives frame index via `set-frame-position`; controller loads → slices → sends.
 - **Mode 4 (Closed Loop Velocity)**
-  - Controller samples **AIN0** (Teensy D14, BNC J28, ±10 V via OPA2277 → 0–3.3 V at ADC) at **500 Hz**, computes frame rate as `fps = AI_voltage × 100 × gain / 10` where `gain` is the signed 16-bit field (int16 LE) from `trial-params` encoded as **10× the actual scaling factor** (e.g., `gain = -20` represents -2.0 fps/V scaling for typical G3-flight-arena behavior). 1 V at the AI input therefore maps to 100 base counts, scaled by gain to yield signed fps. Integrates fps over time to advance frame index, then loads → slices → sends. AIN1 (D15, J29) unused for Mode 4 (available for experimenter).
+  - Controller samples **AIN0** (Teensy D14, BNC J28 "Analog In 1 (±10V)", ±10 V via the OPA2277 two-stage front end → 0–3.3 V at the ADC; 12-bit, 16× hardware averaging) at **500 Hz**, smooths it with an EWMA (0.6 × previous + 0.4 × new — the G3 controller's filter), converts to volts (the per-board calibration record when one exists, else the nominal ±10 V scale — see `0xA6`/`0xA7`), applies the channel's **deadband** (|V| below it → 0 fps), and computes `fps = V × 100 × gain / 10`. `gain` is the signed 16-bit field (int16 LE) from `trial-params` encoded as **10× the gain — the G3 convention**: `gain = 10` is unity = **100 fps per volt** (the G3 Xmega controller's `HzFromAdc()` mapped 1 V → 100 Hz), the everyday G3 gains 0.2–0.5 (`gain` 2–5) are 20–50 fps/V, and `gain = -20` is −2.0× = −200 fps/V (reversed coupling). Integrates fps over time to advance the frame index, then loads → slices → sends. AIN1 (D15, J29 "Analog In 2") is not used by Mode 4 — available to the experimenter and read by `0xA4`.
 - **Mode 5 (Streaming)**
   - Host sends raw arena frames; controller slices → packs → sends immediately.
 
@@ -240,7 +240,10 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xA1` | get-ao-voltage | `0x01, 0xA1` | v1 (G6-new) | Returns the hardware DAC readback as uint16 LE mV (I²C read of MCP4725 register). |
 | `0xA2` | set-ao-lut | `[len, 0xA2, mode, step_hz_lo, step_hz_hi, count_lo, count_hi, mv...]` | v1 (G6-new) | Upload an AO lookup table and start playback. `mode` 0 = frame-locked (DAC tracks `LUT[cur_frame_index % count]`); `mode` 1 = time-based (DAC steps at `step_hz` Hz, independent of frames). Max 124 entries per standard 1-byte-length frame. End-of-table wraps (modulo). Stopped by `set-ao-voltage (0xA0)`. Refused (error) while AO mode (`0xA3`) is `frame_number`. |
 | `0xA3` | set-ao-mode | `0x02, 0xA3, mode` | v1 (G6-new) | `mode` 0 = programmable (AO driven by `0xA0`/`0xA2`); `mode` 1 = frame_number (DAC tracks the open pattern's frame index, 0 V = frame 0 .. 5 V = last frame, normalized; updated on every frame load in Modes 2/3/4). Entering mode 1 stops any active LUT playback and immediately reflects the current frame. |
-| `0xA4` | get-analog-in | `0x01, 0xA4` | v1 (G6-new) | Returns Analog In 1 (BNC J28/D14) and Analog In 2 (BNC J29/D15) as two int16 LE mV — same OPA2277 ±10 V front-end mapping Mode 4 uses. Bench diagnostic; front-end offset/scale calibration TBD. |
+| `0xA4` | get-analog-in | `0x01, 0xA4` | v1 (G6-new) | Returns Analog In 1 (BNC J28/D14) and Analog In 2 (BNC J29/D15) as two int16 LE mV plus a `flags` byte (bit0/bit1 = channel 1/2 per-board calibration applied, bit2 = 12-bit raw scale). Calibrated mV when a `0xA6` record exists for the channel, else the nominal ±10 V map. |
+| `0xA5` | get-analog-in-raw | `0x01, 0xA5` | v1 (G6-new, `ai_cal`) | Both inputs as raw ADC counts, two uint16 LE (one 16×-averaged 12-bit conversion each) — the units the calibration points are recorded in. |
+| `0xA6` | set-analog-cal | `[len, 0xA6, ch, action, (mv_lo, mv_hi)]` | v1 (G6-new, `ai_cal`) | Per-board two-point calibration of channel `ch` 1\|2: `action` 0 = sample the 0 V point (BNC ground cap on), 1 = sample the +10 V point (BNC open — the input floats at the 10 V reference), 2 = set deadband (`mv` 0–2000), `0xFF` = clear the points. Persists to EEPROM (+ SD JSON mirror) and replies with the record. |
+| `0xA7` | get-analog-cal | `0x01, 0xA7` | v1 (G6-new, `ai_cal`) | The 18-byte calibration record: `[version, adc_bits, source, flags]` + 2 × `[valid, raw_open u16, raw_gnd u16, deadband_mv u16]`. |
 | `0xAA` | set-digital-out | `0x03, 0xAA, ch, state` | v1 (G6-new) | Drive DO1 (ch=1, BNC J3, Teensy D37, via U2) or DO2 (ch=2, BNC J4, Teensy D35, via U3) HIGH (state ≠ 0) or LOW (state = 0). Requires role (`0xAC`) `out_programmable`; an unconfigured (`off`) port auto-promotes, but `in_trigger`/`out_debug_framescan` refuse (error) to protect the trigger route / scan gate. |
 | `0xAB` | get-digital-out | `0x01, 0xAB` | v1 (G6-new) | Returns the raw data-pin state of DO1 and DO2 as two bytes (0 = LOW, 1 = HIGH), regardless of role — meaning depends on the port's current role (`0xAC`/`0xAD`). |
 | `0xAC` | set-dio-role | `0x03, 0xAC, port, role` | v1 (G6-new) | `port` 1\|2 ("Digital IO 1/2 (5V)" BNC); `role` 0=off, 1=in_trigger, 2=out_programmable, 3=out_debug_framescan (gates a pulse per SPI frame envelope). Explicit role changes are the only way into `in_trigger`/`out_debug_framescan`; `set-digital-out (0xAA)` auto-promotes `off` to `out_programmable`. |
@@ -269,6 +272,8 @@ G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one
 `0x05` (setPatternAndPositionIDs), `0x07` (combinedCommand), `0x10` (setControlMode), `0x11` (setActiveAOChannels), `0x12` (setFrameRate), `0x13` (setActiveAIChannels), `0x15` (setPatternFunctionID), `0x21` (startDisplay), `0x31` (setAOFunctionID), `0x40` (stopLog), `0x41` (startLog), `0x42` (resetCounter), `0x43` (setRootDirectory), `0x45` (getTreadmillData), `0x46` (getVersion), `0x47` (sendSyncLog), `0x50` (setSPIDebug), `0x66` (get-ethernet-ip — G6 moved this to `0xC1`). `0x71`/`0x73` are reserved for a future G4-compatible position-Y pair (see `0x70`–`0x73`).
 
 > The reserved-future commands `g6-panel-storage-mode` and `g6-program-panel` were moved off `0x40`/`0x41` to `0xC7`/`0xC8` precisely to avoid the G4 `stopLog`/`startLog` collision — the `0x41`→panel-reflash overlap being the dangerous one.
+
+**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA9` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration; `0xA8`/`0xA9` reserved for the sampled block stream — `set-ai-stream` / `get-ai-block`), `0xAA`–`0xAF` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role; `0xAE`/`0xAF` free). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. New I/O commands take the free slots of their sub-block rather than starting another block below `0xC0`.
 
 **Known, intentional divergences** (same opcode, different behavior — accepted, not fixed):
 
@@ -350,7 +355,7 @@ Payload bytes after the command byte:
 | 1–2 | `pattern_id` | uint16 LE | 1-based SD pattern index |
 | 3–4 | `frame_rate` | int16 LE | Hz — frame-advance rate for Mode 2. Negative values play in reverse. Sign is ignored in Modes 3 and 4. |
 | 5–6 | `init_pos` | uint16 LE | Initial frame index (0-based) |
-| 7–8 | `gain` | int16 LE | Mode 4 velocity scale: actual gain = `gain / 10` fps/V (e.g. `−20` → −2.0 fps/V) |
+| 7–8 | `gain` | int16 LE | Mode 4 coupling, **10× the gain (G3 convention)**: `fps = V × 100 × gain / 10`, so `10` = unity = 100 fps per volt, `2`–`5` = the everyday 20–50 fps/V, `−20` = −200 fps/V (reversed). Ignored in Modes 2/3. |
 | 9–10 | `duration` | uint16 LE | Controller-run trial length, in 10 ms ticks. `0` = no auto-stop; the controller reverts to ALL_OFF on its own when the duration elapses. |
 | 11 | `duty` | uint8 | **Optional.** `0` = every frame uses its stored `duty_cycle` (identical to omitting the byte); `1–255` = display every frame of **this trial** at this duty (#33). |
 
@@ -768,13 +773,55 @@ Entering mode 1 stops any active LUT playback and immediately writes the DAC to 
 
 #### 0xA4 get-analog-in
 
-Reads both analog input BNCs. Bench diagnostic — front-end offset/scale calibration is TBD (§ Mode 4).
+Reads both analog inputs — the BNCs silkscreened "Analog In 1 (±10V)" (J28, Teensy AIN0/D14) and "Analog In 2 (±10V)" (J29, AIN1/D15). Front end: OPA2277 two-stage (shift/scale ±10 V → 0–10 V against the REF102 10 V reference, then a ÷3 divider → 0–3.3 V); ADC 12-bit with 16× hardware averaging (≈ 4.9 mV of input per LSB). With nothing connected an input reads ≈ +10 V (a 10k pull-up to the reference). Capability: `io_ext`.
 
 **Command:** `[0x01, 0xA4]`
 
-**Response:** `[0x06, 0x00, 0xA4, ain1_lo, ain1_hi, ain2_lo, ain2_hi]`
+**Response:** `[0x07, 0x00, 0xA4, ain1_lo, ain1_hi, ain2_lo, ain2_hi, flags]`
 
-- `ain1`, `ain2` (int16 LE mV each): Analog In 1 (BNC J28, Teensy D14) and Analog In 2 (BNC J29, Teensy D15). Both share the OPA2277 front-end mapping ±10 V → 0..3.3 V at the ADC, midscale = 0 V — the same math Mode 4 uses.
+- `ain1`, `ain2` (int16 LE mV each): **calibrated** mV when the channel has a valid `0xA6` record, otherwise the nominal map `mV = (raw / 4095 − 0.5) × 20000` (midscale = 0 V) — the same conversion Mode 4 uses.
+- `flags` (uint8): bit 0 = channel 1 calibrated, bit 1 = channel 2 calibrated, bit 2 = the raw scale is 12-bit. Firmware before 2026-09 sent 4 bytes without `flags`; hosts must accept both lengths.
+
+---
+
+#### 0xA5 get-analog-in-raw
+
+Both inputs as raw ADC counts — the units the calibration points are recorded in, shown next to the mV by a calibration UI. Capability: `ai_cal`.
+
+**Command:** `[0x01, 0xA5]`
+
+**Response:** `[0x06, 0x00, 0xA5, raw1_lo, raw1_hi, raw2_lo, raw2_hi]` — two uint16 LE (0–4095), one averaged conversion each.
+
+---
+
+#### 0xA6 set-analog-cal
+
+Per-board two-point calibration of one input channel. Resistor tolerance in the front end and the reference leave a small zero and scale error per board; two known points remove it: with **nothing on the BNC** the input sits at the **+10 V reference** through its 10k pull-up (`raw_open` ≙ +10 000 mV), and with a **BNC ground cap** it reads **0 V** (`raw_gnd` ≙ 0 mV). Calibrated `mV = 10000 × (raw − raw_gnd) / (raw_open − raw_gnd)`. The controller owns the record because Mode 4 runs on the controller: it samples (256 averaged reads per point), validates (`raw_open − raw_gnd ≥ 100` counts — a board whose front-end divider is wrong saturates both points and can never report itself calibrated), stores to **Teensy EEPROM** (authoritative — the record belongs to the board, not the card), mirrors it as JSON to `/config/analog_cal.json` on the SD (write-only, for inspection and provenance; never read back), and applies it to `0xA4` and Mode 4. Capability: `ai_cal`.
+
+**Command:** `[len, 0xA6, ch, action, (mv_lo, mv_hi)]`
+
+- `ch`: 1 or 2 (silkscreen numbering).
+- `action`: `0` = sample the 0 V point now (ground cap on); `1` = sample the +10 V point now (BNC open); `2` = set the channel's **deadband** — `mv` uint16 LE, 0–2000, the band around the calibrated 0 V that Mode 4 treats as 0 fps (default 20 mV); `0xFF` = clear the channel's two points (the deadband is kept).
+
+**Response (success):** the 18-byte record, exactly as `0xA7` returns it.
+
+**Response (error):** `[len, 0x01, 0xA6, ASCII_msg]` — `ch` not 1 or 2, unknown `action`, missing or out-of-range `mv`, or the EEPROM write did not verify.
+
+Procedure per channel: unplug the BNC → `action 1`; fit the ground cap → `action 0`; confirm with `0xA4` against a meter at ±5 V. A record whose `adc_bits` differs from the running firmware's ADC width is discarded on boot (points only; deadbands survive).
+
+---
+
+#### 0xA7 get-analog-cal
+
+**Command:** `[0x01, 0xA7]`
+
+**Response:** `[0x13, 0x00, 0xA7, version, adc_bits, source, flags, ch1[7], ch2[7]]`
+
+- `version` (uint8): record format, `1`.
+- `adc_bits` (uint8): the raw scale the points were taken at (`12`).
+- `source` (uint8): `0` = no stored record (defaults; nominal scale in force), `1` = EEPROM.
+- `flags` (uint8): bit 0 = the last save also reached the SD mirror.
+- per channel, 7 bytes: `valid` (uint8), `raw_open` (uint16 LE), `raw_gnd` (uint16 LE), `deadband_mv` (uint16 LE).
 
 ---
 
@@ -880,7 +927,8 @@ Returns the controller version byte, capability bitmap, and physical-setup ident
 | 3 | `v3_triggered` | v3 Triggered mode supported |
 | 4 | `v3_gated` | v3 Gated mode supported |
 | 5 | `io_ext` | Extended I/O command set supported: `set-dio-role (0xAC)`, `get-dio-role (0xAD)`, `set-ao-mode (0xA3)`, `get-analog-in (0xA4)`. Hosts MUST gate those commands on this bit — pre-`io_ext` firmware treats them as unknown opcodes (error + `CE 01` glyph). |
-| 6–7 | reserved | Transmit as 0 |
+| 6 | `ai_cal` | Per-board analog-input calibration: `get-analog-in-raw (0xA5)`, `set-analog-cal (0xA6)`, `get-analog-cal (0xA7)`, and the `flags` byte on `0xA4`. Same gating rule as `io_ext`. |
+| 7 | reserved | Transmit as 0. **Last free bit of this byte.** Proposed extension rule (not yet implemented, for review): bit 7 = `cap_ext`, meaning a second capability byte follows the MAC at payload byte 8 — the same tolerant-extension pattern the MAC uses, so `version` stays 1 and old hosts are unaffected. The first candidate for a bit in that byte is the sampled analog block stream (`0xA8`/`0xA9`). |
 
 ---
 
@@ -1135,7 +1183,7 @@ Mode 1 is invalid in SD Mode.
 ### 5. G6-specific controller commands
 
 - **`g6-panel-storage-mode`** (opcode `0xC7`) — switches controller from **SD Mode** (default, `mode_byte = 0`) to **Local Storage Mode** (`mode_byte = 1`). When transitioning to Local Storage Mode, triggers the load phase that copies SD patterns into panel PSRAM. Wire form: `[0x02, 0xC7, mode_byte]`.
-- **`get-controller-info`** (opcode `0xC2`) — returns `{version_byte, capability_bitmap}` with the version byte dispatching the response shape. **Capability bitmap** (8-bit): bit 0 = `g6_mode` (always 1 for any G6 controller), bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bit 5 = `io_ext` (extended I/O command set: 0xAC/0xAD/0xA3/0xA4), bits 6–7 = reserved (transmit as 0; future bits land in a v2 controller-info opcode rev). Request: `[0x01, 0xC2]`. Response: `[0x01, 0xC2, version_byte, capability_byte]` (parity adjusted).
+- **`get-controller-info`** (opcode `0xC2`) — returns `{version_byte, capability_bitmap}` with the version byte dispatching the response shape. **Capability bitmap** (8-bit): bit 0 = `g6_mode` (always 1 for any G6 controller), bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bit 5 = `io_ext` (extended I/O command set: 0xAC/0xAD/0xA3/0xA4), bit 6 = `ai_cal` (analog-input calibration: 0xA5/0xA6/0xA7), bit 7 = reserved (proposed `cap_ext` → a second capability byte after the MAC; see § 0xC2). Request: `[0x01, 0xC2]`. Response: `[0x0A, 0x00, 0xC2, version_byte, capability_byte, mac0…mac5]`.
 
 ### 6. Controller Error Display
 
