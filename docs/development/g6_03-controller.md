@@ -1103,16 +1103,16 @@ Reads the panel's **running** application flash CRC and compares it to the `/fir
 
 #### 0xD0 panel-inventory-scan
 
-Re-probes the panel fleet and replaces the stored inventory. Gate on feature bit 0 (`panel_inventory`). The controller runs the same scan plus the fingerprint sweep at every boot (§ Boot panel inventory), so hosts normally only need `0xD1`.
+Re-probes the panel fleet and updates the stored inventory. Gate on feature bit 0 (`panel_inventory`). The controller runs the same scan plus the fingerprint sweep at every boot (§ Boot panel inventory), so hosts normally only need `0xD1`.
 
 **Command:** `[0x02, 0xD0, action]`
 
 | `action` | Effect |
 |---|---|
-| 0 | Presence only: one `COMM_CHECK` exchange per panel, blocking — about 7 ms per responding panel and 50 ms per absent one (≈ 2.4 s worst case for 48 absent panels). |
-| 1 | Presence, then restart the firmware-fingerprint sweep. The sweep runs in the background, one panel per main-loop pass and only while the display is `ALL_OFF`; poll `0xD1` until `flags.fp_valid`. |
+| 0 | Presence only: one `COMM_CHECK` exchange per panel, blocking — about 7 ms per responding panel and 50 ms per absent one (≈ 2.4 s worst case for 48 absent panels). Panels still present keep their fingerprint (status 3–6 and `crc32`); panels that went absent lose it; a panel that (re)appears reads status 2 until the next `action` 1. A sweep already running continues and also covers the panels that appeared. |
+| 1 | Presence, then restart the firmware-fingerprint sweep, discarding every previous fingerprint. The sweep runs in the background, one panel per main-loop pass and only while the display is `ALL_OFF`; poll `0xD1` until `flags.fp_valid`. |
 
-Requires `ALL_OFF` (else status `CE_DISPLAY_ACTIVE` = 10) and no SD transfer in flight (else status 1). Other `action` values → status 1. Any scan discards the previous fingerprints.
+Requires `ALL_OFF` (else status `CE_DISPLAY_ACTIVE` = 10) and no SD transfer in flight (else status 1). Other `action` values → status 1. Either action changes `scan_id`.
 
 **Response:** `[len, 0x00, 0xD0, <0xD1 payload for first = 0>]` — the standard echo of the command byte, carrying the same payload as `0xD1`.
 
@@ -1130,13 +1130,14 @@ Reads the stored inventory, one page of up to 32 panels. Gate on feature bit 0 (
 |---|---|---|
 | 0 | `version` | 1 |
 | 1 | `panel_count` | Panels this firmware build drives (40 for arena_10-10, 48 for arena_12-18) |
-| 2 | `flags` | bit 0 `presence_valid` (a presence scan has completed), bit 1 `fp_valid` (the fingerprint sweep has completed), bit 2 `fp_in_progress` (sweep running, or paused while the display runs), bit 3 `ref_present` (sweep compared against `/firmware/panel.bin`), bit 4 `fp_prefix` (no reference image: fingerprints cover a fixed prefix), bits 5–7 reserved |
+| 2 | `flags` | bit 0 `presence_valid` (a presence scan has completed), bit 1 `fp_valid` (the last fingerprint sweep completed; panels that appeared in a later presence-only rescan still read status 2), bit 2 `fp_in_progress` (sweep running, or paused while the display runs), bit 3 `ref_present` (sweep compared against `/firmware/panel.bin`), bit 4 `fp_prefix` (no reference image: fingerprints cover a fixed prefix), bits 5–7 reserved |
 | 3 | `first` | Echo of the requested page start |
 | 4 | `n` | Entries in this page, ≤ 32; 0 when `first ≥ panel_count` |
 | 5–8 | `ref_crc32` | `image_crc32` from the `/firmware/panel.bin` footer, 0 if none |
 | 9–12 | `fp_len` | App-flash bytes each fingerprint covers (0 before the first sweep) |
 | 13–16 | `age_ms` | ms since the presence scan completed |
-| 17 … | `n × {status u8, crc32 u32}` | Per-panel entries; `crc32` is 0 unless the panel was fingerprinted |
+| 17 | `scan_id` | Changes on every presence scan (boot or `0xD0`, either action); wraps at 256. Not changed by `0xD1` or by sweep progress. |
+| 18 … | `n × {status u8, crc32 u32}` | Per-panel entries; `crc32` is 0 unless the panel was fingerprinted |
 
 | `status` | Meaning |
 |---|---|
@@ -1150,7 +1151,7 @@ Reads the stored inventory, one page of up to 32 panels. Gate on feature bit 0 (
 
 **Fingerprint:** CRC-32 (ISO-HDLC, the CRC `0xC9` uses) of the panel's running app flash `[0, fp_len)`, computed by the panel over `ISP_ENTER` + `ISP_VERIFY_CRC`. When `/firmware/panel.bin` is on the SD card, `fp_len` = its `image_size`, so status 3 means that exact image is installed. Otherwise `fp_len` = 65 536 (a prefix well inside every panel image to date): differing CRCs prove different firmware, equal CRCs only suggest the same.
 
-A page is at most 177 bytes; 40- and 48-panel arenas read in two pages (`first` = 0, then 32).
+A page is at most 178 bytes; 40- and 48-panel arenas read in two pages (`first` = 0, then 32). A scan (boot retry or another host's `0xD0`) can land between the two reads; the pages of one read must carry the same `scan_id`, otherwise re-read from `first` = 0.
 
 ---
 
