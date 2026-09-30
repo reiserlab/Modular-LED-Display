@@ -310,7 +310,7 @@ Each command is listed in ascending opcode order. Framing conventions:
 
 #### 0x00 all-off
 
-Enters `ALL_OFF` state; stops all SPI output.
+Enters `ALL_OFF` state: pushes an all-dark Persistent frame (`0x11`, duty 0) to every panel, then stops SPI output. The dark frame is what ends a free-running Triggered display (panel-fw v1.3.0), so all-off blanks panels in every display mode.
 
 **Command:** `[0x01, 0x00]`
 
@@ -421,7 +421,7 @@ Sets the panel display mode — the `DISP_*` opcode the controller stamps into e
 |---|---|---|
 | `0` | oneshot | Panel runs a single scan, then idles dark until the next frame is clocked in (default) — the controller re-clocks at `set-refresh-rate` to sustain a static image |
 | `1` | persist | Panel holds the frame continuously until a new frame is clocked in |
-| `2` | triggered | Panel renders on the rising edge of the external trigger line |
+| `2` | triggered | Panel renders one row per **falling** edge of the external trigger line, free-running until a non-Triggered frame (panel-fw v1.3.0; 1 µs BCM base) |
 | `3` | gated | Panel renders while the gate line is asserted |
 
 **Why oneshot is the default:** v1 pattern files carry the oneshot opcode (`0x10`/`0x30`) in every panel block ([g6_04](g6_04-pattern-file-format.md)), and the controller forwards SD and streamed blocks verbatim — so with no `set-panel-display-mode` command sent, the whole path runs oneshot. It matches the canonical model where the controller drives each displayed frame explicitly (Mode 2 auto-advance / Mode 3 host-commanded, re-clocked at `set-refresh-rate` `0x16`), one command per intended stimulus event. `persist` is opt-in: the panel self-refreshes a single loaded frame without the controller re-streaming it.
@@ -448,7 +448,7 @@ Returns the current panel display mode (see `set-panel-display-mode`).
 
 #### 0x30 stop-display
 
-Stops SPI output and enters `ALL_OFF` state. Same internal effect as `all-off`.
+Enters `ALL_OFF` state — pushes the all-dark Persistent frame, then stops SPI output. Same internal effect as `all-off`.
 
 **Command:** `[0x01, 0x30]`
 
@@ -1262,7 +1262,7 @@ Mode 1 is invalid in SD Mode.
 
 v1, v2, and v3 are being designed together. Controller-side additions across the three versions:
 
-- **v1 Triggered/Gated** (`0x12`/`0x13`/`0x32`/`0x33` under header `0x01`/`0x81`) — dispatch alongside the v1 Oneshot/Persistent handlers. v1 Persistent (`0x11`/`0x31`) is already implemented in panel firmware; Triggered/Gated are specced and prototyped but not in v1 production firmware yet. See [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § `0x12`/`0x13` for semantics.
+- **v1 Triggered/Gated** (`0x12`/`0x13`/`0x32`/`0x33` under header `0x01`/`0x81`) — dispatch alongside the v1 Oneshot/Persistent handlers. All four v1 modes are implemented in panel firmware; Triggered is free-running on the EINT falling edge since panel-fw v1.3.0. See [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § `0x12`/`0x13` for semantics.
 - **v2 PSRAM Triggered/Gated** (`0x52`/`0x53` implicit-`duty_cycle`, `0x62`/`0x63` explicit-`duty_cycle`) — add when v2 firmware lands. Note: low-nibble `1` is Persistent, `2` is Triggered, `3` is Gated (so `0x51`/`0x61` are PSRAM-Persistent, `0x53`/`0x63` are PSRAM-Gated). All four mode variants are specified in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § v2.
 - **v3 dispatcher** — recognize v3 header byte `[0x03]`/`[0x83]` and route to v3 command handlers (diagnostics `0x02`/`0x03`, predefined-pattern display `0x70`–`0x73`) alongside the v1/v2 handlers per the version-superset rule (a v3 panel MUST accept v1 + v2 commands).
 - **EINT forwarding** — Triggered/Gated rely on EINT. For the production `arena_10-10`, the wiring runs through jumper J30 (default OPEN per [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md)), so the controller drives `TNY.EINT` (Teensy D33) based on whatever Triggered/Gated software policy is in force.

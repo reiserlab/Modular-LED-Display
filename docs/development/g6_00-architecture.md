@@ -80,7 +80,7 @@ The panel receives commands via SPI and returns confirmations according to the [
 ## Open Questions / TBDs
 
 1. **Color-LED organization** — original source spec referred to "color-aware in v4/v5"; under the post-restructure V1/V2/V3 themes (live SPI / PSRAM / everything-else), color support is part of v3 § Future feature classes. Aspirational; revisit when color support is actually specced.
-2. **Stateless-panel vs mode-flag question.** v1's controller-driven one-shot model (Oneshot, Triggered, Gated all one-shot per command; Persistent the special case) is consistent with the stateless approach. The Triggered/Gated open questions (exact pattern-consumption semantics — see g6_01-panel-protocol.md § `0x12` / `0x13`) need design review before v1 firmware ships those commands.
+2. **Stateless-panel vs mode-flag question.** v1's controller-driven model (Oneshot and Gated one-shot per command; Persistent and — since panel-fw v1.3.0 — free-running Triggered the stateful exceptions) is otherwise consistent with the stateless approach. Triggered semantics were settled in panel-fw v1.3.0 (falling edge, free-running; see g6_01-panel-protocol.md § `0x12`).
 
 ## Cross-references
 

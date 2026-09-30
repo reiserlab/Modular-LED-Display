@@ -154,7 +154,7 @@ For Triggered/Gated work this means **two distinct deployment modes** are physic
 
 Cross-references:
 
-- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § `0x12` / `0x13` documents the panel-side Triggered (per-edge single-shot — v1 `0x12` 2L, `0x32` 16L; v2 `0x52` PSRAM) and Gated (output-enable gate — v1 `0x13` 2L, `0x33` 16L; v2 `0x53` PSRAM) modes plus open issues on trigger edge polarity — easier to manage in **J30-open** mode where firmware can reshape the trigger.
+- [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § `0x12` / `0x13` documents the panel-side Triggered (one row per EINT **falling** edge, free-running since panel-fw v1.3.0 — v1 `0x12` 2L, `0x32` 16L; v2 `0x52`/`0x62` PSRAM) and Gated (output-enable gate, EINT HIGH = visible — v1 `0x13` 2L, `0x33` 16L; v2 `0x53`/`0x63` PSRAM) modes.
 - The slim G4.1 controller has no input pins beyond CS lines; EINT trigger wiring (used by v1 Triggered/Gated) is **net-new for G6** and depends on these arena EINT lines.
 
 **J30 default = OPEN.** Shipped arenas leave J30 open by default → Teensy-mediated EINT path is the canonical wiring. Direct-trigger mode (J30 shorted) is a deliberate per-experiment opt-in documented in arena bring-up notes. Firmware cannot detect the position, so the assumed-open default must be verified physically per arena.
