@@ -156,9 +156,9 @@ v1 covers nine display commands (four modes × two grayscale resolutions, plus C
 
 All four modes share the same payload shape per pattern type — only the mode (low nibble of cmd byte) differs.
 
-**Default operating model: controller-driven, one-shot per command.** The expected production model is that the controller continuously streams commands to the panel — one command per intended stimulus event. Under this model, **Oneshot (`0x?0`), Triggered (`0x?2`), and Gated (`0x?3`) are all one-shot semantically**: a command arms the panel for one display unit (one scan / one trigger consumption / one gate cycle — see per-mode descriptions for precise definitions), after which the panel goes dark/idle until a new command arrives.
+**Default operating model: controller-driven, one-shot per command.** The expected production model is that the controller continuously streams commands to the panel — one command per intended stimulus event. Under this model, **Oneshot (`0x?0`) and Gated (`0x?3`) are one-shot semantically**: a command arms the panel for one display unit (one scan / one gate cycle — see per-mode descriptions for precise definitions), after which the panel goes dark/idle until a new command arrives.
 
-**Persistent (`0x?1`) is the special-case exception** — the panel keeps refreshing the loaded pattern indefinitely without further commands. Useful for static backgrounds, single-panel bench tests, and low-SPI-bandwidth scenarios, but not the canonical production case.
+**Persistent (`0x?1`) and Triggered (`0x?2`) are the exceptions.** Persistent keeps refreshing the loaded pattern indefinitely without further commands. Triggered (since panel-fw v1.3.0) keeps drawing the loaded pattern one row per EINT falling edge, with no frame limit, until a non-Triggered command arrives — see `0x12`. Persistent is useful for static backgrounds, single-panel bench tests, and low-SPI-bandwidth scenarios, but not the canonical production case.
 
 The Triggered and Gated commands require the EINT trigger line; without an active EINT source they're functionally equivalent to a no-op load (pattern accepted, no display until EINT activity).
 
@@ -198,17 +198,23 @@ Same payload shape as `0x10`; mode differs. Pattern is loaded into the display e
 
 #### `0x12` — Display 2-Level Grayscale (Triggered)
 
-Same payload shape as `0x10`. **One-shot Triggered semantics**: pattern is loaded by this command, then fired by EINT rising edges. Each rising edge fires **one row × all 4 BCM bit-planes for that row** (the panel scans row-by-row; 20 row drivers, 20 column drivers — see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) § Hardware Reference).
+Same payload shape as `0x10`. **Free-running Triggered semantics** (panel-fw v1.3.0): the pattern is loaded by this command, then drawn by EINT **falling (HIGH→LOW) edges**. Each falling edge fires **one row × all BCM bit-planes for that row** (the panel scans row-by-row; 20 row drivers, 20 column drivers — see [`g6_02-led-mapping.md`](g6_02-led-mapping.md) § Hardware Reference).
 
-**Consumption rule**: 20 EINT rising edges complete one full frame, after which the panel returns to dark/idle. The controller re-arms with a new `0x12` command for each subsequent stimulus burst.
+**Row walk**: rows advance 0, 1, …, 19, 0, 1, … — one row per edge, wrapping forever. The walk starts at row 0 when the panel enters Triggered from any other mode, and it continues until a non-Triggered display command arrives. There is no 20-edge frame limit and no timeout: a panel in Triggered with a live line clock stays lit on every line.
 
-**Overwrite-on-new-pattern**: if a new display command arrives before the 20 EINT edges complete, the new pattern overwrites the current one and the internal row counter resets to 0. Intermediate patterns are silently discarded. If the controller pushes Triggered patterns faster than 20 edges arrive between commands, the older pattern's rows never fire — this is a controller-side monitoring responsibility (no panel-side warning today).
+**New pattern mid-walk**: a new Triggered command replaces the pixel data between rows **without resetting the row counter**, so the controller's re-stream rate is not imposed on the light (restarting at row 0 on every re-stream would light low rows more often than high rows). Queued patterns drain to the latest, as in `0x10`. Building the new pattern costs about 1–2 edges at a 15.8 kHz line clock; those edges draw no row. Use a controller refresh of ≤ 300 Hz with Gray_16 patterns, not Gray_2 at 1000 Hz.
 
-**Between-edge state**: the panel is naturally dark between EINT rising edges. Each edge fires one row × all 4 bit-planes briefly, then the row goes inactive. If EINT stops mid-burst (e.g., the scanner halts before delivering all 20 edges), the panel is dark from that point until either more edges arrive or a new pattern arms a fresh row-0 fire. No stuck-pixel state — no timeout fallback is required.
+**Stopping**: send a non-Triggered command, e.g. the all-dark Persistent frame the arena controller sends on STOP / ALL_OFF. A stopped trigger source leaves the panel dark but still armed: it resumes on the next edge.
+
+**Between-edge state**: the panel is naturally dark between edges. Each edge fires one row × all bit-planes briefly, then the row goes inactive.
+
+**Row timing**: Triggered rows use a **1 µs** BCM base time (other modes use 3 µs), so a full-duty row is ~15 µs. See § Timing considerations.
 
 **Example**: `[0x01] [0x12] [pixel data: 50 bytes] [duty_cycle]`
 
-Use case: sub-frame synchronization with external scanning systems (two-photon microscope resonant scanners, etc.). Trigger-to-LED latency measured at 865 ± 17 ns at 8 kHz on prototype hardware; will be remeasured on production arena hardware.
+Use case: line-synchronous display under a two-photon resonant-scanning microscope. The ScanImage line clock is HIGH while a line is imaged and LOW during the ~18 µs turnaround gap; each falling edge fires one row inside that gap, so the display is dark whenever the detectors integrate. Trigger-to-LED latency measured at 865 ± 17 ns at 8 kHz on prototype hardware (~1 µs on v0.3.1).
+
+**History**: until panel-fw v1.3.0, Triggered was one-shot and rising-edge: 20 edges consumed a frame, then the panel went dark until the next command, and a new pattern reset the row counter. At a 300 Hz controller refresh and a 15.8 kHz line clock, that lit the panel for 20 lines of every 3.3 ms, putting a 300 Hz envelope on the imaging data (Bergamo rig, 2026-09-22). The 2P rigs are the only Triggered users.
 
 #### `0x13` — Display 2-Level Grayscale (Gated)
 
@@ -231,31 +237,41 @@ Use case: window-gated display for behavior-rig event windows. The rig's event-w
 
 #### Timing considerations for Triggered & Gated (`duty_cycle` dependence)
 
-**Per-row drive time depends on both `duty_cycle` and gray level.** This determines the LED-on window inside each EINT trigger interval (Triggered) and the gate-drop response latency (Gated). For the V1 panel firmware (`reiserlab/LED-Display_G6_Firmware_Panel` with default `base_T = 3 µs`):
+**Per-row drive time depends on `duty_cycle`, gray level and mode.** A full-intensity row at `duty_cycle = 255` is 15 × `base_T`. The V1 panel firmware (`reiserlab/LED-Display_G6_Firmware_Panel`) uses `base_T = 1 µs` for **Triggered** rows and `base_T = 3 µs` for every other mode (Oneshot, Persistent, Gated, error glyphs).
 
-| Pattern | `duty_cycle` | Per-row LED-on window | Fraction of 125 µs (8 kHz) trigger interval | Gate-drop latency (Gated) |
-|---|---|---|---|---|
-| Gray_2  | 255 | ~45 µs | 36% | ~45 µs |
-| Gray_2  | 128 | ~23 µs | 18% | ~23 µs |
-| Gray_2  |  85 | ~15 µs | 12% | ~15 µs |
-| Gray_2  |  64 | ~11 µs |  9% | ~11 µs |
-| Gray_2  |   1 | ~1–3 µs (PIO floor) | ~1–2% | ~3 µs |
-| Gray_16 | 255 | ~50 µs | 40% | ~50 µs |
-| Gray_16 | 128 | ~25 µs | 20% | ~25 µs |
-| Gray_16 |  85 | ~17 µs | 13.5% | ~17 µs |
-| Gray_16 |   1 | ~5 µs (4× plane floor) | ~4% | ~5 µs |
+**Triggered (`base_T = 1 µs`)** — LED-on window per EINT edge:
 
-The 865 ± 17 ns trigger-to-LED latency cited elsewhere is the PIO setup time (independent of `duty_cycle`) — it measures "edge → first LED on", not "edge → row fully drawn". Between rows the panel is naturally dark: `show_row` sets the row pin HIGH (=OFF) on exit, so the dead time inside each trigger interval (interval − LED-on window) has no illumination, and the controller can rely on that dead time for downstream sampling without LED bleedthrough.
+| Pattern | `duty_cycle` | Per-row LED-on window | Fits an 18 µs 2P turnaround gap? |
+|---|---|---|---|
+| Gray_16 | 255 | ~15 µs (+ ~1 µs trigger→LED latency) | yes, with little margin |
+| Gray_16 | 191 | ~11 µs | yes — recommended ceiling (rig tests, 2026-09) |
+| Gray_16 | 128 | ~8 µs | yes |
+| Gray_16 |  64 | ~4 µs | yes |
+| Gray_2  | 255 | ~15 µs | yes |
 
-**Canonical Triggered use case** — sub-frame synchronization for behavior rigs and microscopy:
+Brightness at equal `duty_cycle` is ⅓ of the other modes. On the Bergamo rig, duty 255 still showed overrun artifacts, so keep `duty_cycle` ≤ 191 for line sync; this is a usage recommendation, not a firmware clamp.
 
-The typical experiment wants each row's LED flash to occupy only a **small fraction** of its EINT trigger interval — ~10–15% is a common target — so the bright window stays well clear of adjacent rows' sampling windows. At the spec's 8 kHz EINT target (125 µs trigger interval), this corresponds to `duty_cycle` ≈ **64–85** for either gray level, giving ~12.5–18.75 µs of LED-on per row. The resulting full-frame rate is **EINT_rate / 20 = 400 fps** at 8 kHz, with each row's LEDs flashing briefly inside its own trigger window.
+**Gated and other modes (`base_T = 3 µs`)**:
 
-**Hard upper bound, not a target:** the per-row drive time at `duty_cycle = 255` (~45–50 µs) is the largest LED-on window that fits inside one 125 µs trigger interval — beyond this, edges that arrive while a row is still being driven will be missed. Operating anywhere near this bound leaves no dead time for downstream sampling and is generally not what behavior-rig users want. **Bench-test the intended `(duty_cycle, EINT frequency, gray level)` combination before relying on it in a production experiment** — both that no edges are missed *and* that the LED-on fraction matches the experimental requirement.
+| Pattern | `duty_cycle` | Per-row LED-on window | Gate-drop latency (Gated) |
+|---|---|---|---|
+| Gray_2  | 255 | ~45 µs | ~45 µs |
+| Gray_2  | 128 | ~23 µs | ~23 µs |
+| Gray_2  |  85 | ~15 µs | ~15 µs |
+| Gray_2  |  64 | ~11 µs | ~11 µs |
+| Gray_2  |   1 | ~1–3 µs (PIO floor) | ~3 µs |
+| Gray_16 | 255 | ~50 µs | ~50 µs |
+| Gray_16 | 128 | ~25 µs | ~25 µs |
+| Gray_16 |  85 | ~17 µs | ~17 µs |
+| Gray_16 |   1 | ~5 µs (4× plane floor) | ~5 µs |
+
+The 865 ± 17 ns trigger-to-LED latency cited elsewhere is the PIO setup time (independent of `duty_cycle`) — it measures "edge → first LED on", not "edge → row fully drawn". Between rows the panel is naturally dark: the row pin returns HIGH (=OFF) when the row's bit-planes finish, so the dead time inside each trigger interval has no illumination.
+
+**Hard upper bound, not a target (Triggered):** a row must finish before the next edge arrives, or that edge is missed; for line sync it must also finish before the imaged part of the next line begins. **Bench-test the intended `(duty_cycle, EINT frequency, gray level)` combination before relying on it in a production experiment.**
 
 **Implications for Gated (`0x13` / `0x33`)**: the mid-scan HIGH→LOW response latency is bounded by one per-row drive time. The spec text "within one bit-plane interval" is approached only at low `duty_cycle`; at full `duty_cycle = 255` it's ~50 µs (per-row granularity in the V1 firmware implementation — a documented departure for code-simplicity reasons).
 
-Both effects are inherent to the BCM scan engine; firmware can't compress per-row drive below the PIO floor. Controller-side software should treat `duty_cycle` as the knob that sets the LED-on fraction of each trigger interval (Triggered) or the gate-drop latency (Gated).
+Both effects are inherent to the BCM scan engine; firmware can't compress per-row drive below the PIO floor. Controller-side software should treat `duty_cycle` as the knob that sets the LED-on window of each trigger interval (Triggered) or the gate-drop latency (Gated).
 
 #### `0x30` — Display 16-Level Grayscale (Oneshot)
 
@@ -281,7 +297,7 @@ Same payload shape as `0x30`; pattern scanned continuously until next command. S
 
 #### `0x32` — Display 16-Level Grayscale (Triggered)
 
-Same payload shape as `0x30`. **Semantics per `0x12`**: one row × all 4 BCM bit-planes per EINT rising edge; 20 edges = one frame consumed → panel returns to dark; new pattern mid-consumption overwrites.
+Same payload shape as `0x30`. **Semantics per `0x12`**: one row × all 4 BCM bit-planes per EINT falling edge, free-running 19→0 until a non-Triggered command; a new pattern replaces the pixel data without resetting the row counter; 1 µs BCM base.
 
 **Example**: `[0x01] [0x32] [pixel data: 200 bytes] [duty_cycle]`
 
@@ -581,13 +597,13 @@ After all `0x3F` writes complete (and the controller has validated each CIPO con
 
 #### `0x50` / `0x51` / `0x52` / `0x53` — Display PSRAM Index (implicit duty_cycle)
 
-Display a previously-stored PSRAM pattern by index, in one of the four display modes. The `duty_cycle` value used is **the one stored alongside the pattern** via `0x3F`. Mode semantics follow the v1 default (Oneshot / Triggered / Gated all one-shot, Persistent the special case) — see v1 § Display Mode Summary and the open questions under v1 `0x12` / `0x13`.
+Display a previously-stored PSRAM pattern by index, in one of the four display modes. The `duty_cycle` value used is **the one stored alongside the pattern** via `0x3F`. Mode semantics follow v1 (Oneshot / Gated one-shot, Persistent and free-running Triggered the exceptions) — see v1 § Display Mode Summary.
 
 | Cmd | Mode | Notes |
 |:-:|:--|:--|
 | `0x50` | Oneshot                | one scan, then dark |
 | `0x51` | Persistent             | continuous refresh until next command (special-case exception) |
-| `0x52` | Triggered (one-shot)   | per-edge firing per v1 `0x12`: 20 EINT edges = one frame, then dark; new pattern overwrites mid-consumption |
+| `0x52` | Triggered (free-running) | per v1 `0x12`: one row per EINT falling edge, wrapping 19→0 until a non-Triggered command; new pattern keeps the row counter |
 | `0x53` | Gated (one-shot)       | output-enable model per v1 `0x13`: HIGH = LEDs visible, LOW = dark; queue keeps building during LOW |
 
 **Payload**: 3 bytes — PSRAM index (24-bit little-endian).
@@ -607,7 +623,7 @@ Display a previously-stored PSRAM pattern by index, in one of the four display m
 |:-:|:--|:--|
 | `0x60` | Oneshot                | one scan, then dark |
 | `0x61` | Persistent             | continuous refresh until next command (special case) |
-| `0x62` | Triggered (one-shot)   | semantics per v1 `0x12`: 20 EINT edges = one frame, then dark |
+| `0x62` | Triggered (free-running) | semantics per v1 `0x12`: one row per EINT falling edge, wrapping 19→0 |
 | `0x63` | Gated (one-shot)       | semantics per v1 `0x13`: output-enable gate, queue keeps building during LOW |
 
 **Payload**: 4 bytes — PSRAM index (3 bytes, 24-bit little-endian) + duty_cycle (1 byte).
@@ -715,13 +731,13 @@ Reset the diagnostic counter(s).
 
 #### `0x70` / `0x71` / `0x72` / `0x73` — Display Predefined Pattern (mode in low nibble)
 
-Display a panel-flash-stored pattern by index, in one of the four display modes. Predefined patterns are stored in a dedicated flash region (separate from PSRAM) and survive power-cycle. Use cases: error glyphs (slot 0 reserved as canonical error-display glyph), test patterns, calibration patterns, factory-loaded stimuli. Mode semantics follow the v1 default (Oneshot / Triggered / Gated all one-shot, Persistent the special case) — see v1 § Display Mode Summary and the open questions under v1 `0x12` / `0x13`.
+Display a panel-flash-stored pattern by index, in one of the four display modes. Predefined patterns are stored in a dedicated flash region (separate from PSRAM) and survive power-cycle. Use cases: error glyphs (slot 0 reserved as canonical error-display glyph), test patterns, calibration patterns, factory-loaded stimuli. Mode semantics follow v1 (Oneshot / Gated one-shot, Persistent and free-running Triggered the exceptions) — see v1 § Display Mode Summary.
 
 | Cmd | Mode | Notes |
 |:-:|:--|:--|
 | `0x70` | Oneshot                | one scan of the predefined pattern, then dark |
 | `0x71` | Persistent             | continuous refresh until next command (special-case exception) |
-| `0x72` | Triggered (one-shot)   | per-edge firing per v1 `0x12`: 20 EINT edges = one frame, then dark |
+| `0x72` | Triggered (free-running) | per v1 `0x12`: one row per EINT falling edge, wrapping 19→0 |
 | `0x73` | Gated (one-shot)       | output-enable gate per v1 `0x13`: HIGH = LEDs visible, LOW = dark |
 
 **Payload**: 3 bytes — predefined-pattern index (24-bit little-endian) + 1 byte duty_cycle.
@@ -864,13 +880,13 @@ These values appear **only in the 3-byte CIPO confirmation slot** (see § Confir
 
 ### Display Mode Summary
 
-Modes are encoded in the low nibble of the command byte (`0`=Oneshot, `1`=Persistent, `2`=Triggered, `3`=Gated). The default operating model is **controller-driven, one-shot per command** — Oneshot, Triggered, and Gated all "consume" the pattern on one display unit (one scan, one trigger event, or one gate cycle respectively) and return the panel to dark/idle until the next command. Persistent is the **special-case exception** where the panel keeps refreshing without further commands.
+Modes are encoded in the low nibble of the command byte (`0`=Oneshot, `1`=Persistent, `2`=Triggered, `3`=Gated). The default operating model is **controller-driven, one-shot per command** — Oneshot and Gated "consume" the pattern on one display unit (one scan or one gate cycle) and return the panel to dark/idle until the next command. Persistent and Triggered are the exceptions: Persistent keeps refreshing without further commands, and Triggered (since panel-fw v1.3.0) keeps drawing one row per EINT falling edge until a non-Triggered command arrives.
 
 | Low nibble | Mode | Behavior | Use Case | Status |
 | :--: | :-- | :-- | :-- | :-- |
 | `0` | **Oneshot** | One BCM scan on receipt, then dark | Frame-by-frame deterministic control (canonical production case); controller streams one command per stimulus | **v1, implemented** in `feat/v1-stage2-bcm` |
 | `1` | **Persistent** (special case) | Continuous refresh until next display command | Static backgrounds, single-panel bench tests, low-SPI-bandwidth scenarios | **v1, implemented** in `feat/v1-stage2-bcm` |
-| `2` | **Triggered** (one-shot) | Pattern loaded; each EINT rising edge fires one row × 4 bit-planes; **20 edges = one frame consumed → dark**. New pattern mid-consumption overwrites (controller-side responsibility to monitor; warning instrumentation deferred). | Sub-frame synchronization (two-photon microscopy resonant scanners, etc.) | specced; prototyped |
+| `2` | **Triggered** (free-running) | Pattern loaded; each EINT **falling** edge fires one row × all bit-planes, wrapping 19→0 until a non-Triggered command; a new pattern keeps the row counter. 1 µs BCM base (full-duty row ~15 µs). | Line-synchronous display under two-photon resonant scanners (ScanImage line clock) | implemented, panel-fw v1.3.0 |
 | `3` | **Gated** (one-shot) | Pattern processing follows normal Oneshot (one scan per command, queue drain-to-latest); EINT is a **global output-enable gate**: HIGH → LEDs visible, LOW → panel dark with queue still building. | Window-gated display for behavior-rig event windows (gate driven by rig clock, decoupled from controller streaming) | v1 specced, prototyped |
 
 ### Protocol Evolution
@@ -884,7 +900,7 @@ Modes are encoded in the low nibble of the command byte (`0`=Oneshot, `1`=Persis
 ## Open Questions / TBDs
 
 1. **Panel error display command-set decision.** Which errors are most relevant and what command code carries them within the `0xC2`/predefined-pattern-0 framework.
-2. **v3 trigger edge polarity** (from test rig). Firmware code expects rising edge but AD3 + Ch2 captures show LED fires on the **falling edge** of W1 — likely hardware ringing (±2.5 V overshoot). Hypothesis in `G6_Panels_Test_Firmware/single_led/SESSION_2026-04-24_PIOFULL_AD3.md`; not yet fixed.
+2. ~~**v3 trigger edge polarity**~~ — resolved in panel-fw v1.3.0: Triggered fires on the falling edge by design (the 2P line clock is LOW during the turnaround gap); Gated stays HIGH = visible. The earlier prototype observation (LED firing on the falling edge of W1, likely ringing) is moot.
 
 ## Implementation status
 
@@ -896,7 +912,8 @@ v1 panel firmware: [`reiserlab/LED-Display_G6_Firmware_Panel`](https://github.co
 | `0x01` COMM_CHECK (byte-for-byte validation against canonical payload) | implemented |
 | `0x10` / `0x11` 2L Oneshot + Persistent, `0x30` / `0x31` 16L Oneshot + Persistent | implemented |
 | Duty cycle (BCM-via-PIO with fixed-period scan, default 1 kHz refresh) | implemented |
-| `0x12` / `0x13` / `0x32` / `0x33` Triggered + Gated | specced; prototyped on separate test firmware; not in production firmware yet |
+| `0x12` / `0x32` Triggered | implemented (panel-fw v1.3.0: falling edge, free-running, 1 µs BCM base); rig-tested on the Bergamo 2P arena |
+| `0x13` / `0x33` Gated | implemented (EINT HIGH = visible); not used by any rig |
 | All v2, v3, and ISP commands | specced; not implemented |
 
 ## Cross-references
