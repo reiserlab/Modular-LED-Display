@@ -120,9 +120,9 @@ Firmware must select the correct SPI peripheral per board version. `iorodeo/g6_f
 
 With the v3 mode set finalized in [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) (Triggered + Gated, Persistent reserved-but-deferred), the panel firmware needs to handle GP45 EINT:
 
-- **Triggered modes** (`0x12`, `0x32`, `0x52`): each rising edge on GP45 fires **one row of the loaded pattern across all 4 BCM bit-planes** (the panel scans row-by-row — 20 row drivers + 20 col drivers). Recommended: PIO `wait pin` (since GP45 is in PIO1's range with `GPIOBASE = 16` on v0.3) or GPIO IRQ on rising edge for v0.2. Validated 865 ± 17 ns trigger-to-LED latency in `G6_Panels_Test_Firmware @ bb26a44`.
-- **Gated modes** (`0x14`, `0x34`, `0x54`): while GP45 HIGH, panel internally refreshes the loaded pattern at its BCM rate; while LOW, display off. Recommended: GPIO level-watch + scan-loop gate.
-- **EINT pin is GP45 on both v0.2 and v0.3** — the only firmware-visible pin shared identically across the two revisions. Same firmware handler works on both.
+- **Triggered modes** (`0x12`, `0x32`, `0x52`, `0x62`): each **falling** edge on GP45 (panel-fw v1.3.0; free-running 19→0, see [`g6_01-panel-protocol.md`](g6_01-panel-protocol.md) § `0x12`) fires **one row of the loaded pattern across all 4 BCM bit-planes** (the panel scans row-by-row — 20 row drivers + 20 col drivers). Recommended: PIO `wait pin` (since GP45 is in PIO1's range with `GPIOBASE = 16` on v0.3) or a tight poll for the HIGH→LOW transition (current firmware). Validated 865 ± 17 ns trigger-to-LED latency in `G6_Panels_Test_Firmware @ bb26a44`.
+- **Gated modes** (`0x13`, `0x33`, `0x53`, `0x63`): while GP45 HIGH, panel internally refreshes the loaded pattern at its BCM rate; while LOW, display off. Recommended: GPIO level-watch + scan-loop gate.
+- **EINT pin is GP45** (it was also GP45 on the retired v0.2.1). The panel pulls it down, so an open line is dark in both modes.
 
 The arena-side wiring (Teensy D33 `TNY.EINT` → R25 33 Ω → fan-out → all 10 panel columns) and the J30 jumper (Teensy-mediated vs direct-from-J4-BNC) are documented in [`g6_06-arena-firmware-interface.md`](g6_06-arena-firmware-interface.md) § v3 Triggered/Gated display relevance.
 

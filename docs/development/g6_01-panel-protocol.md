@@ -111,9 +111,9 @@ Implementers MUST verify their CRC implementation against both the universal `"1
 
 #### Duty Cycle Value
 
-The `duty_cycle` value is a single byte (0–255) that scales the brightness of all pixels in a pattern by **modulating the BCM bit-plane ON-time durations** (not the pixel values themselves). Effective per-bit-plane ON time = `base_T × duty_cycle / 255`, where `base_T` is the BCM base time (3.0 µs in v1 panel firmware). `duty_cycle = 0` → all bit-planes have zero ON time → display off. `duty_cycle = 255` → unchanged from base BCM weights.
+The `duty_cycle` value is a single byte (0–255) that scales the brightness of all pixels in a pattern by **modulating the BCM bit-plane ON-time durations** (not the pixel values themselves). Effective per-bit-plane ON time = `base_T × duty_cycle / 255`, where `base_T` is the BCM base time: 3.0 µs in v1 panel firmware for Oneshot, Persistent and Gated, and 1.0 µs for Triggered (panel-fw v1.3.0; see § Timing considerations). `duty_cycle = 0` → all bit-planes have zero ON time → display off. `duty_cycle = 255` → unchanged from base BCM weights.
 
-**Brightness is linear in `duty_cycle` only when the scan period is fixed.** The panel firmware enforces a fixed scan period (1 kHz refresh by default), so the LED-off portion of the duty cycle scales correctly. Without this enforcement, low-duty-cycle scans run back-to-back and the perceived brightness ratio collapses. Achievable per-LED duty-cycle ratio between `duty_cycle=1` and `duty_cycle=255`: ~260× for Gray_2 patterns; ~1360× for Gray_16 patterns where intensity and duty cycle combine (theoretical max 15 × 255 = 3825× compressed by the PIO 5-cycle overhead floor at the lowest values).
+**Brightness is linear in `duty_cycle` only when the scan period is fixed.** In Oneshot, Persistent and Gated the panel firmware enforces a fixed scan period (1 kHz refresh by default); in Triggered the row cadence is set by the external EINT edges instead (frame rate = EINT rate / 20), so time-averaged brightness also scales with the trigger frequency. so the LED-off portion of the duty cycle scales correctly. Without this enforcement, low-duty-cycle scans run back-to-back and the perceived brightness ratio collapses. Achievable per-LED duty-cycle ratio between `duty_cycle=1` and `duty_cycle=255`: ~260× for Gray_2 patterns; ~1360× for Gray_16 patterns where intensity and duty cycle combine (theoretical max 15 × 255 = 3825× compressed by the PIO 5-cycle overhead floor at the lowest values).
 
 Properties:
 - **Per-frame uniform brightness control** without rewriting pixel values.
@@ -204,7 +204,7 @@ Same payload shape as `0x10`. **Free-running Triggered semantics** (panel-fw v1.
 
 **New pattern mid-walk**: a new Triggered command replaces the pixel data between rows **without resetting the row counter**, so the controller's re-stream rate is not imposed on the light (restarting at row 0 on every re-stream would light low rows more often than high rows). Queued patterns drain to the latest, as in `0x10`. Building the new pattern costs about 1–2 edges at a 15.8 kHz line clock; those edges draw no row. Use a controller refresh of ≤ 300 Hz with Gray_16 patterns, not Gray_2 at 1000 Hz.
 
-**Stopping**: send a non-Triggered command, e.g. the all-dark Persistent frame the arena controller sends on STOP / ALL_OFF. A stopped trigger source leaves the panel dark but still armed: it resumes on the next edge.
+**Stopping**: send a non-Triggered command. The arena controller's `all-off` (`0x00`) and `stop-display` (`0x30`) push an all-dark Persistent frame (`0x11`, duty 0) to every panel before halting SPI output (LED-Display_G6_Firmware_Arena `enterAllOff()`, since 2026-06-30), which ends Triggered; see [`g6_03-controller.md`](g6_03-controller.md). A stopped trigger source leaves the panel dark but still armed: it resumes on the next edge.
 
 **Between-edge state**: the panel is naturally dark between edges. Each edge fires one row × all bit-planes briefly, then the row goes inactive.
 
@@ -213,6 +213,8 @@ Same payload shape as `0x10`. **Free-running Triggered semantics** (panel-fw v1.
 **Example**: `[0x01] [0x12] [pixel data: 50 bytes] [duty_cycle]`
 
 Use case: line-synchronous display under a two-photon resonant-scanning microscope. The ScanImage line clock is HIGH while a line is imaged and LOW during the ~18 µs turnaround gap; each falling edge fires one row inside that gap, so the display is dark whenever the detectors integrate. Trigger-to-LED latency measured at 865 ± 17 ns at 8 kHz on prototype hardware (~1 µs on v0.3.1).
+
+**Implementation**: [`panel-fw-v1.3.0`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/releases/tag/panel-fw-v1.3.0) ([reiserlab/LED-Display_G6_Firmware_Panel#32](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel/pull/32)); rig measurements in that repo's `panel/bench/2p-line-sync-2026-09-22.md`. Changing an existing opcode's semantics was a deliberate choice: the 2P rigs are the only Triggered users, and a dedicated line-sync opcode with a capability bit remains the option if a second Triggered use case appears.
 
 **History**: until panel-fw v1.3.0, Triggered was one-shot and rising-edge: 20 edges consumed a frame, then the panel went dark until the next command, and a new pattern reset the row counter. At a 300 Hz controller refresh and a 15.8 kHz line clock, that lit the panel for 20 lines of every 3.3 ms, putting a 300 Hz envelope on the imaging data (Bergamo rig, 2026-09-22). The 2P rigs are the only Triggered users.
 
@@ -249,7 +251,7 @@ Use case: window-gated display for behavior-rig event windows. The rig's event-w
 | Gray_16 |  64 | ~4 µs | yes |
 | Gray_2  | 255 | ~15 µs | yes |
 
-Brightness at equal `duty_cycle` is ⅓ of the other modes. On the Bergamo rig, duty 255 still showed overrun artifacts, so keep `duty_cycle` ≤ 191 for line sync; this is a usage recommendation, not a firmware clamp.
+Emitted light per row at equal `duty_cycle` is ⅓ of the other modes (time-averaged brightness additionally depends on the EINT rate). On the Bergamo rig, duty 255 still showed overrun artifacts, so keep `duty_cycle` ≤ 191 for line sync; this is a usage recommendation, not a firmware clamp.
 
 **Gated and other modes (`base_T = 3 µs`)**:
 
@@ -808,7 +810,7 @@ Single firmware image, no A/B slot, but the install runs through the arduino-pic
 
 ## Master command summary
 
-Two tables: **Must implement** (v1 firmware ship target) and **Specced, deferred** (v1 Triggered/Gated, all v2, all v3, and ISP).
+Two tables: **Must implement** (v1 firmware ship target) and **Specced, deferred** (all v2, all v3, and ISP).
 
 ### Must implement (v1)
 
@@ -819,17 +821,17 @@ Two tables: **Must implement** (v1 firmware ship target) and **Specced, deferred
 | `0x01` / `0x81` | `0x11` | 51 bytes (50 pattern + duty_cycle) | Display 2-Level Grayscale (Persistent) | implemented |
 | `0x01` / `0x81` | `0x30` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Oneshot) | implemented |
 | `0x01` / `0x81` | `0x31` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Persistent) | implemented |
+| `0x01` / `0x81` | `0x12` | 51 bytes (50 pattern + duty_cycle) | Display 2-Level Grayscale (Triggered) | implemented (panel-fw v1.3.0: falling edge, free-running) |
+| `0x01` / `0x81` | `0x13` | 51 bytes (50 pattern + duty_cycle) | Display 2-Level Grayscale (Gated) | implemented |
+| `0x01` / `0x81` | `0x32` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Triggered) | implemented (panel-fw v1.3.0: falling edge, free-running) |
+| `0x01` / `0x81` | `0x33` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Gated) | implemented |
 
-### Specced, deferred (v1 Triggered/Gated, all v2, all v3, ISP)
+### Specced, deferred (all v2, all v3, ISP)
 
-v1 Triggered + Gated are prototyped (Triggered measured at 865 ± 17 ns trigger-to-LED latency at 8 kHz on prototype hardware). v2 PSRAM is fully specified and pending firmware implementation. v3 diagnostics + predefined patterns have open semantic questions that must be resolved before implementation. ISP is implemented and verified end-to-end on hardware.
+v2 PSRAM is fully specified and pending firmware implementation. v3 diagnostics + predefined patterns have open semantic questions that must be resolved before implementation. ISP is implemented and verified end-to-end on hardware.
 
 | Byte 0 (header) | Byte 1 (cmd) | Bytes 2+ (payload) | Description | Version | Review notes |
 | :--: | :--: | :-- | :-- | :--: | :-- |
-| `0x01` / `0x81` | `0x12` | 51 bytes (50 pattern + duty_cycle) | Display 2-Level Grayscale (Triggered) | v1 | prototyped |
-| `0x01` / `0x81` | `0x13` | 51 bytes (50 pattern + duty_cycle) | Display 2-Level Grayscale (Gated) | v1 | prototyped |
-| `0x01` / `0x81` | `0x32` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Triggered) | v1 | prototyped |
-| `0x01` / `0x81` | `0x33` | 201 bytes (200 pattern + duty_cycle) | Display 16-Level Grayscale (Gated) | v1 | prototyped |
 | `0x01` / `0x81` | `0xC2` | 3 bytes (24-bit LE pattern/slot index) | Panel error display | v1 | optional, tentative — see § Optional: Panel Error Display |
 | `0x02` / `0x82` | `0x0F` | 1 byte (reserved) | Reset PSRAM (clears slots, latch, generation, error) | v2 | |
 | `0x02` / `0x82` | `0x2F` | 1 byte (reserved) | Query PSRAM Status (extended same-window response, 16-byte CS window) | v2 | |
@@ -887,11 +889,11 @@ Modes are encoded in the low nibble of the command byte (`0`=Oneshot, `1`=Persis
 | `0` | **Oneshot** | One BCM scan on receipt, then dark | Frame-by-frame deterministic control (canonical production case); controller streams one command per stimulus | **v1, implemented** in `feat/v1-stage2-bcm` |
 | `1` | **Persistent** (special case) | Continuous refresh until next display command | Static backgrounds, single-panel bench tests, low-SPI-bandwidth scenarios | **v1, implemented** in `feat/v1-stage2-bcm` |
 | `2` | **Triggered** (free-running) | Pattern loaded; each EINT **falling** edge fires one row × all bit-planes, wrapping 19→0 until a non-Triggered command; a new pattern keeps the row counter. 1 µs BCM base (full-duty row ~15 µs). | Line-synchronous display under two-photon resonant scanners (ScanImage line clock) | implemented, panel-fw v1.3.0 |
-| `3` | **Gated** (one-shot) | Pattern processing follows normal Oneshot (one scan per command, queue drain-to-latest); EINT is a **global output-enable gate**: HIGH → LEDs visible, LOW → panel dark with queue still building. | Window-gated display for behavior-rig event windows (gate driven by rig clock, decoupled from controller streaming) | v1 specced, prototyped |
+| `3` | **Gated** (one-shot) | Pattern processing follows normal Oneshot (one scan per command, queue drain-to-latest); EINT is a **global output-enable gate**: HIGH → LEDs visible, LOW → panel dark with queue still building. | Window-gated display for behavior-rig event windows (gate driven by rig clock, decoupled from controller streaming) | implemented |
 
 ### Protocol Evolution
 
-- **v1 — Live SPI display**: All four display modes (Oneshot, Persistent, Triggered, Gated) for both 2-level and 16-level grayscale; pattern data on every command. Includes COMM_CHECK and the CIPO 3-byte confirmation slot. Implemented in `reiserlab/LED-Display_G6_Firmware_Panel @ feat/v1-stage1-protocol`: COMM_CHECK + Oneshot + Persistent. Triggered + Gated specced + prototyped in test firmware; not in v1 production firmware yet.
+- **v1 — Live SPI display**: All four display modes (Oneshot, Persistent, Triggered, Gated) for both 2-level and 16-level grayscale; pattern data on every command. Includes COMM_CHECK and the CIPO 3-byte confirmation slot. Implemented in [`reiserlab/LED-Display_G6_Firmware_Panel`](https://github.com/reiserlab/LED-Display_G6_Firmware_Panel): all four modes; Triggered in its free-running falling-edge form since `panel-fw-v1.3.0`.
 - **v2 — PSRAM-backed display**: 16-Level pattern storage in panel PSRAM (`0x3F` write, `0x0F` reset, `0x4F` Mark Loaded with 32-bit `load_generation`, `0x2F` Query PSRAM Status with extended same-window response); indexed display in all four modes, with two duty_cycle flavors (`0x5x` implicit / `0x6x` explicit). Specced; not implementing now.
 - **v3 — Everything else**: Diagnostics (`0x02`/`0x03`); panel-flash Predefined Patterns (`0x7x`); placeholder for future grayscale-level / color extensions. Specced; not implementing now.
 
