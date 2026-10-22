@@ -10,6 +10,14 @@ plugins_dir: scripts
 kramdown:
   toc_levels: "1,2"
 
+# GitHub Pages force-loads jekyll-optional-front-matter and
+# jekyll-titles-from-headings, so every README/notes file in a submodule would
+# get a title from its first heading and show up in the just-the-docs menu.
+# Without a derived title, pages lacking a front-matter `title:` are left out
+# of the navigation. Only pages with explicit front matter appear in the menu.
+titles_from_headings:
+  enabled: false
+
 exclude: [
     # Build and dependency directories
     ".pixi",
@@ -17,65 +25,31 @@ exclude: [
     "Generation 6/Arena-Firmware/.pixi",
     "Generation 6/Panel-Firmware/.pixi",
     "Generation 6/webDisplayTools/.pixi",
-    # Phase-1 G6 dev docs — work-in-progress, not for the public site
-    # (matches the docs/development convention used by submodules)
+    "Generation 6/webDisplayTools/node_modules",
+    # Development docs: work-in-progress, not for the public site
+    # (docs/development convention shared by this repo and the G6 submodules)
     "docs/development",
-    # Generation 2
-    ## Arena
-    "Generation 2/Arenas/arena_12_20",
-    "Generation 2/Arenas/arena_12_20_top",
-    "Generation 2/Arenas/arena_mini",
-    "Generation 2/Arenas/full",
-    "Generation 2/Arenas/mod",
-    "Generation 2/Arenas/pdfs",
-    "Generation 2/Arenas/planar_arena_8x",
-    "Generation 2/Arenas/planar_arena_8x_base",
-    ## Hardware
-    "Generation 2/Hardware/fab_v1p3",
-    "Generation 2/Hardware/pcb",
-    ## LED-Arrays
-    "Generation 2/LED-Arrays/led_array_3mm",
-    "Generation 2/LED-Arrays/led_array_3mm_spacer",
-    "Generation 2/LED-Arrays/led_array_5mm",
-    "Generation 2/LED-Arrays/led_array_5mm_adaptor",
-    "Generation 2/LED-Arrays/led_array_5mm_mask",
-    "Generation 2/LED-Arrays/led_array_8x8_template",
-    "Generation 2/LED-Arrays/led_array_mixed",
-    "Generation 2/LED-Arrays/led_array_sm0805",
-    "Generation 2/LED-Arrays/led_array_panel",
-    "Generation 2/LED-Arrays/pass_thru_panel",
+    "Generation 6/Arena-Firmware/docs/development",
+    "Generation 6/maDisplayTools/docs/development",
+    "Generation 6/webDisplayTools/docs/development",
+    # Source code, test data and dev notes that should not be published as
+    # site content. Pages are kept out of the menu by the titles_from_headings
+    # setting above, so only paths with non-documentation content belong here.
     # Generation 3
     "Generation 3/AVRDude/controller",
     "Generation 3/AVRDude/panels",
     "Generation 3/AVRDude/udev",
-    "Generation 3/Breakout-BNC/gerber_v1.0",
-    "Generation 3/Breakout-BNC/gerber_v1.1",
-    "Generation 3/Breakout-BNC/lib",
-    "Generation 3/Breakout-BNC/mod",
-    "Generation 3/Breakout-ISP/gerber_v1.0",
-    "Generation 3/Breakout-ISP/gerber_v1.1",
-    "Generation 3/Breakout-ISP/mod",
-    "Generation 3/Controller/eagle",
-    "Generation 3/Controller/gerber",
-    "Generation 3/Hardware/arena",
     "Generation 3/Panelcom/examples",
     "Generation 3/Panelcom/panel_com",
-    ## Software
     "Generation 3/Software/C code for Controller",
     "Generation 3/Software/C code for Panel",
     "Generation 3/Software/MATLAB Code",
-    ## Panelcom
-
     # Generation 4
-    ## Arena
-    "Generation 4/Arena/Schematic",
-    ## Display Tools
     "Generation 4/Display_Tools/G4_Function_Generator/support",
-    "Generation 4/Display_Tools/G4 Panel Programming/panels_g4_firmware",
-    "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
     "Generation 4/Display_Tools/G4_Data_Analysis/data plotting",
     "Generation 4/Display_Tools/G4_Data_Analysis/data processing",
     "Generation 4/Display_Tools/G4_Data_Analysis/new_data_processing",
+    "Generation 4/Display_Tools/G4_Data_Analysis/support/",
     "Generation 4/Display_Tools/G4_Protocol_Designer/plotting_files",
     "Generation 4/Display_Tools/G4_Protocol_Designer/run_protocols",
     "Generation 4/Display_Tools/G4_Protocol_Designer/support_files",
@@ -90,51 +64,19 @@ exclude: [
     "Generation 4/Display_Tools/PControl_Matlab/Patterns",
     "Generation 4/Display_Tools/PControl_Matlab/tcp_udp_ip",
     "Generation 4/Display_Tools/PControl_Matlab/test_scripts",
-    "Generation 4/Display_Tools/G4_Data_Analysis/support/",
     "Generation 4/Display_Tools/Pitching_Zaber_Stage/zaber functions/",
     "Generation 4/Firmware-Panels/hardware_v0p1",
     "Generation 4/Firmware-Panels/hardware_v0p2",
     "Generation 4/Firmware-Panels/library",
     "Generation 4/Firmware-Panels/test_controllers",
-    "Generation 4/Firmware-Arena/README.md",
-    ## Hardware
-    "Generation 4/Hardware/atmega328",
-    "Generation 4/Hardware/max6960",
     "Generation 4/Hardware/stm32",
-    ## Panel Programming
-    "Generation 4/Display_Tools/G4 Panel Programming/arduino-panelsg4-1.6.5-r5",
-    "Generation 4/Panel/Schematic",
-
-    ## G6 Arena
-    "Generation 6/Arena/README.md",
-    "Generation 6/Arena-Firmware/README.md",
+    # Generation 6
     "Generation 6/Arena-Firmware/debug",
-    ## G6 Test Arena
-    "Generation 6/Hardware/README.md",
-    ## G6 Panels
-    "Generation 6/Panels/README.md",
-    "Generation 6/Panel-Firmware/README.md",
-    "Generation 6/Panel-Firmware/panel/README.md",
-    "Generation 6/Panel-Firmware/panel/bench",
-    "Generation 6/Panel-Firmware/panel_controller/README.md",
-    "Generation 6/Panel-Firmware/test_arena/README.md",
-    ## G6 maDisplayTools
-    "Generation 6/maDisplayTools/README.md",
-    "Generation 6/maDisplayTools/patterns/README.md",
     "Generation 6/maDisplayTools/tests",
-    "Generation 6/maDisplayTools/docs/development",
     "Generation 6/maDisplayTools/configs",
-    ## G6 webDisplayTools
-    "Generation 6/webDisplayTools/TESTING.md",
-    "Generation 6/webDisplayTools/CLAUDE.md",
-    "Generation 6/webDisplayTools/CHANGELOG.md",
-    "Generation 6/webDisplayTools/docs/development",
-    "Generation 6/webDisplayTools/node_modules",
     "Generation 6/webDisplayTools/tests",
     "Generation 6/webDisplayTools/course",
     "Generation 6/webDisplayTools/fictrac-bridge",
-    "Generation 6/webDisplayTools/docs/protocol-pattern-workflow.md",
-    "CLAUDE.md",
   ]
 
 relative_links:
