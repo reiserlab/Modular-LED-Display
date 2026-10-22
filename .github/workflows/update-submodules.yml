@@ -1,0 +1,41 @@
+name: Update submodules
+
+on:
+  schedule:
+    - cron: "0 6 * * *"          # daily at 06:00 UTC
+  workflow_dispatch:              # manual run from the Actions tab
+  repository_dispatch:            # optional: lets subrepos trigger it (option 3)
+    types: [submodule-updated]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-submodules
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          submodules: true
+          # token: ${{ secrets.SUBMODULE_PAT }}   # needed for private submodules or protected main
+
+      - name: Move submodules to latest remote main run: git submodule update --remote
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet; then
+            echo "Submodules already up to date."
+            exit 0
+          fi
+
+          # Build a message listing what moved
+          changed=$(git diff --name-only | tr '\n' ' ')
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: update submodule references (${changed})"
+          git push origin HEAD:main
