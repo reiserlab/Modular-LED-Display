@@ -24,7 +24,8 @@ jobs:
           submodules: true
           # token: ${{ secrets.SUBMODULE_PAT }}   # needed for private submodules or protected main
 
-      - name: Move submodules to latest remote main run: git submodule update --remote
+      - name: Move submodules to latest remote main 
+        run: git submodule update --remote
 
       - name: Commit and push if changed
         run: |
