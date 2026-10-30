@@ -104,7 +104,7 @@ Tools for generating and managing `.TSI` files will be needed (borrowing heavily
 
 Host should query controller version / capabilities to know whether v2 features (Local Storage Mode, Mode 1, TSI) are available, and provide appropriate error messages if not available.
 
-v2 capability detection shares the v1 "G6 mode" gap above — same `get-controller-info` command, version-dispatched response. **Capability bitmap (8-bit):** bit 0 = `g6_mode`, bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bits 5–7 reserved. Spec'd in [`g6_03-controller.md`](g6_03-controller.md) § 5 G6-specific controller commands.
+v2 capability detection shares the v1 "G6 mode" gap above — same `get-controller-info` command, version-dispatched response. **Capability bitmap (8-bit):** bit 0 = `g6_mode`, bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bit 5 = `io_ext`, bit 6 = `ai_cal`, bit 7 = `health`; command families added later are advertised in the feature bitmap after the MAC. Spec'd in [`g6_03-controller.md`](g6_03-controller.md) § 5 G6-specific controller commands.
 
 ---
 
