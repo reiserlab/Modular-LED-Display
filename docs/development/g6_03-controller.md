@@ -254,7 +254,7 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xB1` | i2c-transfer | `[len, 0xB1, addr, wlen, w…, rlen]` | v1 (G6-new) | Generic write-then-read on the Qwiic bus: writes `wlen` bytes to 7-bit `addr`, then reads `rlen` (≤ 64) bytes under a repeated start; returns the bytes read. `wlen = 0` = plain read, `rlen = 0` = plain write, both 0 = ACK probe. Status 2 address NACK, 3 data NACK, 4 bus error/timeout, 5 short read. Sensor-agnostic — register maps live in the host (LAB-211). |
 | `0xC0` | set-ethernet-ip-address | — | v2 (G6-new) | Reserved — not yet implemented. Paired with `get-ethernet-ip-address`. |
 | `0xC1` | get-ethernet-ip-address | `0x01, 0xC1` | v1 | Returns DHCP-resolved IP as ASCII. |
-| `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap, mac[6]}`, version-dispatched (G6-mode + v2 capability bits). Trailing 6 raw MAC bytes (tolerant, additive — see below) are the controller's physical-setup identity for run-provenance logging. |
+| `0xC2` | get-controller-info | `0x01, 0xC2` | v1 (G6-new) | Returns `{version, capability_bitmap, mac[6]}` plus an optional feature bitmap `[N, features[N]]`, version-dispatched (G6-mode + v2 capability bits). Trailing 6 raw MAC bytes (tolerant, additive — see below) are the controller's physical-setup identity for run-provenance logging; the feature bitmap advertises command families added after the capability byte filled up. |
 | `0xC3` | set-diagnostic-output | `0x02, 0xC3, on` | v1 (G6-new) | Mute (`0`) / unmute (`1`) `DEBUG_SERIAL` diagnostics on USB-CDC. See § 7 Utility Commands. |
 | `0xC4` | get-diagnostic-output | `0x01, 0xC4` | v1 (G6-new) | Returns current diagnostic-output state as a single byte (`0` = muted, `1` = active). |
 | `0xC5` | set-spi-clock | `0x03, 0xC5, lo, hi` | v1 (G6-new) | uint16 LE MHz (1–30, clamped); response payload carries the applied clock as uint16 LE. |
@@ -267,6 +267,8 @@ surface today is capability detection via `get-controller-info` (`0xC2`) bits `v
 | `0xCC` | get-crashreport | `0x01, 0xCC` | v1 (G6-new, Arena-Firmware #56) | Raw 128 B of the PJRC CrashReport OCRAM region (`arm_fault_info_struct` + breadcrumbs); never cleared by the read. Gate on `0xCB` flags bit 3. |
 | `0xCD` | get-sd-info | `0x01, 0xCD` | v1 (G6-new, Arena-Firmware #56) | SD card identity + volume geometry, 30 bytes (`card_type`, `fat_type`, sectors, bytes/cluster, CID…, `sd_diag`). Gate on `0xCB` flags bit 5. |
 | `0xCE` | set-sd-diag | `0x02, 0xCE, flags` | v1 (G6-new, Arena-Firmware #56) | Bench A/B switches for the SD fast path (bit0 legacy seek, bit1 no same-index skip); echoes the flags; readback in `0xCD` byte 29. Gate on `0xCB` flags bit 6. |
+| `0xD0` | panel-inventory-scan | `0x02, 0xD0, action` | v1 (G6-new, `panel_inventory`) | Re-probe the panel fleet: `action` 0 = presence (`COMM_CHECK` per panel), 1 = presence + restart the firmware-fingerprint sweep. Requires ALL_OFF and no SD transfer. Replies with page 0 of `0xD1`. |
+| `0xD1` | get-panel-inventory | `0x01, 0xD1` or `0x02, 0xD1, first` | v1 (G6-new, `panel_inventory`) | Per-panel presence + firmware fingerprint (CRC-32 of the running app), 32 panels per page from 0-based `first`. No panel traffic; always allowed. |
 | `0xE0` | set-firmware-file | `0xE0, len_b0…len_b7, file_data…` | v2 (G6-new) | Uploads the firmware image to `/firmware/panel.bin`, overwriting the previous one (only one firmware is held at a time). Opcode-first framing; 8-byte (uint64 LE) length prefix. Companion to `g6-program-panel (0xC8)`. |
 | `0xE3` | get-firmware-info | `0x01, 0xE3` | v2 (G6-new) | Returns the 32-byte footer of `/firmware/panel.bin` (`magic`, `version`, `image_crc32`, `image_size`) — firmware metadata without the image bytes. |
 | `0xFF` | all-on | `0x01, 0xff` | v1 | Arena bring-up; canonical for diagnostics. |
@@ -282,13 +284,36 @@ G6 collapses G4's two wires (host→Host.exe and Host.exe→controller) into one
 
 > The reserved-future commands `g6-panel-storage-mode` and `g6-program-panel` were moved off `0x40`/`0x41` to `0xC7`/`0xC8` precisely to avoid the G4 `stopLog`/`startLog` collision — the `0x41`→panel-reflash overlap being the dangerous one.
 
-**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA7` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration), `0xA8`/`0xA9` **telemetry** (`set-telemetry` / `get-telemetry-block`, Arena-Firmware #56), `0xAA`–`0xAF` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role; `0xAE`/`0xAF` free). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xA8`/`0xA9`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. The block is now full apart from `0xAE`/`0xAF`; I/O commands that need more than those two slots start a new block (see `0xB_`, `0xD_`) rather than displacing a deployed opcode.
-
-> **Collision to resolve in review (2026-09-15):** an earlier draft of this rule reserved `0xA8`/`0xA9` for a sampled analog-input block stream (`set-ai-stream` / `get-ai-block`, LAB-209). Arena-Firmware #56 ships `set-telemetry` / `get-telemetry-block` on those same opcodes, running on the CSHL controllers since 2026-09-13 and polled by Studio ≥ 0.79, with the values baked into the soak-test corpus — relocating telemetry was considered and rejected. The AI block stream therefore needs a different pair when it is implemented (`0xAE`/`0xAF` if it is to stay in the I/O block, else a free block).
+**The `0xA_` I/O block (G6-new; G4 never used `0xA0`–`0xAF`)** is allocated by function so an opcode can be placed without the table: `0xA0`–`0xA3` **analog out** (set-voltage / get-voltage / set-lut / set-mode), `0xA4`–`0xA7` **analog in** (`0xA4` get mV, `0xA5` get raw counts, `0xA6`/`0xA7` set/get calibration), `0xA8`/`0xA9` **telemetry** (`set-telemetry` / `get-telemetry-block`, Arena-Firmware #56), `0xAA`–`0xAD` **digital I/O** (`0xAA`/`0xAB` set/get output, `0xAC`/`0xAD` set/get role), `0xAE`/`0xAF` **earmarked for the sampled analog-input block stream** (`ai_stream`, feature bit 2 — see § 0xC2; unassigned until that family ships). Set/get pairs sit on adjacent even/odd opcodes (`0xA0`/`0xA1`, `0xA6`/`0xA7`, `0xA8`/`0xA9`, `0xAA`/`0xAB`, `0xAC`/`0xAD`); `0xA2`/`0xA3` are the one set-only pair. The block is full; I/O commands beyond `ai_stream` start a new block (see `0xB_`, `0xD_`) rather than displacing a deployed opcode.
 
 **The `0xB_` block — external sensors on the Qwiic/STEMMA QT jack** (arena_12-18 J2, `Wire1`): `0xB0`/`0xB1` are the generic I²C bridge (`get-i2c-scan` / `i2c-transfer`); `0xB2`–`0xBF` are **reserved for sensor-level commands** (e.g. a calibrated light read once LAB-211 selects a part) and must not be used for unrelated features. The firmware carries no sensor-specific code; register maps live host-side.
 
-**`0xCA`–`0xCE`** are the Arena-Firmware #56 health / build-identity / crash-report / SD-info cluster (see the table). `0x90`–`0x9F` and `0xD0`–`0xDF` are free; `0xD_` is the natural home for further diagnostics next to that cluster.
+**The `0xC_` block — controller / system / single-panel ISP.** `0xCA`–`0xCE` are the Arena-Firmware #56 health / build-identity / crash-report / SD-info cluster (see the table). `0xCF` is the block's last free code.
+
+**The `0xD_` block — panel fleet** (G6-new): commands that address the installed panels as a fleet rather than as a display frame. `0xD0`/`0xD1` are `panel-inventory-scan` / `get-panel-inventory`; `0xD2`–`0xDF` are reserved for further panel-level status and diagnostics (e.g. bidirectional-SPI error counters and logs).
+
+#### Allocation rules for new opcodes
+
+Shipped opcodes are never renumbered; these rules govern new assignments only.
+
+1. **Allocate by functional block**, not by the next free number (block map below). A family that outgrows its block starts a new one rather than displacing a deployed opcode.
+2. **Set/get pairs take adjacent codes: set on the even code, get on the next odd code** (`0xA0`/`0xA1`, `0xD0`/`0xD1`). A get-only command takes an odd code and leaves the even code free for a future set; a set-only or action command takes an even code.
+3. **Never assign a G4-reserved code** (list above).
+4. **A command family a host must not send blind gets a feature bit** (§ 0xC2 feature bitmap) in the same change that assigns its opcodes. Firmware without the command answers an unknown opcode with `status 1` and a `CE 01` glyph on the arena, so hosts gate on the bit and never probe.
+
+Legacy pairs that predate rule 2, kept as shipped: `0x1B`/`0x1C`, `0xC3`/`0xC4`, `0xC5`/`0xC6` (set odd, get even); `0x82`/`0x83`, `0x84`/`0x85` (get even, set odd); `0x70`–`0x73` (G4 X/Y interleave: set-X, set-Y, get-X, get-Y); `0xE0`/`0xE3`.
+
+| Block | Function | Free codes |
+|---|---|---|
+| `0x00`–`0x7F` | G4-compatible core: display, modes, refresh, streaming, frame position | Gaps only — check the G4-reserved list first; prefer a high block for new families |
+| `0x80`–`0x8F` | SD card / pattern files | `0x81`, `0x87`, `0x89`, `0x8B`–`0x8E` |
+| `0x90`–`0x9F` | unassigned | all |
+| `0xA0`–`0xAF` | analog / digital I/O, telemetry | `0xAE`, `0xAF` — earmarked for `ai_stream` |
+| `0xB0`–`0xBF` | Qwiic sensor jack | `0xB2`–`0xBF`, sensor commands only |
+| `0xC0`–`0xCF` | controller / system / single-panel ISP | `0xCF` |
+| `0xD0`–`0xDF` | panel fleet | `0xD2`–`0xDF` |
+| `0xE0`–`0xEF` | panel firmware image | `0xE1`, `0xE2`, `0xEA`–`0xEF`; also `0xE4`–`0xE9`, but those are the ISP opcodes on the controller→panel wire (a separate namespace), so avoid them for readability |
+| `0xF0`–`0xFF` | `0xFF` all-on | `0xF0`–`0xFE` |
 
 **Known, intentional divergences** (same opcode, different behavior — accepted, not fixed):
 
@@ -914,7 +939,9 @@ Scans the I²C bus on the Qwiic / STEMMA QT jack. arena_12-18 v1.0 routes J2 to 
 
 **Response:** `[len, 0x00, 0xB0, count, addr0…addrN]` — `count` (uint8) then the 7-bit addresses in `0x08`–`0x77` that ACKed a zero-length write, ascending.
 
-**Response (error):** `[len, 0x01, 0xB0, ASCII_msg]` — the flashed hardware variant has no Qwiic jack (`arena_10-10`, `G6_2x10`). Presence is not advertised in the capability bitmap; hosts probe with this command instead.
+**Response (error):** `[len, 0x01, 0xB0, ASCII_msg]` — the flashed hardware variant has no Qwiic jack (`arena_10-10`, `G6_2x10`). Gate on feature bit 1 (`qwiic_i2c`, § 0xC2) rather than probing; see that table for firmware that predates the bit.
+
+**Response (bus fault):** `[len, 0x04, 0xB0, ASCII_msg]` — a bus error, or a scan still running after 500 ms, aborts the scan (a stuck bus costs the I²C driver up to ~66 ms per address, which would otherwise outlast the controller watchdog).
 
 Blocks the controller's command loop for the scan (~12 ms with the bus empty). Bench/diagnostic use.
 
@@ -960,15 +987,17 @@ Returns the controller version byte, capability bitmap, and physical-setup ident
 
 **Command:** `[0x01, 0xC2]`
 
-**Response:** `[0x0A, 0x00, 0xC2, version, capability, mac0, mac1, mac2, mac3, mac4, mac5]`
+**Response:** `[0x0A, 0x00, 0xC2, version, capability, mac0, mac1, mac2, mac3, mac4, mac5]`, or with the feature bitmap (N = 4): `[0x0F, 0x00, 0xC2, version, capability, mac0…mac5, 0x04, feat0, feat1, feat2, feat3]`
 
 | Payload byte | Field | Description |
 |---|---|---|
 | 0 | `version` | Controller capability generation |
 | 1 | `capability` | Bitmap — see below |
 | 2–7 | `mac[6]` | Ethernet MAC, raw bytes (Teensy 4.1 burned-in unique ID via QNEthernet — sourced fresh on every call, valid even when the Ethernet link is down) |
+| 8 | `feature_count` | N = number of feature-bitmap bytes that follow (firmware sends 4) |
+| 9 … 8+N | `features[N]` | Feature bitmap — see below |
 
-`mac[6]` is a tolerant, additive extension: a host that predates it reads only bytes 0–1 and is unaffected by the longer payload.
+`mac[6]` and the feature bitmap are tolerant, additive extensions: a host that predates them reads only bytes 0–1 (or 0–7) and is unaffected by the longer payload. **Presence is signalled by length, not by a capability bit:** feature k is present iff the payload is at least `9 + N` bytes, `k < 8 × N`, and bit `k % 8` of `features[k / 8]` is set. A payload shorter than 9 bytes, or shorter than `9 + N`, means every feature bit reads 0.
 
 **Capability bitmap (bit 0 = LSB):**
 
@@ -981,7 +1010,20 @@ Returns the controller version byte, capability bitmap, and physical-setup ident
 | 4 | `v3_gated` | v3 Gated mode supported |
 | 5 | `io_ext` | Extended I/O command set supported: `set-dio-role (0xAC)`, `get-dio-role (0xAD)`, `set-ao-mode (0xA3)`, `get-analog-in (0xA4)`. Hosts MUST gate those commands on this bit — pre-`io_ext` firmware treats them as unknown opcodes (error + `CE 01` glyph). |
 | 6 | `ai_cal` | Per-board analog-input calibration: `get-analog-in-raw (0xA5)`, `set-analog-cal (0xA6)`, `get-analog-cal (0xA7)`, and the `flags` byte on `0xA4`. Same gating rule as `io_ext`. |
-| 7 | reserved | Transmit as 0. **Last free bit of this byte.** Proposed extension rule (not yet implemented, for review): bit 7 = `cap_ext`, meaning a second capability byte follows the MAC at payload byte 8 — the same tolerant-extension pattern the MAC uses, so `version` stays 1 and old hosts are unaffected. The first candidate for a bit in that byte is the sampled analog block stream. **Conflict to resolve in review (2026-09-15):** Arena-Firmware #56 already transmits bit 7 = `health` (`0x80`, advertising `get-health 0xCA` / `get-firmware-version 0xCB`) and that firmware runs on the CSHL controllers — so `cap_ext` cannot take bit 7 as proposed. Options: have `0xCB` (whose `flags` byte already gates `0xCC`–`0xCE`) serve as the extension vector instead of a second capability byte, or move `cap_ext` under the `health` bit. The Qwiic jack (`0xB0`/`0xB1`) deliberately takes no bit — hosts probe `0xB0`. |
+| 7 | `health` | `get-health (0xCA)` and `get-firmware-version (0xCB)` (Arena-Firmware #56). `0xCB`'s `flags` byte gates `0xCC`–`0xCE`; it takes no further assignments. |
+
+This byte is full. New command families get a bit in the feature bitmap instead; bits 0–7 here are never reassigned.
+
+**Feature bitmap (bit 0 = LSB of `features[0]`):**
+
+| Bit | Name | Commands | Firmware |
+|---|---|---|---|
+| 0 | `panel_inventory` | `panel-inventory-scan (0xD0)`, `get-panel-inventory (0xD1)` | Arena-Firmware #59 — pending |
+| 1 | `qwiic_i2c` | `get-i2c-scan (0xB0)`, `i2c-transfer (0xB1)`; set only on hardware with the Qwiic jack (arena_12-18) | Arena-Firmware #58 — pending; until a build sets this bit, send `0xB0` only to firmware known to carry the bridge |
+| 2 | `ai_stream` | sampled analog-input block stream (opcodes not yet assigned; `0xAE`/`0xAF` if two codes suffice) | not implemented |
+| 3–31 | reserved | — | Transmit as 0 |
+
+Feature bits are never reused. Firmware (`Arena-Firmware/src/constants.h`) and hosts (webDisplayTools `js/arena-wire-g6.js`) mirror this table.
 
 ---
 
@@ -1056,6 +1098,60 @@ Reads the panel's **running** application flash CRC and compares it to the `/fir
 **Response (success / MATCH):** `[len, 0x00, 0xC9, ASCII_msg]` — `panel N running-app CRC=0x… expected=0x… -> MATCH (this firmware is installed)`.
 
 **Response (mismatch / error):** `[len, err, 0xC9, ASCII_msg]` — CRC mismatch (a different image is running), or `ISP_ENTER: no valid reply` (panel not running ISP firmware / wiring).
+
+---
+
+#### 0xD0 panel-inventory-scan
+
+Re-probes the panel fleet and updates the stored inventory. Gate on feature bit 0 (`panel_inventory`). The controller runs the same scan plus the fingerprint sweep at every boot (§ Boot panel inventory), so hosts normally only need `0xD1`.
+
+**Command:** `[0x02, 0xD0, action]`
+
+| `action` | Effect |
+|---|---|
+| 0 | Presence only: one `COMM_CHECK` exchange per panel, blocking — about 7 ms per responding panel and 50 ms per absent one (≈ 2.4 s worst case for 48 absent panels). Panels still present keep their fingerprint (status 3–6 and `crc32`); panels that went absent lose it; a panel that (re)appears reads status 2 until the next `action` 1. A sweep already running continues and also covers the panels that appeared. |
+| 1 | Presence, then restart the firmware-fingerprint sweep, discarding every previous fingerprint. The sweep runs in the background, one panel per main-loop pass and only while the display is `ALL_OFF`; poll `0xD1` until `flags.fp_valid`. |
+
+Requires `ALL_OFF` (else status `CE_DISPLAY_ACTIVE` = 10) and no SD transfer in flight (else status 1). Other `action` values → status 1. Either action changes `scan_id`.
+
+**Response:** `[len, 0x00, 0xD0, <0xD1 payload for first = 0>]` — the standard echo of the command byte, carrying the same payload as `0xD1`.
+
+---
+
+#### 0xD1 get-panel-inventory
+
+Reads the stored inventory, one page of up to 32 panels. Gate on feature bit 0 (`panel_inventory`). No panel traffic; accepted in every state.
+
+**Command:** `[0x01, 0xD1]` or `[0x02, 0xD1, first]` — `first` = 0-based index of the page's first panel (default 0). Entry k of the page is panel **number** `first + k + 1`, the 1-based numbering `0xC8`/`0xC9` and the panel map use.
+
+**Response payload** (little-endian):
+
+| Bytes | Field | Description |
+|---|---|---|
+| 0 | `version` | 1 |
+| 1 | `panel_count` | Panels this firmware build drives (40 for arena_10-10, 48 for arena_12-18) |
+| 2 | `flags` | bit 0 `presence_valid` (a presence scan has completed), bit 1 `fp_valid` (the last fingerprint sweep completed; panels that appeared in a later presence-only rescan still read status 2), bit 2 `fp_in_progress` (sweep running, or paused while the display runs), bit 3 `ref_present` (sweep compared against `/firmware/panel.bin`), bit 4 `fp_prefix` (no reference image: fingerprints cover a fixed prefix), bits 5–7 reserved |
+| 3 | `first` | Echo of the requested page start |
+| 4 | `n` | Entries in this page, ≤ 32; 0 when `first ≥ panel_count` |
+| 5–8 | `ref_crc32` | `image_crc32` from the `/firmware/panel.bin` footer, 0 if none |
+| 9–12 | `fp_len` | App-flash bytes each fingerprint covers (0 before the first sweep) |
+| 13–16 | `age_ms` | ms since the presence scan completed |
+| 17 | `scan_id` | Changes on every presence scan (boot or `0xD0`, either action); wraps at 256. Not changed by `0xD1` or by sweep progress. |
+| 18 … | `n × {status u8, crc32 u32}` | Per-panel entries; `crc32` is 0 unless the panel was fingerprinted |
+
+| `status` | Meaning |
+|---|---|
+| 0 | not scanned |
+| 1 | absent — no `COMM_CHECK` reply (missing, unpowered, or miswired) |
+| 2 | present, not fingerprinted (yet) |
+| 3 | fingerprint equals `ref_crc32` |
+| 4 | fingerprint differs from `ref_crc32` |
+| 5 | fingerprinted, no reference image to compare against |
+| 6 | present, but no valid ISP reply (e.g. panel firmware without ISP) |
+
+**Fingerprint:** CRC-32 (ISO-HDLC, the CRC `0xC9` uses) of the panel's running app flash `[0, fp_len)`, computed by the panel over `ISP_ENTER` + `ISP_VERIFY_CRC`. When `/firmware/panel.bin` is on the SD card, `fp_len` = its `image_size`, so status 3 means that exact image is installed. Otherwise `fp_len` = 65 536 (a prefix well inside every panel image to date): differing CRCs prove different firmware, equal CRCs only suggest the same.
+
+A page is at most 178 bytes; 40- and 48-panel arenas read in two pages (`first` = 0, then 32). A scan (boot retry or another host's `0xD0`) can land between the two reads; the pages of one read must carry the same `scan_id`, otherwise re-read from `first` = 0.
 
 ---
 
@@ -1236,7 +1332,7 @@ Mode 1 is invalid in SD Mode.
 ### 5. G6-specific controller commands
 
 - **`g6-panel-storage-mode`** (opcode `0xC7`) — switches controller from **SD Mode** (default, `mode_byte = 0`) to **Local Storage Mode** (`mode_byte = 1`). When transitioning to Local Storage Mode, triggers the load phase that copies SD patterns into panel PSRAM. Wire form: `[0x02, 0xC7, mode_byte]`.
-- **`get-controller-info`** (opcode `0xC2`) — returns `{version_byte, capability_bitmap}` with the version byte dispatching the response shape. **Capability bitmap** (8-bit): bit 0 = `g6_mode` (always 1 for any G6 controller), bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bit 5 = `io_ext` (extended I/O command set: 0xAC/0xAD/0xA3/0xA4), bit 6 = `ai_cal` (analog-input calibration: 0xA5/0xA6/0xA7), bit 7 = reserved (proposed `cap_ext` → a second capability byte after the MAC; see § 0xC2). Request: `[0x01, 0xC2]`. Response: `[0x0A, 0x00, 0xC2, version_byte, capability_byte, mac0…mac5]`.
+- **`get-controller-info`** (opcode `0xC2`) — returns `{version_byte, capability_bitmap}` with the version byte dispatching the response shape. **Capability bitmap** (8-bit): bit 0 = `g6_mode` (always 1 for any G6 controller), bit 1 = `v2_local_storage`, bit 2 = `mode_1_tsi`, bit 3 = `v3_triggered`, bit 4 = `v3_gated`, bit 5 = `io_ext` (extended I/O command set: 0xAC/0xAD/0xA3/0xA4), bit 6 = `ai_cal` (analog-input calibration: 0xA5/0xA6/0xA7), bit 7 = `health` (0xCA/0xCB). New features are advertised in the feature bitmap after the MAC (see § 0xC2). Request: `[0x01, 0xC2]`. Response: `[0x0A, 0x00, 0xC2, version_byte, capability_byte, mac0…mac5]` + optionally `[N, features[N]]`.
 
 ### 6. Controller Error Display
 
@@ -1291,6 +1387,16 @@ Sequential, one panel at a time — no parallel ISP across buses. On any failure
 ISP primitives may be reused for v3's deferred predefined-pattern programming mechanism (separate flash region).
 
 `g6-program-panel (0xC8)` blocks until the reboot + install window elapses, then returns a single pass/fail; the host confirms the install out-of-band with `g6-verify-panel (0xC9)`.
+
+### Boot panel inventory
+
+**Status: specified; firmware in review** (Arena-Firmware #59, stacked on #62).
+
+1. **Power settle.** Before bringing up the SPI peripherals or driving any CS line, the controller waits `panel_power_settle_ms` (500 ms, bench-tunable) so panel supplies are up before the bus is driven.
+2. **Late boot blank, then presence scan.** About 3.5 s after reset, past the 3 s error window a controller reset can leave panels in (they show a PE glyph and drop every message), and only while the display is `ALL_OFF`: the controller repeats the boot blank, then sends one `COMM_CHECK` exchange per panel, with a short per-panel timeout so absent panels cost ~50 ms each, not a stall. If panels are still absent it blanks and rescans once more, 4 s later. Until then `0xD1` reports `presence_valid` clear. **A display the host starts before the step cancels it**: the host owns the inventory from then on (`0xD0` when idle) and `presence_valid` stays clear until it does — a pending boot scan never lands in a later inter-trial gap.
+3. **Fingerprint sweep.** For every responding panel: `ISP_ENTER`, then `ISP_VERIFY_CRC` over `[0, fp_len)` (see `0xD1`). Runs from the main loop, one panel per pass, only while the display is `ALL_OFF`; a running display pauses it. No `ISP_EXIT_REBOOT` is sent, so panels do not reboot. On the panel side ENTER only arms a session — the PSRAM staging buffer is reserved once at panel boot (`Panel-Firmware/panel/src/isp.cpp`, `Isp::init`), and ISP opcodes do not retire the post-flash boot indicator (`isp_logic.h`, `retires_boot_indicator`).
+
+Hosts read the result with `get-panel-inventory (0xD1)`. On firmware with a hardware watchdog (Arena-Firmware #56), rescans (`0xD0`) and fingerprint steps must run inside the long-operation watchdog window — a fingerprint step on an unresponsive panel can take ~3.4 s.
 
 ### Bench validation procedure
 
